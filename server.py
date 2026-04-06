@@ -1,0 +1,1763 @@
+#!/usr/bin/env python3
+"""
+Dudarev Motorsport — Таск-менеджер v4
+Сообщения между пользователями, журнал активности, роли (admin/head/member),
+прямые сообщения (messenger), аналитика и геймификация
+"""
+
+import http.server
+import json
+import sqlite3
+import hashlib
+import secrets
+import os
+import mimetypes
+import urllib.parse
+from datetime import datetime, timedelta, date
+
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dm_tasks.db")
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+
+sessions = {}
+
+def hash_password(password, salt=None):
+    if salt is None:
+        salt = secrets.token_hex(16)
+    hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000)
+    return salt + ":" + hashed.hex()
+
+def verify_password(password, stored):
+    salt = stored.split(":")[0]
+    return hash_password(password, salt) == stored
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+def init_db():
+    conn = get_db()
+    c = conn.cursor()
+    c.executescript("""
+    CREATE TABLE IF NOT EXISTS departments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        head_name TEXT,
+        color TEXT DEFAULT '#1a1a1a',
+        head_user_id INTEGER,
+        FOREIGN KEY (head_user_id) REFERENCES users(id)
+    );
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        full_name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        department_id INTEGER,
+        role TEXT DEFAULT 'member',
+        avatar_color TEXT DEFAULT '#1a1a1a',
+        onboarding_done INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (department_id) REFERENCES departments(id)
+    );
+    CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        status TEXT DEFAULT 'new',
+        priority TEXT DEFAULT 'medium',
+        created_by INTEGER NOT NULL,
+        assigned_to INTEGER,
+        department_id INTEGER,
+        deadline TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id),
+        FOREIGN KEY (assigned_to) REFERENCES users(id),
+        FOREIGN KEY (department_id) REFERENCES departments(id)
+    );
+    CREATE TABLE IF NOT EXISTS task_watchers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        UNIQUE(task_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        task_id INTEGER,
+        type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS task_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        recipient_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES users(id),
+        FOREIGN KEY (recipient_id) REFERENCES users(id)
+    );
+    CREATE TABLE IF NOT EXISTS task_activity (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        details TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    CREATE TABLE IF NOT EXISTS direct_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER NOT NULL,
+        recipient_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id),
+        FOREIGN KEY (recipient_id) REFERENCES users(id)
+    );
+    CREATE TABLE IF NOT EXISTS user_stats (
+        user_id INTEGER UNIQUE NOT NULL,
+        total_km REAL DEFAULT 0,
+        level TEXT DEFAULT 'Карт',
+        tasks_completed INTEGER DEFAULT 0,
+        tasks_created INTEGER DEFAULT 0,
+        comments_count INTEGER DEFAULT 0,
+        streak_days INTEGER DEFAULT 0,
+        last_active DATE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        icon TEXT,
+        earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, type)
+    );
+    """)
+
+    # Migrate: add onboarding_done column if missing
+    try:
+        c.execute("SELECT onboarding_done FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE users ADD COLUMN onboarding_done INTEGER DEFAULT 0")
+
+    # Migrate: add admin_onboarding_done column if missing
+    try:
+        c.execute("SELECT admin_onboarding_done FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE users ADD COLUMN admin_onboarding_done INTEGER DEFAULT 0")
+
+    # Fix: mark existing admin users as onboarding complete
+    c.execute("UPDATE users SET onboarding_done=1, admin_onboarding_done=1 WHERE role='admin' AND admin_onboarding_done=0")
+
+    # Migrate: add role column if missing
+    try:
+        c.execute("SELECT role FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'member'")
+
+    # Migrate: create task_messages table if missing
+    try:
+        c.execute("SELECT 1 FROM task_messages LIMIT 1")
+    except sqlite3.OperationalError:
+        c.executescript("""
+        CREATE TABLE task_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            sender_id INTEGER NOT NULL,
+            recipient_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (sender_id) REFERENCES users(id),
+            FOREIGN KEY (recipient_id) REFERENCES users(id)
+        );
+        """)
+
+    # Migrate: create task_activity table if missing
+    try:
+        c.execute("SELECT 1 FROM task_activity LIMIT 1")
+    except sqlite3.OperationalError:
+        c.executescript("""
+        CREATE TABLE task_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            details TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        """)
+
+    # Migrate: create direct_messages table if missing
+    try:
+        c.execute("SELECT 1 FROM direct_messages LIMIT 1")
+    except sqlite3.OperationalError:
+        c.executescript("""
+        CREATE TABLE direct_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER NOT NULL,
+            recipient_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sender_id) REFERENCES users(id),
+            FOREIGN KEY (recipient_id) REFERENCES users(id)
+        );
+        """)
+
+    # Migrate: create user_stats table if missing
+    try:
+        c.execute("SELECT 1 FROM user_stats LIMIT 1")
+    except sqlite3.OperationalError:
+        c.executescript("""
+        CREATE TABLE user_stats (
+            user_id INTEGER UNIQUE NOT NULL,
+            total_km REAL DEFAULT 0,
+            level TEXT DEFAULT 'Карт',
+            tasks_completed INTEGER DEFAULT 0,
+            tasks_created INTEGER DEFAULT 0,
+            comments_count INTEGER DEFAULT 0,
+            streak_days INTEGER DEFAULT 0,
+            last_active DATE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        """)
+
+    # Migrate: create achievements table if missing
+    try:
+        c.execute("SELECT 1 FROM achievements LIMIT 1")
+    except sqlite3.OperationalError:
+        c.executescript("""
+        CREATE TABLE achievements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            icon TEXT,
+            earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, type)
+        );
+        """)
+
+    # Migrate: add head_user_id column to departments if missing
+    try:
+        c.execute("SELECT head_user_id FROM departments LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE departments ADD COLUMN head_user_id INTEGER")
+
+    # Migrate: add avatar_url column if missing
+    try:
+        c.execute("SELECT avatar_url FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''")
+
+    # Create role_permissions table
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS role_permissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        role TEXT NOT NULL,
+        permission TEXT NOT NULL,
+        allowed INTEGER DEFAULT 1,
+        UNIQUE(role, permission)
+    )
+    """)
+
+    # Seed default permissions if empty
+    if c.execute("SELECT COUNT(*) FROM role_permissions").fetchone()[0] == 0:
+        default_perms = {
+            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard'],
+            'head': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','messenger','leaderboard'],
+            'member': ['create_tasks','assign_tasks','comments','messenger','leaderboard']
+        }
+        for role, perms in default_perms.items():
+            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard']
+            for p in all_perms:
+                allowed = 1 if p in perms else 0
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (?,?,?)", (role, p, allowed))
+
+    # Seed departments
+    existing = c.execute("SELECT COUNT(*) FROM departments").fetchone()[0]
+    if existing == 0:
+        for name, head, color in [
+            ("Отдел продаж", "Лукьян", "#2563eb"),
+            ("Склад", "Александр Дударев", "#059669"),
+            ("Технический отдел", None, "#d97706"),
+            ("Клуб", "Егор Паршин", "#7c3aed"),
+        ]:
+            c.execute("INSERT INTO departments (name, head_name, color) VALUES (?,?,?)", (name, head, color))
+
+    # Seed admin
+    if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
+        c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (?,?,?,?,?,?,?)",
+            ("admin", "Администратор", hash_password("admin123"), "admin", "#1a1a1a", 1, 1))
+
+    conn.commit()
+    conn.close()
+
+    os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"), exist_ok=True)
+
+def generate_deadline_notifications():
+    """Check for approaching deadlines and create notifications."""
+    conn = get_db()
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
+    # Tasks due tomorrow
+    tasks = conn.execute(
+        "SELECT t.id, t.title, t.assigned_to, t.created_by FROM tasks t "
+        "WHERE t.deadline = ? AND t.status NOT IN ('done','cancelled')", (tomorrow,)
+    ).fetchall()
+    for t in tasks:
+        for uid in set(filter(None, [t["assigned_to"], t["created_by"]])):
+            existing = conn.execute(
+                "SELECT id FROM notifications WHERE task_id=? AND user_id=? AND type='deadline_soon' AND date(created_at)=date('now')", (t["id"], uid)
+            ).fetchone()
+            if not existing:
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                    (uid, t["id"], "deadline_soon", f"Дедлайн завтра: {t['title']}"))
+    # Overdue tasks
+    tasks = conn.execute(
+        "SELECT t.id, t.title, t.assigned_to, t.created_by FROM tasks t "
+        "WHERE t.deadline < ? AND t.status NOT IN ('done','cancelled')", (today,)
+    ).fetchall()
+    for t in tasks:
+        for uid in set(filter(None, [t["assigned_to"], t["created_by"]])):
+            existing = conn.execute(
+                "SELECT id FROM notifications WHERE task_id=? AND user_id=? AND type='overdue' AND date(created_at)=date('now')", (t["id"], uid)
+            ).fetchone()
+            if not existing:
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                    (uid, t["id"], "overdue", f"Просрочена: {t['title']}"))
+    conn.commit()
+    conn.close()
+
+def log_activity(conn, task_id, user_id, action, details=None):
+    """Log an activity to the task_activity table."""
+    conn.execute("INSERT INTO task_activity (task_id, user_id, action, details) VALUES (?,?,?,?)",
+        (task_id, user_id, action, details))
+
+def calculate_working_hours(start_dt_str, end_dt_str):
+    """Calculate working hours between two datetime strings, excluding non-working hours.
+    Working hours: Mon-Fri 11:00-19:00 (8 hours), Sat 11:00-17:00 (6 hours), Sun is off.
+    Returns a tuple: (total_hours, hours, minutes)
+    """
+    try:
+        start = datetime.fromisoformat(start_dt_str.replace('Z', '+00:00'))
+        end = datetime.fromisoformat(end_dt_str.replace('Z', '+00:00'))
+    except:
+        return 0, 0, 0
+
+    total_minutes = 0
+    current = start
+
+    while current < end:
+        weekday = current.weekday()  # 0=Mon, 6=Sun
+        hour = current.hour
+
+        # Skip non-working days (Sunday=6)
+        if weekday == 6:
+            current += timedelta(days=1)
+            current = current.replace(hour=11, minute=0, second=0)
+            continue
+
+        # Define working hours
+        if weekday < 5:  # Mon-Fri
+            work_start, work_end = 11, 19
+        else:  # Saturday
+            work_start, work_end = 11, 17
+
+        # Skip non-working hours
+        if hour < work_start:
+            current = current.replace(hour=work_start, minute=0, second=0)
+            continue
+        if hour >= work_end:
+            current += timedelta(days=1)
+            current = current.replace(hour=work_start, minute=0, second=0)
+            continue
+
+        # Count 1 minute of working time
+        if current < end:
+            total_minutes += 1
+            current += timedelta(minutes=1)
+
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return total_minutes / 60.0, hours, minutes
+
+def get_level_from_km(total_km):
+    """Calculate level name from total_km."""
+    if total_km >= 1000:
+        return "Чемпион"
+    elif total_km >= 500:
+        return "Формула 1"
+    elif total_km >= 300:
+        return "Формула 2"
+    elif total_km >= 150:
+        return "Формула 3"
+    elif total_km >= 50:
+        return "Формула 4"
+    else:
+        return "Карт"
+
+def get_next_level(total_km):
+    """Calculate next level info from total_km."""
+    levels = [
+        {"name": "Формула 4", "km_needed": 50},
+        {"name": "Формула 3", "km_needed": 150},
+        {"name": "Формула 2", "km_needed": 300},
+        {"name": "Формула 1", "km_needed": 500},
+        {"name": "Чемпион", "km_needed": 1000}
+    ]
+    for level in levels:
+        if total_km < level["km_needed"]:
+            return level
+    return {"name": "Чемпион", "km_needed": 1000}
+
+def ensure_user_stats(conn, user_id):
+    """Ensure a user has a stats row."""
+    existing = conn.execute("SELECT user_id FROM user_stats WHERE user_id=?", (user_id,)).fetchone()
+    if not existing:
+        conn.execute("INSERT INTO user_stats (user_id, total_km, level, tasks_completed, tasks_created, comments_count, streak_days, last_active) VALUES (?,?,?,?,?,?,?,?)",
+            (user_id, 0, "Карт", 0, 0, 0, 0, str(date.today())))
+
+def update_km(conn, user_id, km_amount):
+    """Add km to a user's total and update level."""
+    ensure_user_stats(conn, user_id)
+    conn.execute("UPDATE user_stats SET total_km = total_km + ? WHERE user_id=?", (km_amount, user_id))
+    stats = conn.execute("SELECT total_km FROM user_stats WHERE user_id=?", (user_id,)).fetchone()
+    new_level = get_level_from_km(stats["total_km"])
+    conn.execute("UPDATE user_stats SET level=? WHERE user_id=?", (new_level, user_id))
+
+def check_and_award_achievements(conn, user_id):
+    """Check and award achievements for a user."""
+    stats = conn.execute("SELECT * FROM user_stats WHERE user_id=?", (user_id,)).fetchone()
+    if not stats:
+        return
+
+    achievements_to_award = []
+
+    # first_task: complete first task
+    if stats["tasks_completed"] == 1:
+        achievements_to_award.append(("first_task", "Первый старт", "Завершили первую задачу"))
+
+    # speed_demon: complete task same day (check in the calling function logic)
+    # This is handled when a task is marked done
+
+    # consistent: 7-day streak
+    if stats["streak_days"] >= 7:
+        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='consistent'", (user_id,)).fetchone()
+        if not existing:
+            achievements_to_award.append(("consistent", "Стабильность", "7-дневная активность"))
+
+    # team_player: create 10 tasks for others
+    if stats["tasks_created"] >= 10:
+        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='team_player'", (user_id,)).fetchone()
+        if not existing:
+            achievements_to_award.append(("team_player", "Командный игрок", "Создали 10 задач для других"))
+
+    # commentator: leave 50 comments
+    if stats["comments_count"] >= 50:
+        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='commentator'", (user_id,)).fetchone()
+        if not existing:
+            achievements_to_award.append(("commentator", "Комментатор", "50+ комментариев"))
+
+    # century: complete 100 tasks
+    if stats["tasks_completed"] >= 100:
+        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='century'", (user_id,)).fetchone()
+        if not existing:
+            achievements_to_award.append(("century", "Сотня", "100+ задач завершено"))
+
+    for ach_type, ach_name, ach_desc in achievements_to_award:
+        try:
+            conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                (user_id, ach_type, ach_name, ach_desc))
+        except sqlite3.IntegrityError:
+            pass
+
+class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args): pass
+
+    def _json(self, data, status=200):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False, default=str).encode("utf-8"))
+
+    def _html(self, fp):
+        try:
+            with open(fp, "r", encoding="utf-8") as f: content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(content.encode("utf-8"))
+        except FileNotFoundError:
+            self.send_response(404); self.end_headers()
+
+    def _static(self, fp):
+        try:
+            mime, _ = mimetypes.guess_type(fp)
+            with open(fp, "rb") as f: content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", mime or "application/octet-stream")
+            self.end_headers()
+            self.wfile.write(content)
+        except FileNotFoundError:
+            self.send_response(404); self.end_headers()
+
+    def _body(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        return json.loads(body.decode("utf-8")) if body else {}
+
+    def _user(self):
+        cookie = self.headers.get("Cookie", "")
+        for part in cookie.split(";"):
+            part = part.strip()
+            if part.startswith("session="):
+                token = part[8:]
+                if token in sessions: return sessions[token]
+        auth = self.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
+            if token in sessions: return sessions[token]
+        return None
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.end_headers()
+
+    def do_GET(self):
+        path = urllib.parse.urlparse(self.path).path
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+
+        if path.startswith("/static/"):
+            return self._static(os.path.join(STATIC_DIR, path[8:]))
+        if path.startswith("/uploads/"):
+            upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+            filepath = os.path.join(upload_dir, path[9:])
+            if os.path.exists(filepath):
+                self.send_response(200)
+                ext = filepath.rsplit(".", 1)[-1].lower()
+                ct = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}.get(ext, "application/octet-stream")
+                self.send_header("Content-Type", ct)
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                with open(filepath, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            self.send_response(404)
+            self.end_headers()
+            return
+        if path in ("/", "/login", "/register", "/dashboard", "/kanban", "/funnel", "/list"):
+            return self._html(os.path.join(TEMPLATES_DIR, "index.html"))
+
+        if path == "/api/me":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            row = conn.execute("SELECT id, username, full_name, department_id, role, avatar_color, avatar_url, onboarding_done, admin_onboarding_done FROM users WHERE id=?", (u["id"],)).fetchone()
+            dept = None
+            if row["department_id"]:
+                d = conn.execute("SELECT * FROM departments WHERE id=?", (row["department_id"],)).fetchone()
+                dept = dict(d) if d else None
+            conn.close()
+            return self._json({**dict(row), "department": dept})
+
+        if path == "/api/departments":
+            conn = get_db()
+            r = conn.execute(
+                "SELECT d.*, u.full_name as head_user_name FROM departments d "
+                "LEFT JOIN users u ON d.head_user_id = u.id ORDER BY d.name"
+            ).fetchall()
+            conn.close()
+            return self._json([dict(d) for d in r])
+
+        if path == "/api/users":
+            conn = get_db()
+            r = conn.execute(
+                "SELECT u.id, u.username, u.full_name, u.department_id, u.role, u.avatar_color, u.avatar_url, d.name as department_name "
+                "FROM users u LEFT JOIN departments d ON u.department_id = d.id ORDER BY u.full_name"
+            ).fetchall()
+            conn.close()
+            return self._json([dict(u) for u in r])
+
+        if path == "/api/admin/users":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            conn.close()
+            if not user_role or user_role["role"] != "admin":
+                return self._json({"error": "Forbidden: admin only"}, 403)
+            conn = get_db()
+            r = conn.execute(
+                "SELECT u.id, u.username, u.full_name, u.department_id, u.role, u.avatar_color, d.name as department_name "
+                "FROM users u LEFT JOIN departments d ON u.department_id = d.id ORDER BY u.full_name"
+            ).fetchall()
+            conn.close()
+            return self._json([dict(u) for u in r])
+
+        if path == "/api/admin/permissions":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            conn.close()
+            if not user_role or user_role["role"] != "admin":
+                return self._json({"error": "Forbidden"}, 403)
+            conn = get_db()
+            rows = conn.execute("SELECT role, permission, allowed FROM role_permissions").fetchall()
+            conn.close()
+            perms = {}
+            for r in rows:
+                if r['role'] not in perms:
+                    perms[r['role']] = {}
+                perms[r['role']][r['permission']] = bool(r['allowed'])
+            return self._json({'permissions': perms})
+
+        if path == "/api/tasks":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+
+            # Get user's role and department
+            user_row = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = user_row["role"] if user_row else "member"
+            user_dept = user_row["department_id"] if user_row else None
+
+            query = """SELECT t.*, u1.full_name as creator_name, u2.full_name as assignee_name,
+                d.name as department_name, d.color as department_color
+                FROM tasks t LEFT JOIN users u1 ON t.created_by = u1.id
+                LEFT JOIN users u2 ON t.assigned_to = u2.id
+                LEFT JOIN departments d ON t.department_id = d.id"""
+            conds, params = [], []
+
+            # Role-based visibility filter
+            if user_role == "admin":
+                # Admin sees all tasks - no filter needed
+                pass
+            elif user_role == "head":
+                # Head sees: tasks in their department + tasks they created + tasks assigned to them + tasks where they're a watcher
+                visibility = """(
+                    t.department_id = ? OR
+                    t.created_by = ? OR
+                    t.assigned_to = ? OR
+                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?)
+                )"""
+                conds.append(visibility)
+                params.extend([user_dept, u["id"], u["id"], u["id"]])
+            else:  # member
+                # Member sees: tasks assigned to them + tasks they created + tasks where they're a watcher
+                visibility = """(
+                    t.assigned_to = ? OR
+                    t.created_by = ? OR
+                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?)
+                )"""
+                conds.append(visibility)
+                params.extend([u["id"], u["id"], u["id"]])
+
+            # Additional query params filter on top of visibility
+            if "department_id" in qs: conds.append("t.department_id = ?"); params.append(qs["department_id"][0])
+            if "assigned_to" in qs: conds.append("t.assigned_to = ?"); params.append(qs["assigned_to"][0])
+            if "status" in qs: conds.append("t.status = ?"); params.append(qs["status"][0])
+
+            # Quick filters
+            if "filter" in qs:
+                filter_val = qs["filter"][0]
+                if filter_val == "my_tasks":
+                    conds.append("t.created_by = ?"); params.append(u["id"])
+                elif filter_val == "assigned_to_me":
+                    conds.append("t.assigned_to = ?"); params.append(u["id"])
+                elif filter_val == "watching":
+                    conds.append("EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?)")
+                    params.append(u["id"])
+
+            if conds: query += " WHERE " + " AND ".join(conds)
+            query += """ ORDER BY
+                CASE WHEN t.status='done' THEN 1 WHEN t.status='cancelled' THEN 2 ELSE 0 END,
+                CASE WHEN t.deadline IS NULL THEN 1 ELSE 0 END,
+                t.deadline ASC,
+                CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END,
+                t.created_at DESC"""
+            tasks = [dict(t) for t in conn.execute(query, params).fetchall()]
+            # Attach watchers
+            for t in tasks:
+                watchers = conn.execute(
+                    "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (t["id"],)
+                ).fetchall()
+                t["watchers"] = [dict(w) for w in watchers]
+            conn.close()
+            return self._json(tasks)
+
+        if path.startswith("/api/tasks/") and "/comments" in path:
+            task_id = path.split("/")[3]
+            conn = get_db()
+            r = conn.execute(
+                "SELECT c.*, u.full_name as author_name, u.avatar_color FROM comments c "
+                "JOIN users u ON c.user_id = u.id WHERE c.task_id = ? ORDER BY c.created_at ASC", (task_id,)
+            ).fetchall()
+            conn.close()
+            return self._json([dict(c) for c in r])
+
+        if path.startswith("/api/tasks/") and "/messages" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            task_id = path.split("/")[3]
+            conn = get_db()
+            r = conn.execute(
+                "SELECT m.*, u_sender.full_name as sender_name, u_sender.avatar_color as sender_avatar, "
+                "u_recipient.full_name as recipient_name, u_recipient.avatar_color as recipient_avatar "
+                "FROM task_messages m "
+                "JOIN users u_sender ON m.sender_id = u_sender.id "
+                "JOIN users u_recipient ON m.recipient_id = u_recipient.id "
+                "WHERE m.task_id = ? AND (m.sender_id = ? OR m.recipient_id = ?) "
+                "ORDER BY m.created_at ASC", (task_id, u["id"], u["id"])
+            ).fetchall()
+            conn.close()
+            return self._json([dict(m) for m in r])
+
+        if path == "/api/messages/unread":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            count = conn.execute(
+                "SELECT COUNT(*) FROM task_messages WHERE recipient_id=? AND is_read=0", (u["id"],)
+            ).fetchone()[0]
+            conn.close()
+            return self._json({"unread": count})
+
+        if path.startswith("/api/tasks/") and "/activity" in path:
+            task_id = path.split("/")[3]
+            conn = get_db()
+            r = conn.execute(
+                "SELECT a.*, u.full_name as user_name, u.avatar_color "
+                "FROM task_activity a "
+                "JOIN users u ON a.user_id = u.id "
+                "WHERE a.task_id = ? ORDER BY a.created_at ASC", (task_id,)
+            ).fetchall()
+            conn.close()
+            return self._json([dict(a) for a in r])
+
+        if path.startswith("/api/tasks/") and "/watchers" in path:
+            task_id = path.split("/")[3]
+            conn = get_db()
+            r = conn.execute(
+                "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (task_id,)
+            ).fetchall()
+            conn.close()
+            return self._json([dict(w) for w in r])
+
+        if path.startswith("/api/tasks/") and path.count("/") == 3:
+            task_id = path.split("/")[3]
+            conn = get_db()
+            t = conn.execute(
+                "SELECT t.*, u1.full_name as creator_name, u2.full_name as assignee_name, "
+                "d.name as department_name, d.color as department_color "
+                "FROM tasks t LEFT JOIN users u1 ON t.created_by = u1.id "
+                "LEFT JOIN users u2 ON t.assigned_to = u2.id "
+                "LEFT JOIN departments d ON t.department_id = d.id WHERE t.id = ?", (task_id,)
+            ).fetchone()
+            if not t:
+                conn.close()
+                return self._json({"error": "not found"}, 404)
+            result = dict(t)
+            watchers = conn.execute(
+                "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (task_id,)
+            ).fetchall()
+            result["watchers"] = [dict(w) for w in watchers]
+            conn.close()
+            return self._json(result)
+
+        if path == "/api/stats":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            total = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+            new = conn.execute("SELECT COUNT(*) FROM tasks WHERE status='new'").fetchone()[0]
+            in_progress = conn.execute("SELECT COUNT(*) FROM tasks WHERE status='in_progress'").fetchone()[0]
+            review = conn.execute("SELECT COUNT(*) FROM tasks WHERE status='review'").fetchone()[0]
+            done = conn.execute("SELECT COUNT(*) FROM tasks WHERE status='done'").fetchone()[0]
+            overdue = conn.execute("SELECT COUNT(*) FROM tasks WHERE deadline < date('now') AND status NOT IN ('done','cancelled')").fetchone()[0]
+            conn.close()
+            return self._json({"total": total, "new": new, "in_progress": in_progress, "review": review, "done": done, "overdue": overdue})
+
+        if path == "/api/notifications":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            r = conn.execute(
+                "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50", (u["id"],)
+            ).fetchall()
+            unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (u["id"],)).fetchone()[0]
+            conn.close()
+            return self._json({"items": [dict(n) for n in r], "unread": unread})
+
+        if path == "/api/messenger/conversations":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            # Get all unique users the current user has chatted with
+            conversations = conn.execute("""
+                SELECT DISTINCT
+                    CASE
+                        WHEN sender_id = ? THEN recipient_id
+                        ELSE sender_id
+                    END as user_id
+                FROM direct_messages
+                WHERE sender_id = ? OR recipient_id = ?
+            """, (u["id"], u["id"], u["id"])).fetchall()
+
+            result = []
+            for conv in conversations:
+                other_user_id = conv["user_id"]
+                user_info = conn.execute(
+                    "SELECT id, full_name, avatar_color FROM users WHERE id=?", (other_user_id,)
+                ).fetchone()
+                if user_info:
+                    # Get last message
+                    last_msg = conn.execute("""
+                        SELECT text, created_at FROM direct_messages
+                        WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)
+                        ORDER BY created_at DESC LIMIT 1
+                    """, (u["id"], other_user_id, other_user_id, u["id"])).fetchone()
+
+                    # Get unread count
+                    unread = conn.execute("""
+                        SELECT COUNT(*) FROM direct_messages
+                        WHERE sender_id = ? AND recipient_id = ? AND is_read = 0
+                    """, (other_user_id, u["id"])).fetchone()[0]
+
+                    result.append({
+                        "user_id": user_info["id"],
+                        "full_name": user_info["full_name"],
+                        "avatar_color": user_info["avatar_color"],
+                        "last_message": last_msg["text"] if last_msg else None,
+                        "last_message_time": last_msg["created_at"] if last_msg else None,
+                        "unread_count": unread
+                    })
+
+            conn.close()
+            return self._json(result)
+
+        if path.startswith("/api/messenger/messages/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            other_user_id = path.split("/")[4]
+            conn = get_db()
+
+            # Get messages
+            messages = conn.execute("""
+                SELECT m.*,
+                    u_sender.full_name as sender_name, u_sender.avatar_color as sender_avatar,
+                    u_recipient.full_name as recipient_name, u_recipient.avatar_color as recipient_avatar
+                FROM direct_messages m
+                JOIN users u_sender ON m.sender_id = u_sender.id
+                JOIN users u_recipient ON m.recipient_id = u_recipient.id
+                WHERE (m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)
+                ORDER BY m.created_at ASC
+            """, (u["id"], other_user_id, other_user_id, u["id"])).fetchall()
+
+            # Mark as read
+            conn.execute("""
+                UPDATE direct_messages SET is_read = 1
+                WHERE sender_id = ? AND recipient_id = ?
+            """, (other_user_id, u["id"]))
+            conn.commit()
+            conn.close()
+
+            return self._json([dict(m) for m in messages])
+
+        if path == "/api/messenger/unread":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            count = conn.execute(
+                "SELECT COUNT(*) FROM direct_messages WHERE recipient_id=? AND is_read=0", (u["id"],)
+            ).fetchone()[0]
+            conn.close()
+            return self._json({"unread": count})
+
+        if path == "/api/analytics":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] not in ["admin", "head"]:
+                conn.close()
+                return self._json({"error": "Forbidden: admin or head only"}, 403)
+
+            # Build department filter
+            dept_filter = ""
+            dept_params = []
+            if user_role["role"] == "head":
+                dept_filter = " AND t.department_id = ?"
+                dept_params = [user_role["department_id"]]
+
+            # Basic stats
+            total_tasks = conn.execute(f"SELECT COUNT(*) FROM tasks t WHERE 1=1{dept_filter}", dept_params).fetchone()[0]
+
+            # Tasks by status
+            tasks_by_status = {}
+            for status in ["new", "in_progress", "review", "done", "cancelled"]:
+                count = conn.execute(
+                    f"SELECT COUNT(*) FROM tasks t WHERE t.status = ?{dept_filter}",
+                    [status] + dept_params
+                ).fetchone()[0]
+                tasks_by_status[status] = count
+
+            # Tasks by priority
+            tasks_by_priority = {}
+            for priority in ["low", "medium", "high"]:
+                count = conn.execute(
+                    f"SELECT COUNT(*) FROM tasks t WHERE t.priority = ?{dept_filter}",
+                    [priority] + dept_params
+                ).fetchone()[0]
+                tasks_by_priority[priority] = count
+
+            # Avg completion time for done tasks (in working hours)
+            done_tasks = conn.execute(f"""
+                SELECT created_at, updated_at FROM tasks t WHERE t.status = 'done'{dept_filter}
+            """, dept_params).fetchall()
+
+            if done_tasks:
+                working_hours_list = []
+                for task in done_tasks:
+                    hours, _, _ = calculate_working_hours(task["created_at"], task["updated_at"])
+                    working_hours_list.append(hours)
+                avg_working_hours = sum(working_hours_list) / len(working_hours_list) if working_hours_list else 0
+                avg_hours = int(avg_working_hours)
+                avg_minutes = int((avg_working_hours - avg_hours) * 60)
+                avg_completion_time_display = f"{avg_hours}ч {avg_minutes}м"
+            else:
+                avg_completion_time_display = "—"
+
+            # For compatibility, also keep as decimal for now
+            avg_completion_time = round(sum(working_hours_list) / len(working_hours_list) / 24, 2) if done_tasks else 0
+
+            # Overdue count
+            overdue_count = conn.execute(
+                f"SELECT COUNT(*) FROM tasks t WHERE t.deadline < date('now') AND t.status NOT IN ('done','cancelled'){dept_filter}",
+                dept_params
+            ).fetchone()[0]
+
+            # Tasks by department
+            tasks_by_dept = []
+            if user_role["role"] == "admin":
+                dept_tasks = conn.execute("""
+                    SELECT d.name, COUNT(*) as count FROM tasks t
+                    LEFT JOIN departments d ON t.department_id = d.id
+                    GROUP BY t.department_id
+                """).fetchall()
+                tasks_by_dept = [{"department_name": d["name"], "count": d["count"]} for d in dept_tasks]
+            else:
+                dept_row = conn.execute("SELECT name FROM departments WHERE id=?", [user_role["department_id"]]).fetchone()
+                count = conn.execute(f"SELECT COUNT(*) FROM tasks t WHERE t.department_id = ?{dept_filter}", dept_params).fetchone()[0]
+                if dept_row:
+                    tasks_by_dept = [{"department_name": dept_row["name"], "count": count}]
+
+            # Tasks by employee
+            tasks_by_employee = []
+            if user_role["role"] == "admin":
+                emp_tasks = conn.execute("""
+                    SELECT u.full_name, COUNT(CASE WHEN t.assigned_to = u.id THEN 1 END) as assigned_count,
+                           COUNT(CASE WHEN t.assigned_to = u.id AND t.status = 'done' THEN 1 END) as completed_count
+                    FROM users u LEFT JOIN tasks t ON t.assigned_to = u.id
+                    WHERE u.role IN ('member', 'head')
+                    GROUP BY u.id ORDER BY assigned_count DESC
+                """).fetchall()
+                tasks_by_employee = [{"full_name": e["full_name"], "assigned_count": e["assigned_count"], "completed_count": e["completed_count"]} for e in emp_tasks]
+            else:
+                emp_tasks = conn.execute("""
+                    SELECT u.full_name, COUNT(CASE WHEN t.assigned_to = u.id THEN 1 END) as assigned_count,
+                           COUNT(CASE WHEN t.assigned_to = u.id AND t.status = 'done' THEN 1 END) as completed_count
+                    FROM users u LEFT JOIN tasks t ON t.assigned_to = u.id AND t.department_id = ?
+                    WHERE u.role IN ('member', 'head') AND u.department_id = ?
+                    GROUP BY u.id ORDER BY assigned_count DESC
+                """, [user_role["department_id"], user_role["department_id"]]).fetchall()
+                tasks_by_employee = [{"full_name": e["full_name"], "assigned_count": e["assigned_count"], "completed_count": e["completed_count"]} for e in emp_tasks]
+
+            # Recent activity
+            recent_activity = conn.execute(f"""
+                SELECT a.*, u.full_name as user_name, t.title as task_title
+                FROM task_activity a
+                JOIN users u ON a.user_id = u.id
+                LEFT JOIN tasks t ON a.task_id = t.id
+                {' WHERE t.department_id = ?' if user_role['role'] == 'head' else ''}
+                ORDER BY a.created_at DESC LIMIT 20
+            """, dept_params if user_role['role'] == 'head' else []).fetchall()
+            recent_activity = [dict(a) for a in recent_activity]
+
+            conn.close()
+            return self._json({
+                "total_tasks": total_tasks,
+                "tasks_by_status": tasks_by_status,
+                "tasks_by_priority": tasks_by_priority,
+                "avg_completion_time": avg_completion_time,
+                "avg_completion_time_display": avg_completion_time_display,
+                "overdue_count": overdue_count,
+                "tasks_by_department": tasks_by_dept,
+                "tasks_by_employee": tasks_by_employee,
+                "recent_activity": recent_activity
+            })
+
+        if path == "/api/gamification/me":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            ensure_user_stats(conn, u["id"])
+            stats = conn.execute("SELECT * FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            achievements = conn.execute(
+                "SELECT id, type, name, description, icon, earned_at FROM achievements WHERE user_id=? ORDER BY earned_at DESC",
+                (u["id"],)
+            ).fetchall()
+            conn.close()
+            next_level = get_next_level(stats["total_km"])
+            return self._json({
+                "stats": dict(stats),
+                "next_level": next_level,
+                "achievements": [dict(a) for a in achievements]
+            })
+
+        if path == "/api/gamification/leaderboard":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            leaderboard = conn.execute("""
+                SELECT u.id, u.full_name, u.avatar_color, s.total_km, s.level, s.tasks_completed,
+                       d.name as department_name
+                FROM user_stats s
+                JOIN users u ON s.user_id = u.id
+                LEFT JOIN departments d ON u.department_id = d.id
+                ORDER BY s.total_km DESC LIMIT 100
+            """).fetchall()
+            conn.close()
+            return self._json({"leaderboard": [dict(row) for row in leaderboard]})
+
+        self.send_response(404); self.end_headers()
+
+    def do_POST(self):
+        path = urllib.parse.urlparse(self.path).path
+
+        if path == "/api/profile/avatar":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            content_type = self.headers.get("Content-Type", "")
+            if "multipart/form-data" not in content_type:
+                return self._json({"error": "Expected multipart/form-data"}, 400)
+
+            # Parse boundary
+            boundary = content_type.split("boundary=")[1].strip()
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+
+            # Simple multipart parser
+            parts = body.split(("--" + boundary).encode())
+            file_data = None
+            for part in parts:
+                if b"Content-Disposition" in part and b"filename=" in part:
+                    # Extract file data after double CRLF
+                    header_end = part.find(b"\r\n\r\n")
+                    if header_end != -1:
+                        file_data = part[header_end + 4:]
+                        # Remove trailing \r\n
+                        if file_data.endswith(b"\r\n"):
+                            file_data = file_data[:-2]
+
+            if not file_data:
+                return self._json({"error": "No file uploaded"}, 400)
+
+            # Save file
+            import uuid as uuid_mod
+            ext = "jpg"
+            filename = f"avatar_{u['id']}_{uuid_mod.uuid4().hex[:8]}.{ext}"
+            upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            filepath = os.path.join(upload_dir, filename)
+
+            # Delete old avatar
+            conn = get_db()
+            old_url = conn.execute("SELECT avatar_url FROM users WHERE id=?", (u["id"],)).fetchone()
+            if old_url and old_url["avatar_url"]:
+                old_file = os.path.join(upload_dir, os.path.basename(old_url["avatar_url"]))
+                if os.path.exists(old_file):
+                    try: os.remove(old_file)
+                    except: pass
+
+            with open(filepath, "wb") as f:
+                f.write(file_data)
+
+            avatar_url = f"/uploads/{filename}"
+            conn.execute("UPDATE users SET avatar_url=? WHERE id=?", (avatar_url, u["id"]))
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True, "avatar_url": avatar_url})
+
+        data = self._body()
+
+        if path == "/api/login":
+            conn = get_db()
+            user = conn.execute("SELECT * FROM users WHERE username = ?", (data.get("username", ""),)).fetchone()
+            conn.close()
+            if user and verify_password(data.get("password", ""), user["password_hash"]):
+                token = secrets.token_hex(32)
+                sessions[token] = {"id": user["id"], "username": user["username"], "role": user["role"]}
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Set-Cookie", f"session={token}; Path=/; HttpOnly; SameSite=Lax")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True, "token": token, "user": {"id": user["id"], "full_name": user["full_name"], "role": user["role"]}}, ensure_ascii=False).encode())
+                return
+            return self._json({"error": "Неверный логин или пароль"}, 401)
+
+        if path == "/api/register":
+            username = data.get("username", "").strip()
+            full_name = data.get("full_name", "").strip()
+            password = data.get("password", "")
+            department_id = data.get("department_id")
+            if not username or not full_name or not password:
+                return self._json({"error": "Заполните все поля"}, 400)
+            if len(password) < 4:
+                return self._json({"error": "Пароль минимум 4 символа"}, 400)
+            conn = get_db()
+            if conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone():
+                conn.close()
+                return self._json({"error": "Пользователь уже существует"}, 400)
+            colors = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#dc2626", "#0891b2", "#4f46e5"]
+            color = colors[hash(username) % len(colors)]
+            c = conn.execute(
+                "INSERT INTO users (username, full_name, password_hash, department_id, role, avatar_color, onboarding_done) VALUES (?,?,?,?,?,?,0)",
+                (username, full_name, hash_password(password), department_id if department_id else None, "member", color))
+            uid = c.lastrowid
+            ensure_user_stats(conn, uid)
+            conn.commit(); conn.close()
+            token = secrets.token_hex(32)
+            sessions[token] = {"id": uid, "username": username, "role": "member"}
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Set-Cookie", f"session={token}; Path=/; HttpOnly; SameSite=Lax")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "token": token}, ensure_ascii=False).encode())
+            return
+
+        if path == "/api/logout":
+            cookie = self.headers.get("Cookie", "")
+            for part in cookie.split(";"):
+                part = part.strip()
+                if part.startswith("session="):
+                    sessions.pop(part[8:], None)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Set-Cookie", "session=; Path=/; Max-Age=0")
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+            return
+
+        if path == "/api/onboarding_done":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            conn.execute("UPDATE users SET onboarding_done=1 WHERE id=?", (u["id"],))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/admin_onboarding_done":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            conn.execute("UPDATE users SET admin_onboarding_done=1 WHERE id=?", (u["id"],))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/tasks":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            title = data.get("title", "").strip()
+            if not title: return self._json({"error": "Введите название задачи"}, 400)
+            conn = get_db()
+            c = conn.execute(
+                "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline) VALUES (?,?,?,?,?,?,?,?)",
+                (title, data.get("description", ""), data.get("status", "new"), data.get("priority", "medium"),
+                 u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None))
+            task_id = c.lastrowid
+
+            # Log task creation
+            log_activity(conn, task_id, u["id"], "task_created", title)
+
+            # Award km for creating task
+            update_km(conn, u["id"], 2)
+            stats = conn.execute("SELECT tasks_created FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            conn.execute("UPDATE user_stats SET tasks_created = ? WHERE user_id=?", (stats["tasks_created"] + 1, u["id"]))
+
+            # Add watchers
+            watchers = data.get("watchers", [])
+            for wid in watchers:
+                try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
+                except: pass
+
+            # Auto-add creator as watcher if assigned to someone else
+            assigned_to = data.get("assigned_to")
+            if assigned_to and assigned_to != u["id"]:
+                try:
+                    conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, u["id"]))
+                except: pass
+                # Notify assigned user
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                    (assigned_to, task_id, "assigned", f"Вам назначена задача: {title}"))
+
+            conn.commit(); conn.close()
+            return self._json({"ok": True, "id": task_id})
+
+        if path.startswith("/api/tasks/") and "/comments" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            task_id = path.split("/")[3]
+            text = data.get("text", "").strip()
+            if not text: return self._json({"error": "Пустой комментарий"}, 400)
+            conn = get_db()
+
+            # Check access
+            task = conn.execute("SELECT created_by, assigned_to, department_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+            if not task:
+                conn.close()
+                return self._json({"error": "Task not found"}, 404)
+
+            user_row = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            is_admin = user_row["role"] == "admin"
+            is_head = user_row["role"] == "head" and user_row["department_id"] == task["department_id"]
+            is_participant = u["id"] in [task["created_by"], task["assigned_to"]]
+            is_watcher = conn.execute("SELECT 1 FROM task_watchers WHERE task_id=? AND user_id=?", (task_id, u["id"])).fetchone()
+
+            if not (is_admin or is_head or is_participant or is_watcher):
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+
+            conn.execute("INSERT INTO comments (task_id, user_id, text) VALUES (?,?,?)", (task_id, u["id"], text))
+
+            # Log activity
+            log_activity(conn, int(task_id), u["id"], "comment_added", text)
+
+            # Award km for commenting
+            update_km(conn, u["id"], 1)
+            stats = conn.execute("SELECT comments_count FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            conn.execute("UPDATE user_stats SET comments_count = ? WHERE user_id=?", (stats["comments_count"] + 1, u["id"]))
+
+            # Check achievement for 50 comments
+            check_and_award_achievements(conn, u["id"])
+
+            # Notify watchers and assignee about new comment
+            watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
+            notify_ids = set([w["user_id"] for w in watchers])
+            if task["assigned_to"]: notify_ids.add(task["assigned_to"])
+            if task["created_by"]: notify_ids.add(task["created_by"])
+            notify_ids.discard(u["id"])  # Don't notify the commenter
+            user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (u["id"],)).fetchone()
+            task_title = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
+            for nid in notify_ids:
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                    (nid, task_id, "comment", f"{user_name['full_name']} прокомментировал: {task_title['title']}"))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/tasks/") and "/messages" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            task_id = path.split("/")[3]
+            recipient_id = data.get("recipient_id")
+            text = data.get("text", "").strip()
+            if not recipient_id or not text:
+                return self._json({"error": "Укажите получателя и текст сообщения"}, 400)
+            conn = get_db()
+            conn.execute("INSERT INTO task_messages (task_id, sender_id, recipient_id, text) VALUES (?,?,?,?)",
+                (task_id, u["id"], recipient_id, text))
+            # Create notification for recipient
+            task = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
+            user_row = conn.execute("SELECT full_name FROM users WHERE id=?", (u["id"],)).fetchone()
+            conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                (recipient_id, task_id, "message", f"{user_row['full_name']} отправил сообщение о задаче: {task['title']}"))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/tasks/") and "/watchers" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            task_id = path.split("/")[3]
+            watcher_ids = data.get("watcher_ids", [])
+            conn = get_db()
+
+            # Get old watchers for activity log
+            old_watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
+            old_watcher_ids = set([w["user_id"] for w in old_watchers])
+            new_watcher_ids = set(watcher_ids)
+            added_watchers = new_watcher_ids - old_watcher_ids
+
+            # Update watchers
+            conn.execute("DELETE FROM task_watchers WHERE task_id=?", (task_id,))
+            for wid in watcher_ids:
+                try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
+                except: pass
+
+            # Log added watchers
+            for wid in added_watchers:
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (wid,)).fetchone()
+                log_activity(conn, int(task_id), u["id"], "watcher_added", f"Добавлен наблюдатель: {user_name['full_name']}")
+
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/notifications/read":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (u["id"],))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/messenger/messages/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            recipient_id = path.split("/")[4]
+            text = data.get("text", "").strip()
+            if not text:
+                return self._json({"error": "Empty message"}, 400)
+            conn = get_db()
+            conn.execute(
+                "INSERT INTO direct_messages (sender_id, recipient_id, text) VALUES (?,?,?)",
+                (u["id"], recipient_id, text)
+            )
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/gamification/check":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            task_id = data.get("task_id")
+            if not task_id:
+                return self._json({"error": "Missing task_id"}, 400)
+
+            task = conn.execute("SELECT created_at, deadline, assigned_to FROM tasks WHERE id=?", (task_id,)).fetchone()
+            if not task or task["assigned_to"] != u["id"]:
+                conn.close()
+                return self._json({"error": "Invalid task"}, 400)
+
+            # Task completion award: +10 km
+            update_km(conn, u["id"], 10)
+
+            # Complete before deadline bonus: +5 km
+            if task["deadline"]:
+                today = datetime.now().strftime("%Y-%m-%d")
+                if today <= task["deadline"]:
+                    update_km(conn, u["id"], 5)
+
+            # Complete same day bonus: +3 km
+            created_date = task["created_at"][:10]
+            today = datetime.now().strftime("%Y-%m-%d")
+            if created_date == today:
+                update_km(conn, u["id"], 3)
+
+            # Update task completion counter
+            stats = conn.execute("SELECT tasks_completed FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            conn.execute("UPDATE user_stats SET tasks_completed = ? WHERE user_id=?", (stats["tasks_completed"] + 1, u["id"]))
+
+            # Check achievements
+            check_and_award_achievements(conn, u["id"])
+
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/admin/departments":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+
+            name = data.get("name", "").strip()
+            if not name:
+                conn.close()
+                return self._json({"error": "Department name required"}, 400)
+
+            # Check name uniqueness
+            if conn.execute("SELECT id FROM departments WHERE name=?", (name,)).fetchone():
+                conn.close()
+                return self._json({"error": "Department name must be unique"}, 400)
+
+            color = data.get("color", "#1a1a1a")
+            head_user_id = data.get("head_user_id")
+
+            c = conn.execute("INSERT INTO departments (name, color, head_user_id) VALUES (?,?,?)",
+                           (name, color, head_user_id if head_user_id else None))
+            dept_id = c.lastrowid
+
+            # If head_user_id provided, set user's role to 'head'
+            if head_user_id:
+                conn.execute("UPDATE users SET role=? WHERE id=?", ("head", head_user_id))
+
+            conn.commit(); conn.close()
+            return self._json({"ok": True, "id": dept_id})
+
+        if path == "/api/admin/permissions":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+            permissions = data.get('permissions', {})
+            for role in ['admin', 'head', 'member']:
+                if role in permissions:
+                    for perm, allowed in permissions[role].items():
+                        conn.execute(
+                            "INSERT OR REPLACE INTO role_permissions (role, permission, allowed) VALUES (?,?,?)",
+                            (role, perm, 1 if allowed else 0)
+                        )
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/admin/clean-orphaned":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+            # Delete tasks where assigned_to is set but user doesn't exist
+            result = conn.execute(
+                "DELETE FROM tasks WHERE assigned_to IS NOT NULL AND assigned_to NOT IN (SELECT id FROM users)"
+            )
+            deleted = result.rowcount
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True, "deleted": deleted})
+
+        self.send_response(404); self.end_headers()
+
+    def do_PUT(self):
+        path = urllib.parse.urlparse(self.path).path
+        data = self._body()
+
+        if path == "/api/profile":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            full_name = data.get("full_name", "").strip()
+            if not full_name: return self._json({"error": "Имя не может быть пустым"}, 400)
+            conn = get_db()
+            conn.execute("UPDATE users SET full_name=? WHERE id=?", (full_name, u["id"]))
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/users/") and "/role" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+            user_id = path.split("/")[3]
+            new_role = data.get("role")
+            if new_role not in ["admin", "head", "member"]:
+                conn.close()
+                return self._json({"error": "Invalid role"}, 400)
+            conn.execute("UPDATE users SET role=? WHERE id=?", (new_role, user_id))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/tasks/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            task_id = path.split("/")[3]
+            conn = get_db()
+            old_task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+            sets, params = [], []
+            for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline"]:
+                if field in data:
+                    sets.append(f"{field} = ?")
+                    params.append(data[field] if data[field] != "" else None)
+            if sets:
+                sets.append("updated_at = CURRENT_TIMESTAMP")
+                params.append(task_id)
+                conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
+
+                # Log status change
+                if "status" in data and old_task and data["status"] != old_task["status"]:
+                    log_activity(conn, int(task_id), u["id"], "status_changed", f"Статус изменён с '{old_task['status']}' на '{data['status']}'")
+                    status_names = {"new":"Новая","in_progress":"В работе","review":"На проверке","done":"Готово","cancelled":"Отменена"}
+                    msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
+                    watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
+                    notify_ids = set([w["user_id"] for w in watchers])
+                    if old_task["assigned_to"]: notify_ids.add(old_task["assigned_to"])
+                    if old_task["created_by"]: notify_ids.add(old_task["created_by"])
+                    notify_ids.discard(u["id"])
+                    for nid in notify_ids:
+                        conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                            (nid, task_id, "status_change", msg))
+
+                # Log assignment change
+                if "assigned_to" in data and old_task and data["assigned_to"] != old_task["assigned_to"]:
+                    new_assignee = conn.execute("SELECT full_name FROM users WHERE id=?", (data["assigned_to"],)).fetchone() if data["assigned_to"] else None
+                    details = f"Назначено: {new_assignee['full_name']}" if new_assignee else "Назначение отменено"
+                    log_activity(conn, int(task_id), u["id"], "assigned", details)
+
+                conn.commit()
+            conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/admin/departments/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+
+            dept_id = path.split("/")[4]
+            dept = conn.execute("SELECT * FROM departments WHERE id=?", (dept_id,)).fetchone()
+            if not dept:
+                conn.close()
+                return self._json({"error": "Department not found"}, 404)
+
+            # Update name and/or color if provided
+            sets, params = [], []
+            if "name" in data:
+                name = data["name"].strip()
+                if not name:
+                    conn.close()
+                    return self._json({"error": "Department name required"}, 400)
+                # Check name uniqueness (but allow current name)
+                existing = conn.execute("SELECT id FROM departments WHERE name=? AND id!=?", (name, dept_id)).fetchone()
+                if existing:
+                    conn.close()
+                    return self._json({"error": "Department name must be unique"}, 400)
+                sets.append("name = ?")
+                params.append(name)
+
+            if "color" in data:
+                sets.append("color = ?")
+                params.append(data["color"])
+
+            # Handle head_user_id change
+            if "head_user_id" in data:
+                new_head_id = data["head_user_id"]
+                old_head_id = dept["head_user_id"]
+
+                # If different from current head, update roles
+                if new_head_id and new_head_id != old_head_id:
+                    # If there was an old head, revert them to member
+                    if old_head_id:
+                        conn.execute("UPDATE users SET role=? WHERE id=?", ("member", old_head_id))
+                    # Set new head
+                    conn.execute("UPDATE users SET role=? WHERE id=?", ("head", new_head_id))
+
+                sets.append("head_user_id = ?")
+                params.append(new_head_id)
+
+            if sets:
+                params.append(dept_id)
+                conn.execute(f"UPDATE departments SET {', '.join(sets)} WHERE id = ?", params)
+                conn.commit()
+
+            conn.close()
+            return self._json({"ok": True})
+
+        self.send_response(404); self.end_headers()
+
+    def do_DELETE(self):
+        path = urllib.parse.urlparse(self.path).path
+        if path.startswith("/api/tasks/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            task_id = path.split("/")[3]
+            conn = get_db()
+            conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/users/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not me or me["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Только администратор может удалять пользователей"}, 403)
+            user_id = path.split("/")[3]
+            if int(user_id) == u["id"]:
+                conn.close()
+                return self._json({"error": "Нельзя удалить самого себя"}, 400)
+            # Find all tasks created by this user (to clean up their dependencies)
+            created_tasks = [r[0] for r in conn.execute("SELECT id FROM tasks WHERE created_by=?", (user_id,)).fetchall()]
+            for tid in created_tasks:
+                conn.execute("DELETE FROM task_watchers WHERE task_id=?", (tid,))
+                conn.execute("DELETE FROM comments WHERE task_id=?", (tid,))
+                conn.execute("DELETE FROM task_messages WHERE task_id=?", (tid,))
+                conn.execute("DELETE FROM task_activity WHERE task_id=?", (tid,))
+                conn.execute("DELETE FROM notifications WHERE task_id=?", (tid,))
+            conn.execute("DELETE FROM tasks WHERE created_by=?", (user_id,))
+            # Delete user's other related data
+            conn.execute("DELETE FROM task_watchers WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM comments WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM notifications WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM task_messages WHERE sender_id=? OR recipient_id=?", (user_id, user_id))
+            conn.execute("DELETE FROM task_activity WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM direct_messages WHERE sender_id=? OR recipient_id=?", (user_id, user_id))
+            conn.execute("DELETE FROM user_stats WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM achievements WHERE user_id=?", (user_id,))
+            # Unassign from remaining tasks
+            conn.execute("UPDATE tasks SET assigned_to=NULL WHERE assigned_to=?", (user_id,))
+            conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+            conn.commit(); conn.close()
+            # Remove from sessions
+            to_remove = [k for k, v in sessions.items() if v.get("id") == int(user_id)]
+            for k in to_remove: sessions.pop(k, None)
+            return self._json({"ok": True})
+
+        if path.startswith("/api/admin/departments/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            if not me or me["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+
+            dept_id = path.split("/")[4]
+            dept = conn.execute("SELECT * FROM departments WHERE id=?", (dept_id,)).fetchone()
+            if not dept:
+                conn.close()
+                return self._json({"error": "Department not found"}, 404)
+
+            # Set all users in this department to department_id=NULL
+            conn.execute("UPDATE users SET department_id=NULL WHERE department_id=?", (dept_id,))
+
+            # Set all tasks with this department_id to NULL
+            conn.execute("UPDATE tasks SET department_id=NULL WHERE department_id=?", (dept_id,))
+
+            # Delete the department
+            conn.execute("DELETE FROM departments WHERE id=?", (dept_id,))
+
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        self.send_response(404); self.end_headers()
+
+if __name__ == "__main__":
+    import ssl
+    import subprocess
+    init_db()
+    generate_deadline_notifications()
+
+    # Support PORT env variable for cloud hosting (Render, Railway, etc.)
+    PORT_HTTP = int(os.environ.get("PORT", 8080))
+    CLOUD_MODE = "PORT" in os.environ  # If PORT is set, we're on cloud hosting
+
+    if CLOUD_MODE:
+        # Cloud mode: HTTP only (hosting provides SSL)
+        server_http = http.server.HTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
+        print(f"\n  ╔══════════════════════════════════════════╗")
+        print(f"  ║  Dudarev Motorsport — Таск-менеджер v5   ║")
+        print(f"  ║                                          ║")
+        print(f"  ║  Cloud mode -> port {PORT_HTTP}                ║")
+        print(f"  ╚══════════════════════════════════════════╝\n")
+        try:
+            server_http.serve_forever()
+        except KeyboardInterrupt:
+            print("\nСервер остановлен.")
+            server_http.server_close()
+    else:
+        # Local mode: HTTP + HTTPS
+        PORT_HTTPS = 8443
+
+        CERT_DIR = os.path.dirname(os.path.abspath(__file__))
+        CERT_FILE = os.path.join(CERT_DIR, "cert.pem")
+        KEY_FILE = os.path.join(CERT_DIR, "key.pem")
+
+        def generate_cert():
+            print("Генерация SSL-сертификата с SAN для localhost...")
+            conf_path = os.path.join(CERT_DIR, "openssl.cnf")
+            with open(conf_path, "w") as f:
+                f.write("[req]\ndefault_bits = 2048\nprompt = no\ndefault_md = sha256\n")
+                f.write("distinguished_name = dn\nx509_extensions = v3_req\n")
+                f.write("[dn]\nCN = Dudarev Motorsport Task Manager\nO = Dudarev Motorsport\n")
+                f.write("[v3_req]\nbasicConstraints = CA:TRUE\nkeyUsage = digitalSignature, keyEncipherment\n")
+                f.write("subjectAltName = @alt_names\n[alt_names]\n")
+                f.write("DNS.1 = localhost\nDNS.2 = *.localhost\nIP.1 = 127.0.0.1\nIP.2 = ::1\n")
+            subprocess.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:2048",
+                "-keyout", KEY_FILE, "-out", CERT_FILE,
+                "-days", "3650", "-nodes", "-config", conf_path
+            ], check=True, capture_output=True)
+            try: os.remove(conf_path)
+            except: pass
+            print("SSL-сертификат создан.")
+
+        if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
+            generate_cert()
+
+        server_http = http.server.HTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
+        server_https = http.server.HTTPServer(("0.0.0.0", PORT_HTTPS), TaskManagerHandler)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(CERT_FILE, KEY_FILE)
+        server_https.socket = ctx.wrap_socket(server_https.socket, server_side=True)
+
+        print(f"\n  ╔══════════════════════════════════════════╗")
+        print(f"  ║  Dudarev Motorsport — Таск-менеджер v5   ║")
+        print(f"  ║                                          ║")
+        print(f"  ║  HTTP  -> http://localhost:{PORT_HTTP}        ║")
+        print(f"  ║  HTTPS -> https://localhost:{PORT_HTTPS}     ║")
+        print(f"  ║                                          ║")
+        print(f"  ║  Рекомендуем: http://localhost:{PORT_HTTP}    ║")
+        print(f"  ╚══════════════════════════════════════════╝\n")
+
+        import threading
+        t1 = threading.Thread(target=server_https.serve_forever, daemon=True)
+        t1.start()
+        try:
+            server_http.serve_forever()
+        except KeyboardInterrupt:
+            print("\nСервер остановлен.")
+            server_http.server_close()
+            server_https.server_close()

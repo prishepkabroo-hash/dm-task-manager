@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: dm-task-manager
+    runtime: python
+    buildCommand: echo "No build needed"
+    startCommand: python server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+    disk:
+      name: dm-data
+      mountPath: /opt/render/project/src
+      sizeGB: 1
