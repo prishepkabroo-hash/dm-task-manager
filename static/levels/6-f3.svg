@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <filter id="neon6" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="grad6" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <!-- F3 open-wheel race car facing RIGHT — neon green -->
+  <g filter="url(#neon6)" transform="translate(64,64)">
+    <!-- Rear wing -->
+    <path d="M-32,-8 L-28,-8 L-28,-14 L-34,-14 Z" fill="none" stroke="url(#grad6)" stroke-width="2" opacity="0.7"/>
+    <line x1="-30" y1="-8" x2="-30" y2="2" stroke="url(#grad6)" stroke-width="1.5" opacity="0.5"/>
+    <!-- Main body / monocoque -->
+    <path d="M-26,2 L-20,-4 L0,-8 L24,-6 L36,-2 L40,2 L38,6 L-28,6 Z" fill="none" stroke="url(#grad6)" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- Nose cone -->
+    <path d="M36,-2 L46,0 L38,4" fill="none" stroke="url(#grad6)" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Cockpit -->
+    <path d="M-4,-6 L4,-10 L12,-8" fill="none" stroke="url(#grad6)" stroke-width="1.5" opacity="0.6"/>
+    <!-- Driver helmet -->
+    <ellipse cx="4" cy="-10" rx="5" ry="4.5" fill="none" stroke="#4ade80" stroke-width="2" opacity="0.8"/>
+    <!-- Rear wheels (exposed) -->
+    <ellipse cx="-24" cy="10" rx="6" ry="8" fill="none" stroke="url(#grad6)" stroke-width="2" opacity="0.8"/>
+    <!-- Front wheels (exposed) -->
+    <ellipse cx="30" cy="10" rx="5" ry="7" fill="none" stroke="url(#grad6)" stroke-width="2" opacity="0.8"/>
+    <!-- Front wing -->
+    <path d="M38,4 L44,6 L46,4" fill="none" stroke="url(#grad6)" stroke-width="1.5" opacity="0.6"/>
+    <!-- Number -->
+    <text x="-10" y="4" font-size="8" fill="#4ade80" opacity="0.5" font-family="monospace" font-weight="bold">F3</text>
+    <!-- Speed lines -->
+    <line x1="-40" y1="-6" x2="-56" y2="-6" stroke="#4ade80" stroke-width="2" opacity="0.45" stroke-linecap="round"/>
+    <line x1="-38" y1="2" x2="-58" y2="2" stroke="#4ade80" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+    <line x1="-36" y1="10" x2="-52" y2="10" stroke="#4ade80" stroke-width="2" opacity="0.35" stroke-linecap="round"/>
+    <line x1="-42" y1="18" x2="-54" y2="18" stroke="#4ade80" stroke-width="1" opacity="0.25" stroke-linecap="round"/>
+  </g>
+</svg>

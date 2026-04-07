@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <filter id="neon3" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="grad3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <!-- Person on electric unicycle/monowheel facing RIGHT — neon cyan -->
+  <g filter="url(#neon3)" transform="translate(64,64)">
+    <!-- Monowheel -->
+    <circle cx="0" cy="24" r="14" fill="none" stroke="url(#grad3)" stroke-width="2.5" opacity="0.9"/>
+    <circle cx="0" cy="24" r="4" fill="#06b6d4" opacity="0.4"/>
+    <!-- LED ring on wheel -->
+    <circle cx="0" cy="24" r="10" fill="none" stroke="#22d3ee" stroke-width="0.8" opacity="0.5" stroke-dasharray="3 3"/>
+    <!-- Rider standing upright -->
+    <circle cx="2" cy="-26" r="8" fill="none" stroke="url(#grad3)" stroke-width="2.5" opacity="0.9"/>
+    <!-- Torso -->
+    <line x1="2" y1="-18" x2="0" y2="4" stroke="url(#grad3)" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Arms out for balance -->
+    <path d="M2,-12 L18,-18" fill="none" stroke="url(#grad3)" stroke-width="2" stroke-linecap="round"/>
+    <path d="M0,-10 L-14,-16" fill="none" stroke="url(#grad3)" stroke-width="2" stroke-linecap="round"/>
+    <!-- Legs on pedals -->
+    <path d="M0,4 L6,14" fill="none" stroke="url(#grad3)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M0,4 L-6,14" fill="none" stroke="url(#grad3)" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Neon trail -->
+    <line x1="-22" y1="24" x2="-40" y2="24" stroke="#22d3ee" stroke-width="2" opacity="0.3" stroke-linecap="round"/>
+    <line x1="-20" y1="-10" x2="-36" y2="-10" stroke="#22d3ee" stroke-width="1" opacity="0.25" stroke-linecap="round"/>
+    <!-- Balance glow -->
+    <ellipse cx="0" cy="42" rx="18" ry="3" fill="#06b6d4" opacity="0.15"/>
+  </g>
+</svg>
