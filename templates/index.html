@@ -4866,60 +4866,81 @@ async function loadDetailActivity(taskId) {
     container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;">Загрузка...</div>';
     const activity = await apiCall('/api/tasks/' + taskId + '/activity');
     if (activity && activity.length) {
-        // Group by date
         const groups = {};
         activity.forEach(a => {
             const d = new Date(a.created_at);
-            const dateKey = d.toLocaleDateString('ru-RU', {day:'numeric',month:'long',year:'numeric'});
+            const dateKey = d.toLocaleDateString('ru-RU', {day:'numeric', month:'long', year:'numeric'});
             if (!groups[dateKey]) groups[dateKey] = [];
             groups[dateKey].push(a);
         });
-        let html = '';
+        let html = '<div style="position:relative;padding-left:24px;">';
+        html += '<div style="position:absolute;left:11px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,#e2e8f0,#f1f5f9);border-radius:1px;"></div>';
         for (const [dateLabel, items] of Object.entries(groups)) {
-            html += `<div style="font-size:12px;font-weight:600;color:#64748b;padding:12px 0 6px;border-bottom:1px solid #e2e8f0;margin-bottom:4px;">${dateLabel}</div>`;
-            items.forEach(a => {
+            html += '<div style="position:relative;margin-bottom:4px;margin-left:-24px;padding:8px 0 4px 0;">' +
+                '<div style="display:inline-block;background:linear-gradient(135deg,#1e293b,#334155);color:white;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;letter-spacing:0.3px;">' + dateLabel + '</div></div>';
+            items.forEach((a, idx) => {
                 const d = new Date(a.created_at);
                 const timeStr = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
-                const {icon, color, text} = formatActivityAction(a);
-                html += `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f8fafc;font-size:13px;align-items:flex-start;">
-                    <div style="width:32px;height:32px;border-radius:50%;background:${color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">${icon}</div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="line-height:1.5;"><strong style="color:var(--text-primary);">${a.user_name}</strong> <span style="color:#64748b;">${text}</span></div>
-                        ${a.old_value || a.new_value ? `<div style="margin-top:4px;padding:6px 10px;background:#f1f5f9;border-radius:6px;font-size:12px;color:#475569;">${a.old_value && a.new_value ? `<span style="text-decoration:line-through;color:#94a3b8;">${a.old_value}</span> → <span style="color:#1e293b;font-weight:500;">${a.new_value}</span>` : a.new_value ? `<span style="color:#1e293b;font-weight:500;">${a.new_value}</span>` : `<span style="text-decoration:line-through;color:#94a3b8;">${a.old_value}</span>`}</div>` : ''}
-                    </div>
-                    <div style="color:#94a3b8;font-size:11px;white-space:nowrap;margin-top:2px;">${timeStr}</div>
-                </div>`;
+                const info = formatActivityAction(a);
+                const isLast = idx === items.length - 1;
+                html += '<div style="position:relative;padding-bottom:' + (isLast ? '4' : '16') + 'px;">' +
+                    '<div style="position:absolute;left:-17px;top:4px;width:12px;height:12px;border-radius:50%;background:' + info.color + ';border:2px solid white;box-shadow:0 0 0 2px ' + info.color + '33;z-index:1;"></div>' +
+                    '<div style="background:white;border:1px solid #e8ecf1;border-radius:10px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:box-shadow 0.2s;">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
+                            '<div style="flex:1;min-width:0;">' +
+                                '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' +
+                                    '<span style="font-size:15px;">' + info.icon + '</span>' +
+                                    '<span style="font-size:13px;font-weight:600;color:#1e293b;">' + (a.user_name || 'Система') + '</span>' +
+                                '</div>' +
+                                '<div style="font-size:13px;color:#475569;line-height:1.4;">' + info.text + '</div>' +
+                            '</div>' +
+                            '<div style="font-size:11px;color:#94a3b8;white-space:nowrap;font-weight:500;background:#f8fafc;padding:2px 8px;border-radius:10px;">' + timeStr + '</div>' +
+                        '</div>' +
+                        formatActivityDetails(a, info) +
+                    '</div>' +
+                '</div>';
             });
         }
+        html += '</div>';
         container.innerHTML = html;
     } else {
-        container.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;">История изменений пуста</div>';
+        container.innerHTML = '<div style="text-align:center;padding:40px 20px;">' +
+            '<div style="font-size:36px;margin-bottom:12px;opacity:0.5;">📋</div>' +
+            '<div style="font-size:14px;color:#94a3b8;font-weight:500;">История изменений пуста</div>' +
+            '<div style="font-size:12px;color:#cbd5e1;margin-top:4px;">Все изменения по задаче будут отображаться здесь</div></div>';
     }
+}
+
+function formatActivityDetails(a, info) {
+    const ov = a.old_value || (a.details && a.details.includes("Изменено с") ? a.details.split("'")[1] : null);
+    const nv = a.new_value || (a.details && a.details.includes("' на '") ? a.details.split("' на '")[1]?.replace("'","") : null);
+    if (ov && nv) {
+        return '<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fef2f2,#fff);border-left:3px solid #fca5a5;border-radius:0 6px 6px 0;font-size:12px;color:#94a3b8;text-decoration:line-through;">' + ov + '</div>' +
+               '<div style="margin-top:4px;padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#fff);border-left:3px solid #86efac;border-radius:0 6px 6px 0;font-size:12px;color:#166534;font-weight:500;">' + nv + '</div>';
+    }
+    if (nv) return '<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#fff);border-left:3px solid #86efac;border-radius:0 6px 6px 0;font-size:12px;color:#166534;font-weight:500;">' + nv + '</div>';
+    if (ov) return '<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fef2f2,#fff);border-left:3px solid #fca5a5;border-radius:0 6px 6px 0;font-size:12px;color:#94a3b8;text-decoration:line-through;">' + ov + '</div>';
+    if (a.details && a.action !== 'task_created' && a.action !== 'created') {
+        return '<div style="margin-top:8px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:0 6px 6px 0;font-size:12px;color:#475569;">' + a.details + '</div>';
+    }
+    return '';
 }
 
 function formatActivityAction(a) {
     const action = a.action;
-    const details = a.details || '';
-    if (action === 'task_created') return {icon:'✨', color:'#22c55e', text:'создал(а) задачу'};
-    if (action === 'status_changed') return {icon:'🔄', color:'#3b82f6', text:'изменил(а) статус'};
-    if (action === 'priority_changed') return {icon:'⚡', color:'#f59e0b', text:'изменил(а) приоритет'};
-    if (action === 'assigned_to_changed') return {icon:'👤', color:'#8b5cf6', text:'изменил(а) исполнителя'};
-    if (action === 'assigned') return {icon:'👤', color:'#8b5cf6', text:'назначил(а) исполнителя'};
-    if (action === 'department_id_changed') return {icon:'🏢', color:'#06b6d4', text:'изменил(а) отдел'};
-    if (action === 'deadline_changed') return {icon:'📅', color:'#ef4444', text:'изменил(а) дедлайн'};
-    if (action === 'title_changed') return {icon:'✏️', color:'#64748b', text:'изменил(а) название'};
-    if (action === 'description_changed') return {icon:'📝', color:'#64748b', text:'изменил(а) описание'};
-    if (action === 'comment_added') return {icon:'💬', color:'#06b6d4', text:'добавил(а) комментарий'};
-    if (action === 'watcher_added') return {icon:'👁', color:'#8b5cf6', text:'добавил(а) наблюдателя'};
-    if (action === 'watcher_removed') return {icon:'👁', color:'#ef4444', text:'убрал(а) наблюдателя'};
-    // Legacy formats
-    if (action === 'created') return {icon:'✨', color:'#22c55e', text:'создал(а) задачу'};
-    if (action === 'changed status' || action === 'status') return {icon:'🔄', color:'#3b82f6', text:'изменил(а) статус'};
-    if (action === 'changed priority' || action === 'priority') return {icon:'⚡', color:'#f59e0b', text:'изменил(а) приоритет'};
-    if (action === 'changed deadline' || action === 'deadline') return {icon:'📅', color:'#ef4444', text:'изменил(а) дедлайн'};
-    if (action === 'assigned_to') return {icon:'👤', color:'#8b5cf6', text:'назначил(а) исполнителя'};
-    if (action === 'comment') return {icon:'💬', color:'#06b6d4', text:'добавил(а) комментарий'};
-    return {icon:'📋', color:'#94a3b8', text: details || action};
+    const d = a.details || '';
+    if (action === 'task_created' || action === 'created') return {icon:'🚀', color:'#22c55e', text:'Создал(а) задачу'};
+    if (action === 'status_changed' || action === 'changed status' || action === 'status') return {icon:'🔄', color:'#3b82f6', text:'Изменил(а) статус задачи'};
+    if (action === 'priority_changed' || action === 'changed priority' || action === 'priority') return {icon:'⚡', color:'#f59e0b', text:'Изменил(а) приоритет задачи'};
+    if (action === 'assigned_to_changed' || action === 'assigned' || action === 'assigned_to') return {icon:'👤', color:'#8b5cf6', text:'Изменил(а) исполнителя задачи'};
+    if (action === 'department_id_changed') return {icon:'🏢', color:'#06b6d4', text:'Изменил(а) отдел задачи'};
+    if (action === 'deadline_changed' || action === 'changed deadline' || action === 'deadline') return {icon:'📅', color:'#ef4444', text:'Изменил(а) дедлайн задачи'};
+    if (action === 'title_changed') return {icon:'✏️', color:'#64748b', text:'Изменил(а) название задачи'};
+    if (action === 'description_changed') return {icon:'📝', color:'#64748b', text:'Изменил(а) описание задачи'};
+    if (action === 'comment_added' || action === 'comment') return {icon:'💬', color:'#06b6d4', text:'Добавил(а) комментарий'};
+    if (action === 'watcher_added') return {icon:'👁️', color:'#8b5cf6', text:'Добавил(а) наблюдателя'};
+    if (action === 'watcher_removed') return {icon:'🚫', color:'#ef4444', text:'Убрал(а) наблюдателя'};
+    return {icon:'📋', color:'#94a3b8', text: d || action};
 }
 
 // =================================
