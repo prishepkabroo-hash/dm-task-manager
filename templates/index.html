@@ -2217,7 +2217,11 @@
             }
 
             #feedbackBtn {
-                display: none !important;
+                width: 40px !important;
+                height: 40px !important;
+                bottom: 70px !important;
+                right: 12px !important;
+                font-size: 16px !important;
             }
 
             .racing-card {
@@ -2692,7 +2696,7 @@
 
             <!-- FLOATING CREATE TASK BUTTON -->
             <!-- FEEDBACK BUTTON -->
-            <button id="feedbackBtn" onclick="showFeedbackModal()" style="position:fixed;bottom:24px;left:24px;padding:8px 16px;border-radius:20px;background:white;border:1px solid #e2e8f0;color:#64748b;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.08);z-index:99;display:flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseenter="this.style.borderColor='#3b82f6';this.style.color='#3b82f6'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.color='#64748b'">
+            <button id="feedbackBtn" onclick="showFeedbackModal()" style="position:fixed;bottom:24px;left:280px;padding:10px 18px;border-radius:24px;background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:white;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);z-index:99;display:flex;align-items:center;gap:8px;transition:all 0.2s;font-weight:600;" onmouseenter="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 16px rgba(59,130,246,0.4)'" onmouseleave="this.style.transform='scale(1)';this.style.boxShadow='0 4px 12px rgba(59,130,246,0.3)'"">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                 Обратная связь
             </button>
@@ -3742,12 +3746,16 @@ async function renderDashboard() {
         list.appendChild(div);
     });
     
-    // Mini gamification widget
+    // Mini gamification widget - remove previous first to avoid duplicates
+    const existingWidget = document.getElementById('dashboardGamifWidget');
+    if (existingWidget) existingWidget.remove();
+
     const gamif = await apiCall('/api/gamification/me');
     if (gamif && gamif.stats) {
         const s = gamif.stats;
         const nl = gamif.next_level || {name: 'Чемпион', km_needed: s.total_km || 1};
         const widget = document.createElement('div');
+        widget.id = 'dashboardGamifWidget';
         widget.style.cssText = 'background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); color: white; border-radius: 12px; padding: 24px; margin-top: 30px; box-shadow: 0 4px 20px rgba(15,23,42,0.3);';
         const pct = nl.km_needed > 0 ? Math.min(100, Math.round((s.total_km / nl.km_needed) * 100)) : 100;
         widget.innerHTML = `
@@ -3917,6 +3925,7 @@ async function renderKanban() {
                 <div style="display:flex;align-items:center;gap:8px;">
                     ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 24, assignee.avatar_url) : '<div style="width:24px;height:24px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;color:#cbd5e1;">?</div>'}
                     <span style="font-size:12px;color:#64748b;">${assignee ? assignee.full_name.split(' ')[0] : 'Не назначен'}</span>
+                    ${assignee ? onlineDotHtml(assignee.id) : ''}
                 </div>
             `;
 
@@ -4049,7 +4058,7 @@ async function submitQuickTask(el, status) {
 
     const dateVal = dateInput.value;
     const timeVal = timeContainer ? getCustomTime(timeContainer) : '';
-    const deadline = dateVal ? (dateVal + 'T' + timeVal) : null;
+    const deadline = dateVal ? (dateVal + (timeVal ? 'T' + timeVal : 'T09:00')) : null;
     const payload = {title, description:'', status, priority:'medium', department_id, deadline, assigned_to: currentUser.id};
     const resp = await apiCall('/api/tasks', {method:'POST', body:JSON.stringify(payload)});
     if (resp && resp.ok) {
@@ -4449,7 +4458,7 @@ async function saveTask() {
     const department_id = deptVal ? parseInt(deptVal) : null;
     const dateVal = document.getElementById('taskDeadlineDate').value;
     const timeVal = getCustomTime(document.getElementById('taskDeadlineTime'));
-    const deadline = dateVal ? (dateVal + 'T' + timeVal) : null;
+    const deadline = dateVal ? (dateVal + (timeVal ? 'T' + timeVal : 'T09:00')) : null;
     const assignVal = document.getElementById('taskAssignee').value;
     const assigned_to = assignVal ? parseInt(assignVal) : null;
 
@@ -4848,18 +4857,33 @@ async function loadDetailActivity(taskId) {
     container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;">Загрузка...</div>';
     const activity = await apiCall('/api/tasks/' + taskId + '/activity');
     if (activity && activity.length) {
-        container.innerHTML = activity.map(a => `
-            <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
-                <div style="width:6px;height:6px;border-radius:50%;background:#3b82f6;margin-top:6px;flex-shrink:0;"></div>
-                <div>
-                    <div style="font-size:13px;color:#1e293b;"><b>${a.user_name}</b> ${a.action}</div>
-                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${formatDateTime(a.created_at)}</div>
+        container.innerHTML = activity.map(a => {
+            const date = new Date(a.created_at);
+            const timeStr = date.toLocaleDateString('ru-RU') + ' ' + date.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+            const actionText = formatActivityAction(a.action, a.old_value, a.new_value);
+            return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">
+                <div style="width:28px;height:28px;border-radius:50%;background:${a.avatar_color || '#94a3b8'};display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;flex-shrink:0;">${(a.user_name || '?')[0]}</div>
+                <div style="flex:1;">
+                    <div><strong>${a.user_name}</strong> ${actionText}</div>
+                    <div style="color:#94a3b8;font-size:11px;margin-top:2px;">${timeStr}</div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     } else {
         container.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;">Нет событий</div>';
     }
+}
+
+function formatActivityAction(action, oldVal, newVal) {
+    const statusNames = {'new':'Новая','todo':'Новая','in_progress':'В работе','review':'Согласование','done':'Готово','cancelled':'Отменена'};
+    const priorityNames = {'low':'Низкий','medium':'Средний','high':'Высокий','urgent':'Срочный'};
+    if (action === 'created') return 'создал(а) задачу';
+    if (action === 'changed status' || action === 'status') return `изменил(а) статус: <span style="color:#ef4444">${statusNames[oldVal]||oldVal}</span> → <span style="color:#22c55e">${statusNames[newVal]||newVal}</span>`;
+    if (action === 'changed priority' || action === 'priority') return `изменил(а) приоритет: ${priorityNames[oldVal]||oldVal} → ${priorityNames[newVal]||newVal}`;
+    if (action === 'changed deadline' || action === 'deadline') return `изменил(а) дедлайн: ${oldVal||'—'} → ${newVal||'—'}`;
+    if (action === 'assigned' || action === 'assigned_to') return `назначил(а) исполнителя`;
+    if (action === 'comment') return 'добавил(а) комментарий';
+    return action + (oldVal ? ': ' + oldVal + ' → ' + newVal : '');
 }
 
 // =================================
@@ -5182,13 +5206,19 @@ async function renderLeaderboard() {
                     <div style="font-size: 13px; opacity: 0.7;">километров</div>
                 </div>
             </div>
-            <div style="margin-top:20px;position:relative;">
-                <div style="position:relative;height:32px;background:linear-gradient(180deg,#374151 0%,#4b5563 40%,#374151 60%,#4b5563 100%);border-radius:16px;overflow:hidden;border:2px solid #6b7280;">
-                    <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:repeating-linear-gradient(90deg,#fbbf24 0px,#fbbf24 20px,transparent 20px,transparent 40px);transform:translateY(-50%);opacity:0.5;"></div>
-                    <div style="position:absolute;top:0;left:0;height:100%;width:${pct}%;background:linear-gradient(90deg,rgba(239,68,68,0.3),rgba(249,115,22,0.3));border-radius:14px;transition:width 0.5s ease;"></div>
-                    <div style="position:absolute;top:50%;left:calc(${Math.max(2, pct)}% - 16px);transform:translateY(-50%);font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));transition:left 0.5s ease;">${levelCarEmoji(s.level)}</div>
+            <div style="margin-top:20px;position:relative;padding:4px 0;">
+                <div style="position:relative;height:36px;background:linear-gradient(180deg,#1f2937 0%,#374151 30%,#4b5563 50%,#374151 70%,#1f2937 100%);border-radius:18px;border:2px solid #6b7280;box-shadow:inset 0 2px 4px rgba(0,0,0,0.3);">
+                    <!-- Дорожная разметка -->
+                    <div style="position:absolute;top:50%;left:8px;right:8px;height:2px;background:repeating-linear-gradient(90deg,#fbbf24 0px,#fbbf24 16px,transparent 16px,transparent 32px);transform:translateY(-50%);opacity:0.6;"></div>
+                    <!-- Бордюры трека сверху и снизу -->
+                    <div style="position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,#ef4444 0px,#ef4444 8px,#f8f8f8 8px,#f8f8f8 16px);border-radius:18px 18px 0 0;opacity:0.7;"></div>
+                    <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,#ef4444 0px,#ef4444 8px,#f8f8f8 8px,#f8f8f8 16px);border-radius:0 0 18px 18px;opacity:0.7;"></div>
+                    <!-- Пройденный путь -->
+                    <div style="position:absolute;top:4px;left:2px;height:calc(100% - 8px);width:${pct}%;background:linear-gradient(90deg,rgba(34,197,94,0.25),rgba(249,115,22,0.3));border-radius:14px;transition:width 0.5s ease;"></div>
                 </div>
-                <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                <!-- Машинка поверх трека (не обрезается) -->
+                <div style="position:absolute;top:50%;left:calc(${Math.max(3, pct)}% - 14px);transform:translateY(-50%);font-size:26px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));transition:left 0.5s ease;z-index:2;line-height:1;">${levelCarEmoji(s.level)}</div>
+                <div style="display:flex;justify-content:space-between;margin-top:6px;">
                     <span style="font-size:11px;opacity:0.6;">🏁 Старт</span>
                     <span style="font-size:11px;opacity:0.6;">🏆 ${nextLevel.name}</span>
                 </div>
@@ -5235,7 +5265,8 @@ async function renderLeaderboard() {
         {type:'perfectionist', name:'Перфекционист', description:'10 задач до дедлайна', icon:'💎'},
         {type:'leader', name:'Лидер', description:'Наберите 500 км', icon:'👑'}
     ];
-    const earned = myStats && myStats.achievements ? myStats.achievements.map(a => a.type) : [];
+    window._earnedAchievements = myStats && myStats.achievements ? myStats.achievements.map(a => a.type) : [];
+    const earned = window._earnedAchievements;
     const visibleAchievements = allAchievements.slice(0, 6);
     const hasMore = allAchievements.length > 6;
 
@@ -5279,6 +5310,40 @@ async function renderLeaderboard() {
             `;
         }).join('');
     }
+}
+
+function showAllAchievements() {
+    const allAchievements = [
+        {type:'first_task', name:'Первый старт', description:'Завершите первую задачу', icon:'🚀'},
+        {type:'speed_demon', name:'Быстрый круг', description:'Завершите задачу в день создания', icon:'⚡'},
+        {type:'consistent', name:'Стабильность', description:'7-дневная серия активности', icon:'📅'},
+        {type:'team_player', name:'Командный игрок', description:'Создайте 10 задач для других', icon:'🤝'},
+        {type:'commentator', name:'Комментатор', description:'Оставьте 50 комментариев', icon:'💬'},
+        {type:'century', name:'Сотня', description:'Завершите 100 задач', icon:'💯'},
+        {type:'marathon', name:'Марафон', description:'Завершите 25 задач', icon:'🏃'},
+        {type:'social', name:'Общительный', description:'Оставьте 10 комментариев', icon:'🗣️'},
+        {type:'department_star', name:'Звезда отдела', description:'5 задач за день', icon:'⭐'},
+        {type:'early_bird', name:'Ранняя пташка', description:'Завершите до дедлайна', icon:'🐦'},
+        {type:'perfectionist', name:'Перфекционист', description:'10 задач до дедлайна', icon:'💎'},
+        {type:'leader', name:'Лидер', description:'Наберите 500 км', icon:'👑'}
+    ];
+    const earned = window._earnedAchievements || [];
+    const grid = document.getElementById('achievementGrid');
+
+    grid.innerHTML = allAchievements.map(ach => `
+        <div class="achievement-card ${earned.includes(ach.type) ? '' : 'locked'}">
+            <div style="font-size: 32px; margin-bottom: 8px;">${ach.icon}</div>
+            <div style="font-weight: 600; margin-bottom: 4px;">${ach.name}</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">${ach.description}</div>
+        </div>
+    `).join('') + `
+        <div class="achievement-card" style="cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px dashed #f59e0b;min-height:120px;" onclick="renderLeaderboard()">
+            <div style="text-align:center;">
+                <div style="font-size:24px;margin-bottom:6px;">🔼</div>
+                <div style="font-weight:600;font-size:13px;color:#d97706;">Свернуть</div>
+            </div>
+        </div>
+    `;
 }
 
 async function renderProfile() {
@@ -5748,7 +5813,7 @@ async function saveDealineFromCalendar(taskId) {
     const dateVal = document.getElementById('dlCalendarDate').value;
     const timeVal = getCustomTime(document.getElementById('dlCalendarTime'));
     if (!dateVal) return;
-    const deadlineStr = dateVal + 'T' + timeVal;
+    const deadlineStr = dateVal + (timeVal ? 'T' + timeVal : 'T09:00');
     await detailChangeField('deadline', deadlineStr);
     document.getElementById('deadlineCalendarOverlay').remove();
     renderKanban(); // Refresh kanban to show updated deadline
@@ -5855,7 +5920,7 @@ async function saveDeadlineFromCardEditor(taskId) {
     const dateVal = document.getElementById('ceDate').value;
     const timeVal = getCustomTime(document.getElementById('ceTime'));
     if (!dateVal) return;
-    const deadlineStr = dateVal + 'T' + timeVal;
+    const deadlineStr = dateVal + (timeVal ? 'T' + timeVal : 'T09:00');
     await saveCardField(taskId, 'deadline', deadlineStr);
 }
 
@@ -6096,7 +6161,7 @@ function startUserOnboarding() {
         {
             icon: '📊',
             title: 'Дашборд',
-            description: 'Здесь вы видите сводку по вашим задачам: сколько новых, в работе, на проверке и завершённых. Быстрый обзор вашей загрузки.',
+            description: 'Здесь вы видите сводку по вашим задачам: сколько новых, в работе, на согласовании и завершённых. Быстрый обзор вашей загрузки.',
             selector: '[data-page="dashboard"]',
             position: 'right'
         },

@@ -1795,9 +1795,18 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 params.append(task_id)
                 conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
 
-                # Log status change
+                # Log all field changes
+                if old_task:
+                    for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline"]:
+                        if field in data:
+                            old_val = old_task[field]
+                            new_val = data[field] if data[field] != "" else None
+                            if str(old_val or "") != str(new_val or ""):
+                                log_activity(conn, int(task_id), u["id"], f"{field}_changed",
+                                           f"Изменено с '{old_val or ''}' на '{new_val or ''}'")
+
+                # Log status change with notifications
                 if "status" in data and old_task and data["status"] != old_task["status"]:
-                    log_activity(conn, int(task_id), u["id"], "status_changed", f"Статус изменён с '{old_task['status']}' на '{data['status']}'")
                     status_names = {"new":"Новая","in_progress":"В работе","review":"Согласование","done":"Готово","cancelled":"Отменена"}
                     msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
                     watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
@@ -1809,7 +1818,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                         conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
                             (nid, task_id, "status_change", msg))
 
-                # Log assignment change
+                # Log assignment change with special handling
                 if "assigned_to" in data and old_task and data["assigned_to"] != old_task["assigned_to"]:
                     new_assignee = conn.execute("SELECT full_name FROM users WHERE id=?", (data["assigned_to"],)).fetchone() if data["assigned_to"] else None
                     details = f"Назначено: {new_assignee['full_name']}" if new_assignee else "Назначение отменено"
