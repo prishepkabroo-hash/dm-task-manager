@@ -3221,8 +3221,8 @@ function priorityName(p) {
 }
 
 function levelIcon(level) {
-    const icons = {'Босоногий':'🦶','Самокатчик':'🛴','Моноколёсник':'🛵','Байкер':'🏍️','Водитель':'🏎️','Формула 3':'🏎️','Формула 2':'🏎️','Формула 1':'🏎️','Чемпион':'👑','Карт':'🦶','Формула 4':'🛴'};
-    return icons[level] || '🦶';
+    const icons = {'Босоногий':'🏃','Самокатчик':'🛴','Моноколёсник':'🛵','Байкер':'🚵','Водитель':'🏎️','Формула 3':'🏎️','Формула 2':'🏎️','Формула 1':'🏎️','Чемпион':'👑','Карт':'🏃','Формула 4':'🛴'};
+    return icons[level] || '🏃';
 }
 
 function levelFunName(level) {
@@ -3234,10 +3234,10 @@ function twemojiSvg(code) { return 'https://cdn.jsdelivr.net/gh/twitter/twemoji@
 
 function levelCarHtml(level) {
     const levels = {
-        'Босоногий':    {tw:'1f6b6', size:64, anim:'raceFloat 2s ease-in-out infinite', glow:'#a78bfa', tier:0},
+        'Босоногий':    {tw:'1f3c3', size:64, anim:'raceFloat 2s ease-in-out infinite', glow:'#a78bfa', tier:0},
         'Самокатчик':   {tw:'1f6f4', size:72, anim:'raceFloat 1.8s ease-in-out infinite', glow:'#8b5cf6', tier:1},
         'Моноколёсник':  {tw:'1f6f5', size:72, anim:'raceRush 1.6s ease-in-out infinite', glow:'#06b6d4', tier:2},
-        'Байкер':       {tw:'1f3cd', size:80, anim:'raceDrive 1.4s ease-in-out infinite', glow:'#ef4444', tier:3},
+        'Байкер':       {tw:'1f6b5', size:80, anim:'raceDrive 1.4s ease-in-out infinite', glow:'#ef4444', tier:3},
         'Водитель':     {tw:'1f3ce', size:84, anim:'raceDrive 1.2s ease-in-out infinite', glow:'#3b82f6', tier:4},
         'Формула 3':    {tw:'1f3ce', size:88, anim:'raceSpeed 1s ease-in-out infinite', glow:'#22c55e', tier:5},
         'Формула 2':    {tw:'1f3ce', size:92, anim:'raceSpeed 0.8s ease-in-out infinite', glow:'#f59e0b', tier:6},
@@ -3246,8 +3246,8 @@ function levelCarHtml(level) {
     };
     const d = levels[level] || levels['Босоногий'];
     const g = d.glow;
-    // Main character image — crisp SVG, big, with premium drop shadow
-    const img = '<img src="' + twemojiSvg(d.tw) + '" width="' + d.size + '" height="' + d.size + '" style="animation:' + d.anim + ';filter:drop-shadow(0 4px 16px ' + g + 'aa) drop-shadow(0 0 24px ' + g + '55);display:block;" draggable="false">';
+    // Main character image — crisp SVG, wrapper flips to face RIGHT (→), inner does animation
+    const img = '<div style="transform:scaleX(-1);display:inline-block;"><img src="' + twemojiSvg(d.tw) + '" width="' + d.size + '" height="' + d.size + '" style="animation:' + d.anim + ';filter:drop-shadow(0 4px 16px ' + g + 'aa) drop-shadow(0 0 24px ' + g + '55);display:block;" draggable="false"></div>';
     // Underglow — soft colored blob beneath
     const underglow = '<div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:' + (d.size * 0.8) + 'px;height:16px;background:' + g + ';border-radius:50%;animation:glowPulse 2s ease-in-out infinite;opacity:0.5;"></div>';
     // Speed trails for tier >= 3
