@@ -1203,6 +1203,21 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     online_users[uid] = "offline"
             return self._json(online_users)
 
+        if path == "/api/feedback":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            if u.get("role") not in ("admin", "head"):
+                return self._json({"error": "forbidden"}, 403)
+            conn = get_db()
+            rows = conn.execute("""
+                SELECT f.id, f.text, f.rating, f.created_at, u.full_name, u.username
+                FROM feedback f JOIN users u ON f.user_id = u.id
+                ORDER BY f.created_at DESC
+            """).fetchall()
+            conn.close()
+            result = [{"id": r[0], "text": r[1], "rating": r[2], "created_at": r[3], "full_name": r[4], "username": r[5]} for r in rows]
+            return self._json(result)
+
         self.send_response(404); self.end_headers()
 
     def do_POST(self):

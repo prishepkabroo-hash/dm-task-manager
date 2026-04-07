@@ -2940,6 +2940,7 @@
                         <button class="admin-tab active" data-admin-tab="users" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Пользователи</button>
                         <button class="admin-tab" data-admin-tab="departments" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Отделы</button>
                         <button class="admin-tab" data-admin-tab="settings" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Настройки</button>
+                        <button class="admin-tab" data-admin-tab="feedback" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Обратная связь</button>
                     </div>
 
                     <!-- Users Tab -->
@@ -3002,6 +3003,16 @@
                             <button onclick="cleanOrphanedTasks()" style="padding:10px 20px; background:var(--danger); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px;">Удалить задачи без исполнителя</button>
                             <div style="font-size:12px; color:var(--text-secondary); margin-top:8px;">Удаляет задачи, у которых назначенный пользователь был удалён из системы</div>
                         </div>
+                    <!-- Feedback Tab -->
+                    <div class="admin-tab-content" id="adminTabFeedback" style="display:none;">
+                        <div style="background:var(--bg-secondary); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); overflow:hidden;">
+                            <div style="padding:20px; border-bottom:1px solid var(--border-color);">
+                                <div class="section-title" style="margin:0;">Обратная связь от пользователей</div>
+                            </div>
+                            <div id="adminFeedbackList" style="padding:16px;"></div>
+                        </div>
+                    </div>
+
                     </div>
                 </div>
             </div>
@@ -5456,11 +5467,34 @@ async function renderAdmin() {
             if (target === 'users') document.getElementById('adminTabUsers').style.display = 'block';
             else if (target === 'departments') document.getElementById('adminTabDepartments').style.display = 'block';
             else if (target === 'settings') document.getElementById('adminTabSettings').style.display = 'block';
+            else if (target === 'feedback') { document.getElementById('adminTabFeedback').style.display = 'block'; loadAdminFeedback(); }
         };
     });
     // Activate first tab style
     const firstTab = document.querySelector('.admin-tab.active');
     if (firstTab) { firstTab.style.borderBottomColor = 'var(--blue)'; firstTab.style.color = 'var(--text-primary)'; }
+}
+
+async function loadAdminFeedback() {
+    const list = document.getElementById('adminFeedbackList');
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Загрузка...</div>';
+    const data = await apiCall('/api/feedback');
+    if (!data || !data.length) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Пока нет отзывов</div>';
+        return;
+    }
+    list.innerHTML = data.map(f => {
+        const stars = '★'.repeat(f.rating || 0) + '☆'.repeat(5 - (f.rating || 0));
+        const date = f.created_at ? new Date(f.created_at).toLocaleString('ru-RU') : '';
+        return `<div style="padding:16px;border:1px solid var(--border-color);border-radius:10px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-weight:600;font-size:14px;">${f.full_name} <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@${f.username}</span></div>
+                <div style="font-size:12px;color:var(--text-secondary);">${date}</div>
+            </div>
+            <div style="color:#f59e0b;font-size:16px;margin-bottom:8px;">${stars}</div>
+            <div style="font-size:14px;color:var(--text-primary);line-height:1.5;">${f.text || '<em style="color:var(--text-secondary);">Без комментария</em>'}</div>
+        </div>`;
+    }).join('');
 }
 
 async function renderAdminDepts() {
