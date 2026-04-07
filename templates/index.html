@@ -3943,11 +3943,9 @@ async function renderKanban() {
             cardsContainer.appendChild(card);
         });
 
-        col.appendChild(cardsContainer);
-
-        // Quick task creation at bottom of column
+        // Quick task creation at TOP of column
         const quickAdd = document.createElement('div');
-        quickAdd.style.cssText = 'padding:8px 12px;';
+        quickAdd.style.cssText = 'padding:8px 12px 0;';
         quickAdd.innerHTML = `
             <div class="quick-task-btn" onclick="toggleQuickTask(this, '${status}')" style="display:flex;align-items:center;gap:8px;padding:10px;border:2px dashed #cbd5e1;border-radius:8px;cursor:pointer;color:#94a3b8;font-size:13px;transition:all 0.2s;text-align:center;justify-content:center;" onmouseenter="this.style.borderColor='${cfg.color}';this.style.color='${cfg.color}'" onmouseleave="this.style.borderColor='#cbd5e1';this.style.color='#94a3b8'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -3976,6 +3974,8 @@ async function renderKanban() {
             </div>
         `;
         col.appendChild(quickAdd);
+
+        col.appendChild(cardsContainer);
 
         board.appendChild(col);
     });
