@@ -5329,54 +5329,61 @@ async function renderLeaderboard() {
                     <div style="font-size: 13px; opacity: 0.7;">километров</div>
                 </div>
             </div>
-            <div style="margin-top:28px;position:relative;padding:110px 0 0 0;">
-                <!-- СТАРТОВАЯ ЗОНА -->
-                <div style="position:absolute;left:0;top:auto;bottom:48px;width:36px;height:60px;display:flex;flex-direction:column;align-items:center;z-index:1;">
-                    <div style="width:2px;height:24px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.6));"></div>
-                    <div style="width:24px;height:32px;background:repeating-conic-gradient(#fff 0% 25%,#111 0% 50%) 0 0/6px 6px;border-radius:3px;border:1px solid rgba(255,255,255,0.3);box-shadow:0 0 8px rgba(255,255,255,0.15);"></div>
+            <!-- ====== ТРАССА ====== -->
+            <div style="margin-top:32px;position:relative;padding-top:100px;">
+                <!-- Персонаж -->
+                <div style="position:absolute;bottom:56px;left:calc(${Math.max(2, pct)}% - 30px);transition:left 1s cubic-bezier(0.4,0,0.2,1);z-index:5;line-height:0;filter:drop-shadow(0 6px 20px rgba(0,0,0,0.6));">${levelCarHtml(s.level)}</div>
+
+                <!-- Дорога -->
+                <div style="position:relative;height:56px;border-radius:28px;background:#0d1117;border:1px solid rgba(255,255,255,0.05);box-shadow:0 10px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.03);">
+
+                    <!-- Асфальт — зернистость -->
+                    <div style="position:absolute;inset:0;border-radius:28px;background:repeating-linear-gradient(90deg,transparent,transparent 1px,rgba(255,255,255,0.008) 1px,rgba(255,255,255,0.008) 2px);"></div>
+
+                    <!-- Бордюр верх -->
+                    <div style="position:absolute;top:0;left:0;right:0;height:5px;border-radius:28px 28px 0 0;background:repeating-linear-gradient(90deg,#dc2626 0px,#dc2626 12px,#ffffff 12px,#ffffff 24px);opacity:0.4;"></div>
+                    <!-- Бордюр низ -->
+                    <div style="position:absolute;bottom:0;left:0;right:0;height:5px;border-radius:0 0 28px 28px;background:repeating-linear-gradient(90deg,#ffffff 0px,#ffffff 12px,#dc2626 12px,#dc2626 24px);opacity:0.4;"></div>
+
+                    <!-- Центральная разметка -->
+                    <div style="position:absolute;top:50%;left:24px;right:24px;height:2px;transform:translateY(-50%);background:repeating-linear-gradient(90deg,rgba(255,255,255,0.18) 0px,rgba(255,255,255,0.18) 16px,transparent 16px,transparent 36px);"></div>
+
+                    <!-- СТАРТ: 2 белые полосы -->
+                    <div style="position:absolute;left:16px;top:7px;bottom:7px;width:3px;background:#fff;opacity:0.5;border-radius:2px;"></div>
+                    <div style="position:absolute;left:22px;top:7px;bottom:7px;width:3px;background:#fff;opacity:0.3;border-radius:2px;"></div>
+
+                    <!-- ФИНИШ: шахматка -->
+                    <div style="position:absolute;right:6px;top:6px;bottom:6px;width:36px;border-radius:0 22px 22px 0;background:repeating-conic-gradient(#fff 0% 25%,#222 0% 50%) 0 0/8px 8px;opacity:0.25;"></div>
+
+                    <!-- ПРОГРЕСС — яркая полоса -->
+                    <div style="position:absolute;top:6px;left:6px;height:calc(100% - 12px);width:${pct}%;max-width:calc(100% - 12px);border-radius:22px;transition:width 1s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(90deg,#3b82f6 0%,#22d3ee 35%,#22c55e 65%,#4ade80 100%);opacity:0.85;box-shadow:0 0 16px rgba(34,197,94,0.5),0 0 40px rgba(34,197,94,0.2),inset 0 1px 0 rgba(255,255,255,0.25);"></div>
+                    <!-- Блик на прогрессе -->
+                    <div style="position:absolute;top:7px;left:6px;height:calc(50% - 7px);width:${pct}%;max-width:calc(100% - 12px);border-radius:22px 22px 0 0;transition:width 1s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(180deg,rgba(255,255,255,0.2),transparent);pointer-events:none;"></div>
+                    <!-- Свечение на кончике -->
+                    ${pct > 2 ? '<div style="position:absolute;top:50%;left:calc(' + pct + '% + 2px);transform:translate(-50%,-50%);width:10px;height:36px;border-radius:50%;background:radial-gradient(ellipse,rgba(74,222,128,0.9),rgba(74,222,128,0.3) 40%,transparent 70%);transition:left 1s cubic-bezier(0.4,0,0.2,1);pointer-events:none;"></div>' : ''}
+
                 </div>
-                <!-- ФИНИШНАЯ ЗОНА -->
-                <div style="position:absolute;right:0;top:auto;bottom:48px;width:36px;height:60px;display:flex;flex-direction:column;align-items:center;z-index:1;">
-                    <div style="width:2px;height:24px;background:linear-gradient(180deg,transparent,#fbbf24);"></div>
-                    <div style="width:24px;height:32px;background:repeating-conic-gradient(#fbbf24 0% 25%,#111 0% 50%) 0 0/6px 6px;border-radius:3px;border:1px solid rgba(251,191,36,0.4);box-shadow:0 0 12px rgba(251,191,36,0.25);"></div>
-                </div>
-                <!-- ТРЕК -->
-                <div style="position:relative;height:52px;margin:0 18px;background:linear-gradient(180deg,#080c18 0%,#111827 35%,#1a2540 50%,#111827 65%,#080c18 100%);border-radius:26px;border:1px solid rgba(255,255,255,0.06);box-shadow:inset 0 2px 16px rgba(0,0,0,0.7),0 8px 32px rgba(0,0,0,0.5);">
-                    <!-- Дорожная разметка -->
-                    <div style="position:absolute;top:50%;left:20px;right:20px;height:2px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.2) 0px,rgba(255,255,255,0.2) 14px,transparent 14px,transparent 32px);transform:translateY(-50%);"></div>
-                    <!-- Бордюры F1 -->
-                    <div style="position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,#dc2626 0px,#dc2626 10px,#fff 10px,#fff 20px);border-radius:26px 26px 0 0;opacity:0.35;"></div>
-                    <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,#dc2626 0px,#dc2626 10px,#fff 10px,#fff 20px);border-radius:0 0 26px 26px;opacity:0.35;"></div>
-                    <!-- Стартовая линия -->
-                    <div style="position:absolute;left:8px;top:6px;bottom:6px;width:3px;background:rgba(255,255,255,0.4);border-radius:2px;"></div>
-                    <div style="position:absolute;left:14px;top:6px;bottom:6px;width:1px;background:rgba(255,255,255,0.2);border-radius:1px;"></div>
-                    <!-- ПРОГРЕСС — неоновая полоса с градиентом -->
-                    <div style="position:absolute;top:5px;left:5px;height:calc(100% - 10px);width:${pct}%;max-width:calc(100% - 10px);background:linear-gradient(90deg,rgba(59,130,246,0.08) 0%,rgba(59,130,246,0.2) 40%,rgba(34,197,94,0.3) 70%,rgba(34,197,94,0.45) 100%);border-radius:22px;transition:width 1s cubic-bezier(0.4,0,0.2,1);box-shadow:0 0 24px rgba(34,197,94,0.15),inset 0 0 8px rgba(34,197,94,0.1);"></div>
-                    <!-- Световой кончик прогресса -->
-                    <div style="position:absolute;top:50%;left:calc(${Math.max(3, pct)}% + 5px);transform:translate(-50%,-50%);width:6px;height:24px;background:radial-gradient(ellipse,rgba(34,197,94,0.8),transparent);border-radius:50%;transition:left 1s cubic-bezier(0.4,0,0.2,1);${pct < 3 ? 'display:none;' : ''}"></div>
-                    <!-- Финишная зона на треке -->
-                    <div style="position:absolute;right:5px;top:5px;bottom:5px;width:32px;background:repeating-conic-gradient(rgba(255,255,255,0.15) 0% 25%,transparent 0% 50%) 0 0/8px 8px;border-radius:0 22px 22px 0;"></div>
-                </div>
-                <!-- Тень трека -->
-                <div style="height:6px;margin:0 28px;background:linear-gradient(180deg,rgba(8,12,24,0.5),transparent);border-radius:0 0 12px 12px;"></div>
-                <!-- ПЕРСОНАЖ НА ТРЕКЕ -->
-                <div style="position:absolute;bottom:32px;left:calc(18px + ${Math.max(3, pct)}% * 0.92 - 20px);transition:left 1s cubic-bezier(0.4,0,0.2,1);z-index:3;line-height:0;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));">${levelCarHtml(s.level)}</div>
-                <!-- Метки под треком -->
-                <div style="display:flex;justify-content:space-between;margin-top:6px;padding:0 8px;">
-                    <div style="display:flex;align-items:center;gap:4px;">
-                        <div style="width:16px;height:16px;background:repeating-conic-gradient(#fff 0% 25%,#333 0% 50%) 0 0/4px 4px;border-radius:2px;"></div>
-                        <span style="font-size:10px;opacity:0.5;letter-spacing:1px;text-transform:uppercase;">Старт</span>
+
+                <!-- Тень дороги -->
+                <div style="height:8px;margin:0 20px;background:linear-gradient(180deg,rgba(0,0,0,0.35),transparent);border-radius:0 0 16px 16px;"></div>
+
+                <!-- Подписи -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:0 4px;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="font-size:16px;">🏁</div>
+                        <span style="font-size:11px;opacity:0.45;font-weight:600;letter-spacing:0.5px;">СТАРТ</span>
                     </div>
-                    <div style="text-align:center;">
-                        <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.8);">${pct}%</div>
+                    <div style="background:rgba(255,255,255,0.08);padding:3px 14px;border-radius:12px;">
+                        <span style="font-size:13px;font-weight:700;background:linear-gradient(90deg,#3b82f6,#4ade80);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${pct}%</span>
                     </div>
-                    <div style="display:flex;align-items:center;gap:4px;">
-                        <span style="font-size:10px;opacity:0.5;letter-spacing:1px;text-transform:uppercase;">${nextLevel.name}</span>
-                        <div style="width:16px;height:16px;background:repeating-conic-gradient(#fbbf24 0% 25%,#333 0% 50%) 0 0/4px 4px;border-radius:2px;"></div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:11px;opacity:0.45;font-weight:600;letter-spacing:0.5px;">${nextLevel.name}</span>
+                        <div style="font-size:16px;">🏆</div>
                     </div>
                 </div>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; opacity: 0.7; margin-top: 10px;">
+            <!-- Статистика км -->
+            <div style="display:flex;justify-content:space-between;font-size:12px;opacity:0.6;margin-top:8px;">
                 <span>${s.total_km} км пройдено</span>
                 <span>Осталось ${Math.max(0, nextLevel.km_needed - s.total_km)} км</span>
             </div>
