@@ -302,6 +302,19 @@ def init_db():
         );
         """)
 
+    # Migrate: add car_override column to user_stats if missing
+    try:
+        c.execute("SELECT car_override FROM user_stats LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE user_stats ADD COLUMN car_override TEXT DEFAULT ''")
+
+    # Migrate: add switch_car permission if missing
+    existing_perms = [r[0] for r in c.execute("SELECT DISTINCT permission FROM role_permissions").fetchall()]
+    if 'switch_car' not in existing_perms:
+        c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', 'switch_car', 1)")
+        c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', 'switch_car', 0)")
+        c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', 'switch_car', 0)")
+
     # Migrate: add head_user_id column to departments if missing
     try:
         c.execute("SELECT head_user_id FROM departments LIMIT 1")
@@ -362,12 +375,12 @@ def init_db():
     # Seed default permissions if empty
     if c.execute("SELECT COUNT(*) FROM role_permissions").fetchone()[0] == 0:
         default_perms = {
-            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard'],
+            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car'],
             'head': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','messenger','leaderboard'],
             'member': ['create_tasks','assign_tasks','comments','messenger','leaderboard']
         }
         for role, perms in default_perms.items():
-            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard']
+            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car']
             for p in all_perms:
                 allowed = 1 if p in perms else 0
                 c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (?,?,?)", (role, p, allowed))
@@ -1178,10 +1191,19 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             ).fetchall()
             conn.close()
             next_level = get_next_level(stats["total_km"])
+            stats_dict = dict(stats)
+            # Include car_override if set
+            car_override = stats_dict.get('car_override', '') or ''
+            # Check if user has switch_car permission
+            role = u.get('role', 'member')
+            perm_row = conn.execute("SELECT allowed FROM role_permissions WHERE role=? AND permission='switch_car'", (role,)).fetchone()
+            can_switch_car = bool(perm_row and perm_row['allowed'])
             return self._json({
-                "stats": dict(stats),
+                "stats": stats_dict,
                 "next_level": next_level,
-                "achievements": [dict(a) for a in achievements]
+                "achievements": [dict(a) for a in achievements],
+                "car_override": car_override,
+                "can_switch_car": can_switch_car
             })
 
         if path == "/api/gamification/leaderboard":
@@ -1196,7 +1218,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.commit()
             leaderboard = conn.execute("""
                 SELECT u.id, u.full_name, u.avatar_color, s.total_km, s.level, s.tasks_completed,
-                       d.name as department_name
+                       d.name as department_name, s.car_override
                 FROM user_stats s
                 JOIN users u ON s.user_id = u.id
                 LEFT JOIN departments d ON u.department_id = d.id
@@ -1573,6 +1595,27 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.execute("INSERT INTO group_messages (group_id, sender_id, text) VALUES (?,?,?)", (gid, u["id"], text))
             conn.commit(); conn.close()
             return self._json({"ok": True})
+
+        if path == "/api/gamification/car-override":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            # Check switch_car permission
+            role = u.get('role', 'member')
+            perm_row = conn.execute("SELECT allowed FROM role_permissions WHERE role=? AND permission='switch_car'", (role,)).fetchone()
+            if not perm_row or not perm_row['allowed']:
+                conn.close()
+                return self._json({"error": "Нет прав для смены машины"}, 403)
+            car_level = data.get('car_level', '').strip()
+            valid_levels = ['Босоногий','Самокатчик','Моноколёсник','Байкер','Водитель','Формула 3','Формула 2','Формула 1','Чемпион','']
+            if car_level not in valid_levels:
+                conn.close()
+                return self._json({"error": "Неверный уровень"}, 400)
+            ensure_user_stats(conn, u["id"])
+            conn.execute("UPDATE user_stats SET car_override=? WHERE user_id=?", (car_level, u["id"]))
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True, "car_override": car_level})
 
         if path == "/api/gamification/check":
             u = self._user()

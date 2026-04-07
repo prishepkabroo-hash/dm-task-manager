@@ -35,8 +35,6 @@
             --status-review: #8b5cf6;
             --status-done: #22c55e;
             --status-cancelled: #94a3b8;
-            --racing-red: #dc2626;
-            --racing-orange: #ea580c;
         }
 
         body {
@@ -1141,25 +1139,6 @@
             font-size: 16px;
             font-weight: 600;
             margin-bottom: 12px;
-        }
-
-        .progress-track {
-            background-color: rgba(255,255,255,0.2);
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--racing-orange) 0%, var(--racing-red) 100%);
-            transition: width 0.3s ease;
-        }
-
-        .progress-text {
-            font-size: 12px;
-            opacity: 0.9;
         }
 
         .achievement-grid {
@@ -2873,11 +2852,7 @@
                     <div class="racing-card">
                         <div class="racing-title">🏁 DM Racing</div>
                         <div id="userRacingCard">
-                            <div class="racing-user" id="racingUserName">Загрузка...</div>
-                            <div class="progress-track">
-                                <div class="progress-fill" id="racingProgress" style="width: 0%;"></div>
-                            </div>
-                            <div class="progress-text" id="racingStats">0 / 100 очков</div>
+                            <div style="text-align:center;padding:20px;opacity:0.6;">Загрузка...</div>
                         </div>
                     </div>
                     <div style="background-color: var(--bg-secondary); border-radius: 8px; padding: 20px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -2891,8 +2866,8 @@
                                     <th>Место</th>
                                     <th>Сотрудник</th>
                                     <th>Отдел</th>
-                                    <th>Очки</th>
-                                    <th>Завершено</th>
+                                    <th>Уровень</th>
+                                    <th>Километры</th>
                                 </tr>
                             </thead>
                             <tbody id="leaderboardTable"></tbody>
@@ -3235,12 +3210,12 @@ function levelCarHtml(level) {
         'Босоногий':    {file:'1-barefoot.png', w:60, h:79, anim:'raceFloat 2s ease-in-out infinite', glow:'#a78bfa', tier:0},
         'Самокатчик':   {file:'2-scooter.png', w:65, h:86, anim:'raceFloat 1.8s ease-in-out infinite', glow:'#8b5cf6', tier:1},
         'Моноколёсник':  {file:'3-monowheel.png', w:60, h:82, anim:'raceRush 1.6s ease-in-out infinite', glow:'#06b6d4', tier:2},
-        'Байкер':       {file:'4-biker.png', w:90, h:85, anim:'raceDrive 1.4s ease-in-out infinite', glow:'#ef4444', tier:3},
+        'Байкер':       {file:'4-biker.png', w:85, h:85, anim:'raceDrive 1.4s ease-in-out infinite', glow:'#ef4444', tier:3},
         'Водитель':     {file:'5-driver.png', w:120, h:80, anim:'raceDrive 1.2s ease-in-out infinite', glow:'#3b82f6', tier:4},
-        'Формула 3':    {file:'6-f3.png', w:140, h:67, anim:'raceSpeed 1s ease-in-out infinite', glow:'#22c55e', tier:5},
-        'Формула 2':    {file:'7-f2.png', w:145, h:74, anim:'raceSpeed 0.8s ease-in-out infinite', glow:'#f59e0b', tier:6},
-        'Формула 1':    {file:'8-f1.png', w:150, h:88, anim:'raceSpeed 0.6s ease-in-out infinite', glow:'#ef4444', tier:7},
-        'Чемпион':      {file:'9-champion.png', w:160, h:108, anim:'champPulse 1.2s ease-in-out infinite', glow:'#fbbf24', tier:8}
+        'Формула 3':    {file:'6-f3.png', w:143, h:67, anim:'raceSpeed 1s ease-in-out infinite', glow:'#22c55e', tier:5},
+        'Формула 2':    {file:'7-f2.png', w:146, h:74, anim:'raceSpeed 0.8s ease-in-out infinite', glow:'#f59e0b', tier:6},
+        'Формула 1':    {file:'8-f1.png', w:157, h:88, anim:'raceSpeed 0.6s ease-in-out infinite', glow:'#ef4444', tier:7},
+        'Чемпион':      {file:'9-champion.png', w:159, h:108, anim:'champPulse 1.2s ease-in-out infinite', glow:'#fbbf24', tier:8}
     };
     const d = levels[level] || levels['Босоногий'];
     const g = d.glow;
@@ -3810,8 +3785,8 @@ async function renderDashboard() {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <div>
                     <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin-bottom: 4px;">Ваш уровень</div>
-                    <div style="font-size: 20px; font-weight: 700;">${levelIcon(s.level)} ${s.level}</div>
-                    <div style="font-size: 11px; opacity: 0.5; font-style:italic;">«${levelFunName(s.level)}»</div>
+                    <div style="font-size: 20px; font-weight: 700;">${levelIcon(gamif.car_override || s.level)} ${gamif.car_override || s.level}</div>
+                    <div style="font-size: 11px; opacity: 0.5; font-style:italic;">«${levelFunName(gamif.car_override || s.level)}»</div>
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 28px; font-weight: 700;">${s.total_km || 0} <span style="font-size: 14px; opacity: 0.7;">км</span></div>
@@ -5316,12 +5291,19 @@ async function renderLeaderboard() {
         const progress = s.total_km - currentThreshold;
         const pct = range > 0 ? Math.min(100, Math.round((progress / range) * 100)) : 100;
         const levelReached = pct >= 100;
+        // Determine displayed car (override or earned)
+        const displayLevel = myStats.car_override || s.level;
+        const allLevels = ['Босоногий','Самокатчик','Моноколёсник','Байкер','Водитель','Формула 3','Формула 2','Формула 1','Чемпион'];
+        const currentIdx = allLevels.indexOf(displayLevel);
+        // Can switch: from API permission OR admin role fallback
+        const canSwitch = myStats.can_switch_car || (currentUser && currentUser.role === 'admin');
+
         userCard.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div>
                     <div style="font-size: 12px; text-transform:uppercase; letter-spacing:1px; opacity:0.6; margin-bottom:4px;">Ваш уровень</div>
-                    <div style="font-size: 28px; font-weight: 700; margin-bottom: 2px;">${levelIcon(s.level)} ${s.level}</div>
-                    <div style="font-size: 12px; opacity: 0.6; font-style:italic; margin-bottom:2px;">«${levelFunName(s.level)}»</div>
+                    <div style="font-size: 28px; font-weight: 700; margin-bottom: 2px;">${levelIcon(displayLevel)} ${displayLevel}</div>
+                    <div style="font-size: 12px; opacity: 0.6; font-style:italic; margin-bottom:2px;">\u00AB${levelFunName(displayLevel)}\u00BB</div>
                     <div style="font-size: 14px; opacity: 0.8;">${currentUser.full_name}</div>
                 </div>
                 <div style="text-align:right;">
@@ -5329,59 +5311,49 @@ async function renderLeaderboard() {
                     <div style="font-size: 13px; opacity: 0.7;">километров</div>
                 </div>
             </div>
+
+            ${canSwitch ? '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:20px;padding:14px;background:rgba(255,255,255,0.06);border-radius:14px;border:1px solid rgba(255,255,255,0.08);"><button onclick="switchCarPrev()" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:white;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background=\'rgba(255,255,255,0.2)\';this.style.borderColor=\'rgba(255,255,255,0.4)\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.borderColor=\'rgba(255,255,255,0.2)\'">\u25C0</button><div style="text-align:center;min-width:140px;" id="carPreviewCenter">' + levelCarHtml(displayLevel) + '<div style="font-size:12px;margin-top:6px;font-weight:700;">' + displayLevel + '</div><div style="font-size:10px;opacity:0.5;margin-top:2px;">' + (currentIdx+1) + ' / ' + allLevels.length + '</div></div><button onclick="switchCarNext()" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:white;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background=\'rgba(255,255,255,0.2)\';this.style.borderColor=\'rgba(255,255,255,0.4)\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.borderColor=\'rgba(255,255,255,0.2)\'">\u25B6</button></div>' : ''}
+
             <!-- ====== ТРАССА ====== -->
-            <div style="margin-top:32px;position:relative;padding-top:100px;">
+            <div style="margin-top:28px;position:relative;padding-top:100px;">
                 <!-- Персонаж -->
-                <div style="position:absolute;bottom:56px;left:calc(${Math.max(2, pct)}% - 30px);transition:left 1s cubic-bezier(0.4,0,0.2,1);z-index:5;line-height:0;filter:drop-shadow(0 6px 20px rgba(0,0,0,0.6));">${levelCarHtml(s.level)}</div>
+                <div style="position:absolute;bottom:62px;left:calc(${Math.max(4, Math.min(90, pct))}% - 30px);transition:left 1.2s cubic-bezier(0.25,0.46,0.45,0.94);z-index:10;line-height:0;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.7));">
+                    ${levelCarHtml(displayLevel)}
+                </div>
 
                 <!-- Дорога -->
-                <div style="position:relative;height:56px;border-radius:28px;background:#0d1117;border:1px solid rgba(255,255,255,0.05);box-shadow:0 10px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.03);">
+                <div style="position:relative;height:48px;background:#222;border-radius:24px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                    <!-- Кербы сверху (красно-белые) -->
+                    <div style="position:absolute;top:0;left:0;right:0;height:6px;border-radius:24px 24px 0 0;overflow:hidden;"><div style="height:100%;background:repeating-linear-gradient(90deg,#e11d48 0 8px,#fff 8px 16px);opacity:0.7;"></div></div>
+                    <!-- Кербы снизу -->
+                    <div style="position:absolute;bottom:0;left:0;right:0;height:6px;border-radius:0 0 24px 24px;overflow:hidden;"><div style="height:100%;background:repeating-linear-gradient(90deg,#fff 0 8px,#e11d48 8px 16px);opacity:0.7;"></div></div>
 
-                    <!-- Асфальт — зернистость -->
-                    <div style="position:absolute;inset:0;border-radius:28px;background:repeating-linear-gradient(90deg,transparent,transparent 1px,rgba(255,255,255,0.008) 1px,rgba(255,255,255,0.008) 2px);"></div>
+                    <!-- Разметка центральная пунктир -->
+                    <div style="position:absolute;top:50%;left:30px;right:30px;height:2px;transform:translateY(-50%);background:repeating-linear-gradient(90deg,rgba(255,255,255,0.35) 0 14px,transparent 14px 30px);"></div>
 
-                    <!-- Бордюр верх -->
-                    <div style="position:absolute;top:0;left:0;right:0;height:5px;border-radius:28px 28px 0 0;background:repeating-linear-gradient(90deg,#dc2626 0px,#dc2626 12px,#ffffff 12px,#ffffff 24px);opacity:0.4;"></div>
-                    <!-- Бордюр низ -->
-                    <div style="position:absolute;bottom:0;left:0;right:0;height:5px;border-radius:0 0 28px 28px;background:repeating-linear-gradient(90deg,#ffffff 0px,#ffffff 12px,#dc2626 12px,#dc2626 24px);opacity:0.4;"></div>
+                    <!-- Линия СТАРТ -->
+                    <div style="position:absolute;left:12px;top:8px;bottom:8px;width:4px;background:#fff;border-radius:2px;opacity:0.8;"></div>
+                    <div style="position:absolute;left:18px;top:8px;bottom:8px;width:4px;background:#fff;border-radius:2px;opacity:0.5;"></div>
 
-                    <!-- Центральная разметка -->
-                    <div style="position:absolute;top:50%;left:24px;right:24px;height:2px;transform:translateY(-50%);background:repeating-linear-gradient(90deg,rgba(255,255,255,0.18) 0px,rgba(255,255,255,0.18) 16px,transparent 16px,transparent 36px);"></div>
+                    <!-- Флаг ФИНИШ (шахматка) -->
+                    <div style="position:absolute;right:8px;top:7px;bottom:7px;width:22px;border-radius:4px;overflow:hidden;opacity:0.8;"><div style="width:100%;height:100%;background:repeating-conic-gradient(#fff 0% 25%,#111 0% 50%) 0 0/6px 6px;"></div></div>
 
-                    <!-- СТАРТ: 2 белые полосы -->
-                    <div style="position:absolute;left:16px;top:7px;bottom:7px;width:3px;background:#fff;opacity:0.5;border-radius:2px;"></div>
-                    <div style="position:absolute;left:22px;top:7px;bottom:7px;width:3px;background:#fff;opacity:0.3;border-radius:2px;"></div>
-
-                    <!-- ФИНИШ: шахматка -->
-                    <div style="position:absolute;right:6px;top:6px;bottom:6px;width:36px;border-radius:0 22px 22px 0;background:repeating-conic-gradient(#fff 0% 25%,#222 0% 50%) 0 0/8px 8px;opacity:0.25;"></div>
-
-                    <!-- ПРОГРЕСС — яркая полоса -->
-                    <div style="position:absolute;top:6px;left:6px;height:calc(100% - 12px);width:${pct}%;max-width:calc(100% - 12px);border-radius:22px;transition:width 1s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(90deg,#3b82f6 0%,#22d3ee 35%,#22c55e 65%,#4ade80 100%);opacity:0.85;box-shadow:0 0 16px rgba(34,197,94,0.5),0 0 40px rgba(34,197,94,0.2),inset 0 1px 0 rgba(255,255,255,0.25);"></div>
+                    <!-- Прогресс-бар -->
+                    <div style="position:absolute;top:7px;left:7px;height:calc(100% - 14px);width:calc(${pct}% - 6px);max-width:calc(100% - 14px);border-radius:18px;transition:width 1s ease-out;background:linear-gradient(90deg,#3b82f6,#06b6d4,#10b981);box-shadow:0 0 16px rgba(6,182,212,0.5),inset 0 1px rgba(255,255,255,0.3);"></div>
                     <!-- Блик на прогрессе -->
-                    <div style="position:absolute;top:7px;left:6px;height:calc(50% - 7px);width:${pct}%;max-width:calc(100% - 12px);border-radius:22px 22px 0 0;transition:width 1s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(180deg,rgba(255,255,255,0.2),transparent);pointer-events:none;"></div>
-                    <!-- Свечение на кончике -->
-                    ${pct > 2 ? '<div style="position:absolute;top:50%;left:calc(' + pct + '% + 2px);transform:translate(-50%,-50%);width:10px;height:36px;border-radius:50%;background:radial-gradient(ellipse,rgba(74,222,128,0.9),rgba(74,222,128,0.3) 40%,transparent 70%);transition:left 1s cubic-bezier(0.4,0,0.2,1);pointer-events:none;"></div>' : ''}
-
+                    <div style="position:absolute;top:7px;left:7px;height:calc(50% - 7px);width:calc(${pct}% - 6px);max-width:calc(100% - 14px);border-radius:18px 18px 0 0;transition:width 1s ease-out;background:linear-gradient(180deg,rgba(255,255,255,0.25),transparent);pointer-events:none;"></div>
                 </div>
-
-                <!-- Тень дороги -->
-                <div style="height:8px;margin:0 20px;background:linear-gradient(180deg,rgba(0,0,0,0.35),transparent);border-radius:0 0 16px 16px;"></div>
 
                 <!-- Подписи -->
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:0 4px;">
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <div style="font-size:16px;">🏁</div>
-                        <span style="font-size:11px;opacity:0.45;font-weight:600;letter-spacing:0.5px;">СТАРТ</span>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:0 4px;">
+                    <span style="font-size:10px;font-weight:700;letter-spacing:1px;opacity:0.4;text-transform:uppercase;">СТАРТ</span>
+                    <div style="background:rgba(255,255,255,0.08);padding:4px 14px;border-radius:20px;">
+                        <span style="font-size:14px;font-weight:800;background:linear-gradient(90deg,#3b82f6,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${pct}%</span>
                     </div>
-                    <div style="background:rgba(255,255,255,0.08);padding:3px 14px;border-radius:12px;">
-                        <span style="font-size:13px;font-weight:700;background:linear-gradient(90deg,#3b82f6,#4ade80);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${pct}%</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-size:11px;opacity:0.45;font-weight:600;letter-spacing:0.5px;">${nextLevel.name}</span>
-                        <div style="font-size:16px;">🏆</div>
-                    </div>
+                    <span style="font-size:10px;font-weight:700;letter-spacing:1px;opacity:0.4;text-transform:uppercase;">${nextLevel.name}</span>
                 </div>
             </div>
+
             <!-- Статистика км -->
             <div style="display:flex;justify-content:space-between;font-size:12px;opacity:0.6;margin-top:8px;">
                 <span>${s.total_km} км пройдено</span>
@@ -5398,13 +5370,13 @@ async function renderLeaderboard() {
                 </div>
                 <div style="text-align:center;">
                     <div style="font-size: 20px; font-weight:700;">${s.streak_days}</div>
-                    <div style="font-size: 11px; opacity:0.6;">Серия активности 🔥</div>
+                    <div style="font-size: 11px; opacity:0.6;">Серия активности</div>
                 </div>
             </div>
             ${levelReached ? `
             <div style="margin-top:20px; padding:16px; background:rgba(255,255,255,0.15); border-radius:10px; text-align:center;">
-                <div style="font-size:18px; margin-bottom:8px;">🎉 Уровень достигнут!</div>
-                <button onclick="claimReward()" style="padding:10px 24px; background:linear-gradient(135deg, #f59e0b, #ef4444); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:700; font-size:14px; box-shadow:0 4px 12px rgba(239,68,68,0.4); transition:transform 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'">🏆 Получить награду</button>
+                <div style="font-size:18px; margin-bottom:8px;">Уровень достигнут!</div>
+                <button onclick="claimReward()" style="padding:10px 24px; background:linear-gradient(135deg, #f59e0b, #ef4444); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:700; font-size:14px; box-shadow:0 4px 12px rgba(239,68,68,0.4); transition:transform 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'">Получить награду</button>
             </div>` : ''}
         `;
     }
@@ -5464,7 +5436,7 @@ async function renderLeaderboard() {
                     <td class="${rankClass}" style="font-weight:700;">${medal}</td>
                     <td>${entry.full_name}</td>
                     <td>${entry.department_name || '-'}</td>
-                    <td>${levelIcon(entry.level)} ${entry.level}</td>
+                    <td>${levelIcon(entry.car_override || entry.level)} ${entry.car_override || entry.level}</td>
                     <td style="font-weight:600;">${entry.total_km} км</td>
                 </tr>
             `;
@@ -5736,6 +5708,47 @@ async function deleteUser(userId, name) {
     else alert('Ошибка: ' + (result && result.error || 'Неизвестная ошибка'));
 }
 
+// Car switcher state
+window._carAllLevels = ['Босоногий','Самокатчик','Моноколёсник','Байкер','Водитель','Формула 3','Формула 2','Формула 1','Чемпион'];
+
+async function switchCarTo(level) {
+    const result = await apiCall('/api/gamification/car-override', {method:'POST', body: JSON.stringify({car_level: level})});
+    if (result && result.ok) {
+        showToast(level, 'success');
+        renderLeaderboard();
+    } else {
+        showToast(result?.error || 'Ошибка', 'error');
+    }
+}
+
+async function switchCarNext() {
+    const stats = await apiCall('/api/gamification/me');
+    if (!stats || !stats.stats) return;
+    const current = stats.car_override || stats.stats.level;
+    const idx = window._carAllLevels.indexOf(current);
+    const nextIdx = (idx + 1) % window._carAllLevels.length;
+    switchCarTo(window._carAllLevels[nextIdx]);
+}
+
+async function switchCarPrev() {
+    const stats = await apiCall('/api/gamification/me');
+    if (!stats || !stats.stats) return;
+    const current = stats.car_override || stats.stats.level;
+    const idx = window._carAllLevels.indexOf(current);
+    const prevIdx = (idx - 1 + window._carAllLevels.length) % window._carAllLevels.length;
+    switchCarTo(window._carAllLevels[prevIdx]);
+}
+
+async function resetCarOverride() {
+    const result = await apiCall('/api/gamification/car-override', {method:'POST', body: JSON.stringify({car_level: ''})});
+    if (result && result.ok) {
+        showToast('Сброшено', 'success');
+        renderLeaderboard();
+    } else {
+        showToast(result?.error || 'Ошибка', 'error');
+    }
+}
+
 function claimReward() {
     // Create overlay modal
     const overlay = document.createElement('div');
@@ -5802,13 +5815,14 @@ const PERMISSION_LABELS = {
     'manage_departments': 'Управление отделами',
     'delete_users': 'Удаление пользователей',
     'messenger': 'Мессенджер',
-    'leaderboard': 'Рейтинг и геймификация'
+    'leaderboard': 'Рейтинг и геймификация',
+    'switch_car': 'Смена машины (геймификация)'
 };
 
 const DEFAULT_PERMISSIONS = {
-    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true },
-    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true },
-    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true }
+    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true, switch_car:true },
+    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false },
+    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false }
 };
 
 let currentPermissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
