@@ -20,6 +20,8 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 
 sessions = {}
+user_last_seen = {}  # {user_id: timestamp}
+typing_status = {}  # {typing_key: timestamp}
 
 def hash_password(password, salt=None):
     if salt is None:
@@ -159,6 +161,14 @@ def init_db():
         earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         UNIQUE(user_id, type)
+    );
+    CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        rating INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     """)
 
@@ -499,6 +509,18 @@ def check_and_award_achievements(conn, user_id):
         if not existing:
             achievements_to_award.append(("century", "Сотня", "100+ задач завершено"))
 
+    # marathon: complete 25 tasks
+    if stats["tasks_completed"] >= 25:
+        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='marathon'", (user_id,)).fetchone()
+        if not existing:
+            achievements_to_award.append(("marathon", "Марафон", "25+ задач завершено"))
+
+    # social: leave 10 comments
+    if stats["comments_count"] >= 10:
+        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='social'", (user_id,)).fetchone()
+        if not existing:
+            achievements_to_award.append(("social", "Общительный", "10+ комментариев"))
+
     for ach_type, ach_name, ach_desc in achievements_to_award:
         try:
             conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
@@ -548,11 +570,17 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             part = part.strip()
             if part.startswith("session="):
                 token = part[8:]
-                if token in sessions: return sessions[token]
+                if token in sessions:
+                    u = sessions[token]
+                    user_last_seen[u["id"]] = datetime.now().isoformat()
+                    return u
         auth = self.headers.get("Authorization", "")
         if auth.startswith("Bearer "):
             token = auth[7:]
-            if token in sessions: return sessions[token]
+            if token in sessions:
+                u = sessions[token]
+                user_last_seen[u["id"]] = datetime.now().isoformat()
+                return u
         return None
 
     def do_OPTIONS(self):
@@ -1064,10 +1092,38 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 FROM user_stats s
                 JOIN users u ON s.user_id = u.id
                 LEFT JOIN departments d ON u.department_id = d.id
+                WHERE s.total_km > 0 OR s.tasks_completed > 0 OR s.tasks_created > 0
                 ORDER BY s.total_km DESC LIMIT 100
             """).fetchall()
             conn.close()
             return self._json({"leaderboard": [dict(row) for row in leaderboard]})
+
+        if path.startswith("/api/messenger/typing/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            partner_id = path.split("/")[-1]
+            typing_key = f"{partner_id}_{u['id']}"
+            is_typing = False
+            if typing_key in typing_status:
+                try:
+                    last = datetime.fromisoformat(typing_status[typing_key])
+                    is_typing = (datetime.now() - last).total_seconds() < 4
+                except: pass
+            return self._json({"typing": is_typing})
+
+        if path == "/api/users/online":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            now = datetime.now()
+            online_users = {}
+            for uid, last_seen in user_last_seen.items():
+                try:
+                    last = datetime.fromisoformat(last_seen)
+                    diff = (now - last).total_seconds()
+                    online_users[uid] = "online" if diff < 60 else ("away" if diff < 300 else "offline")
+                except:
+                    online_users[uid] = "offline"
+            return self._json(online_users)
 
         self.send_response(404); self.end_headers()
 
@@ -1395,8 +1451,71 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             stats = conn.execute("SELECT tasks_completed FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
             conn.execute("UPDATE user_stats SET tasks_completed = ? WHERE user_id=?", (stats["tasks_completed"] + 1, u["id"]))
 
+            # Speed demon: complete task same day as created
+            if created_date == today:
+                existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='speed_demon'", (u["id"],)).fetchone()
+                if not existing:
+                    try:
+                        conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                            (u["id"], "speed_demon", "Быстрый круг", "Завершите задачу в день создания"))
+                    except sqlite3.IntegrityError:
+                        pass
+
+            # Update streak_days
+            user_stats = conn.execute("SELECT last_active, streak_days FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            today_date = datetime.now().strftime("%Y-%m-%d")
+            if user_stats:
+                last_active = user_stats["last_active"]
+                current_streak = user_stats["streak_days"] or 0
+
+                if last_active:
+                    last_date = datetime.strptime(last_active[:10], "%Y-%m-%d").date()
+                    today_obj = datetime.strptime(today_date, "%Y-%m-%d").date()
+                    diff = (today_obj - last_date).days
+
+                    if diff == 1:
+                        # Increment streak if last active was yesterday
+                        new_streak = current_streak + 1
+                    elif diff > 1:
+                        # Reset streak if gap > 1 day
+                        new_streak = 1
+                    else:
+                        # Same day, don't change
+                        new_streak = current_streak
+                else:
+                    new_streak = 1
+
+                conn.execute("UPDATE user_stats SET last_active=?, streak_days=? WHERE user_id=?",
+                    (today_date, new_streak, u["id"]))
+
             # Check achievements
             check_and_award_achievements(conn, u["id"])
+
+            # Department star: complete 5 tasks in one day
+            today_tasks = conn.execute(
+                "SELECT COUNT(*) as cnt FROM tasks WHERE assigned_to=? AND status='done' AND DATE(updated_at)=?",
+                (u["id"], today_date)
+            ).fetchone()
+            if today_tasks and today_tasks["cnt"] >= 5:
+                existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='department_star'", (u["id"],)).fetchone()
+                if not existing:
+                    try:
+                        conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                            (u["id"], "department_star", "Звезда отдела", "5+ задач в один день"))
+                    except sqlite3.IntegrityError:
+                        pass
+
+            # Early bird: complete task before deadline
+            if task["deadline"]:
+                today = datetime.now().strftime("%Y-%m-%d")
+                if today <= task["deadline"]:
+                    existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='early_bird'", (u["id"],)).fetchone()
+                    if not existing:
+                        try:
+                            conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                                (u["id"], "early_bird", "Ранняя пташка", "Задача до дедлайна"))
+                        except sqlite3.IntegrityError:
+                            pass
 
             conn.commit(); conn.close()
             return self._json({"ok": True})
@@ -1471,6 +1590,56 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"ok": True, "deleted": deleted})
 
+        if path == "/api/feedback":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            text = data.get("text", "").strip()
+            rating = data.get("rating", 0)
+            if not text: return self._json({"error": "Текст обязателен"}, 400)
+            conn = get_db()
+            conn.execute("INSERT INTO feedback (user_id, text, rating) VALUES (?,?,?)", (u["id"], text, rating))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/messenger/typing/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            typing_key = f"{u['id']}_{path.split('/')[-1]}"
+            typing_status[typing_key] = datetime.now().isoformat()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/messenger/upload"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            content_type = self.headers.get("Content-Type", "")
+            if "multipart/form-data" not in content_type:
+                return self._json({"error": "Expected multipart/form-data"}, 400)
+            boundary = content_type.split("boundary=")[1].strip()
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            parts = body.split(("--" + boundary).encode())
+            file_data = None
+            filename = "upload"
+            for part in parts:
+                if b"Content-Disposition" in part:
+                    if b"filename=" in part:
+                        try:
+                            fn = part.split(b'filename="')[1].split(b'"')[0].decode()
+                            if fn: filename = fn
+                        except: pass
+                        header_end = part.index(b"\r\n\r\n") + 4
+                        file_data = part[header_end:].rstrip(b"\r\n--")
+            if not file_data:
+                return self._json({"error": "No file"}, 400)
+            upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            ext = os.path.splitext(filename)[1] or ".bin"
+            safe_name = f"msg_{u['id']}_{int(datetime.now().timestamp())}{ext}"
+            filepath = os.path.join(upload_dir, safe_name)
+            with open(filepath, "wb") as f:
+                f.write(file_data)
+            return self._json({"ok": True, "url": f"/static/uploads/{safe_name}"})
+
         self.send_response(404); self.end_headers()
 
     def do_PUT(self):
@@ -1524,7 +1693,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 # Log status change
                 if "status" in data and old_task and data["status"] != old_task["status"]:
                     log_activity(conn, int(task_id), u["id"], "status_changed", f"Статус изменён с '{old_task['status']}' на '{data['status']}'")
-                    status_names = {"new":"Новая","in_progress":"В работе","review":"На проверке","done":"Готово","cancelled":"Отменена"}
+                    status_names = {"new":"Новая","in_progress":"В работе","review":"Согласование","done":"Готово","cancelled":"Отменена"}
                     msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
                     watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
                     notify_ids = set([w["user_id"] for w in watchers])

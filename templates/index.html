@@ -2147,8 +2147,8 @@
                 flex-direction: column;
             }
             .kanban-column {
-                min-width: 100% !important;
-                max-width: 100% !important;
+                min-width: 260px !important;
+                max-width: 260px !important;
             }
 
             .filter-chips {
@@ -2173,8 +2173,15 @@
                 padding: 20px;
             }
 
+            .task-modal .modal-content,
+            #taskFormModal .modal-content {
+                max-height: 90vh !important;
+                overflow-y: auto !important;
+            }
+
             .analytics-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 8px !important;
             }
 
             .achievement-grid {
@@ -2192,6 +2199,62 @@
 
             .chat-area {
                 flex: 1;
+            }
+
+            .chat-messages {
+                padding: 12px !important;
+            }
+
+            .message-sent, .message-received {
+                max-width: 85% !important;
+            }
+
+            #fabCreateTask {
+                width: 48px !important;
+                height: 48px !important;
+                bottom: 16px !important;
+                right: 16px !important;
+            }
+
+            #feedbackBtn {
+                display: none !important;
+            }
+
+            .racing-card {
+                padding: 16px !important;
+            }
+
+            #taskDetailModal > div {
+                max-width: 100vw !important;
+                max-height: 100vh !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+            }
+
+            .header {
+                padding: 8px 12px !important;
+            }
+
+            .leaderboard-table {
+                font-size: 12px !important;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 8px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content {
+                padding: 12px !important;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .achievement-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
             }
         }
 
@@ -2304,7 +2367,7 @@
 <body>
     <!-- SPLASH LOADING SCREEN -->
     <div id="splashScreen">
-        <video id="splashVideo" autoplay muted loop playsinline>
+        <video id="splashVideo" autoplay muted loop playsinline webkit-playsinline>
             <source src="/static/splash.mp4" type="video/mp4">
         </video>
         <div class="splash-overlay"></div>
@@ -2619,6 +2682,12 @@
             </div>
 
             <!-- FLOATING CREATE TASK BUTTON -->
+            <!-- FEEDBACK BUTTON -->
+            <button id="feedbackBtn" onclick="showFeedbackModal()" style="position:fixed;bottom:24px;left:24px;padding:8px 16px;border-radius:20px;background:white;border:1px solid #e2e8f0;color:#64748b;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.08);z-index:99;display:flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseenter="this.style.borderColor='#3b82f6';this.style.color='#3b82f6'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.color='#64748b'">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                Обратная связь
+            </button>
+
             <button id="fabCreateTask" onclick="showTaskForm()" style="position:fixed; bottom:30px; right:30px; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; border:none; cursor:pointer; box-shadow:0 4px 20px rgba(37,99,235,0.4); z-index:900; display:flex; align-items:center; justify-content:center; transition:transform 0.2s, box-shadow 0.2s; font-size:28px;" onmouseenter="this.style.transform='scale(1.1)'; this.style.boxShadow='0 6px 24px rgba(37,99,235,0.5)'" onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 20px rgba(37,99,235,0.4)'" title="Создать задачу">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
@@ -2676,7 +2745,7 @@
                                 <select id="listQtStatus" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
                                     <option value="new">Новая</option>
                                     <option value="in_progress">В работе</option>
-                                    <option value="review">На проверке</option>
+                                    <option value="review">Согласование</option>
                                     <option value="done">Готово</option>
                                 </select>
                                 <input type="date" id="listQtDeadline" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
@@ -2696,9 +2765,19 @@
                     <div class="messenger-container">
                         <div class="conversation-list" id="conversationList"></div>
                         <div class="chat-area" id="chatArea">
-                            <div class="chat-header" id="chatHeader">Выберите чат</div>
+                            <div id="chatHeader" style="padding:14px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;background:white;">
+                                <div id="chatPartnerAvatar"></div>
+                                <div>
+                                    <div id="chatPartnerName" style="font-weight:600;font-size:15px;color:#1e293b;"></div>
+                                    <div id="chatPartnerStatus" style="font-size:11px;color:#94a3b8;">В сети</div>
+                                </div>
+                            </div>
                             <div class="chat-messages" id="chatMessages"></div>
                             <div class="chat-input-area" id="chatInputArea" style="display: none;">
+                                <label style="cursor:pointer;display:flex;align-items:center;padding:8px;color:#94a3b8;transition:color 0.15s;" onmouseenter="this.style.color='#3b82f6'" onmouseleave="this.style.color='#94a3b8'">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                                    <input type="file" accept="image/*,video/*" style="display:none;" onchange="handleMessengerUpload(this)">
+                                </label>
                                 <input type="text" id="messageInput" placeholder="Напишите сообщение...">
                                 <button id="messengerSendBtn" onclick="sendDirectMessage()">Отправить</button>
                             </div>
@@ -2942,7 +3021,7 @@
                         <select id="taskStatus" class="form-select">
                             <option value="new" selected>Новая</option>
                             <option value="in_progress">В работе</option>
-                            <option value="review">На проверке</option>
+                            <option value="review">Согласование</option>
                             <option value="done">Готово</option>
                         </select>
                     </div>
@@ -2956,8 +3035,9 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Дедлайн</label>
-                        <div id="taskDeadlineRow" onclick="document.getElementById('taskDeadline').click()" style="display:flex;align-items:center;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;transition:background 0.2s;" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='white'">
-                            <input type="datetime-local" id="taskDeadline" style="border:none;background:transparent;flex:1;font-size:13px;cursor:pointer;outline:none;" class="form-input">
+                        <div style="display:flex;gap:8px;">
+                            <input type="date" id="taskDeadlineDate" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Дата">
+                            <input type="time" id="taskDeadlineTime" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Время">
                         </div>
                     </div>
                 </div>
@@ -3032,6 +3112,8 @@ let messengerInterval = null;
 let notificationInterval = null;
 let messengerUnreadInterval = null;
 let selectedConversationUserId = null;
+let kanbanSelectMode = false;
+let kanbanSelectedIds = new Set();
 
 const token = localStorage.getItem('dm_token');
 
@@ -3085,7 +3167,7 @@ function deadlineInfo(deadline) {
 }
 
 function statusName(s) {
-    return {new:'Новая', in_progress:'В работе', review:'На проверке', done:'Готово', cancelled:'Отменена'}[s] || s;
+    return {new:'Новая', in_progress:'В работе', review:'Согласование', done:'Готово', cancelled:'Отменена'}[s] || s;
 }
 
 function priorityName(p) {
@@ -3150,8 +3232,15 @@ function showSplash() {
     splashShownAt = Date.now();
     splash.classList.add('active');
 
-    // Start video from beginning
-    if (video) { video.currentTime = 0; video.play().catch(()=>{}); }
+    // Start video from beginning (with Safari fallback)
+    if (video) {
+        video.currentTime = 0;
+        video.play().catch(() => {
+            // If video fails to play (Safari autoplay policy), skip splash
+            console.log('Video autoplay failed, skipping splash');
+            hideSplash();
+        });
+    }
 
     // Tip text rotation
     let tipIdx = 0;
@@ -3362,7 +3451,17 @@ function navigate(page) {
     
     document.getElementById('headerTitle').textContent = titleMap[page] || 'Дашборд';
     currentPage = page;
-    
+
+    // Hide FAB and feedback button on messenger page
+    const fabBtn = document.getElementById('fabCreateTask');
+    if (fabBtn) {
+        fabBtn.style.display = (page === 'messenger') ? 'none' : 'flex';
+    }
+    const feedbackBtn = document.getElementById('feedbackBtn');
+    if (feedbackBtn) {
+        feedbackBtn.style.display = (page === 'messenger') ? 'none' : 'flex';
+    }
+
     // Show admin badge only for admin/head viewing admin page
     const adminBadge = document.getElementById('adminHeaderBadge');
     if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'head')) {
@@ -3370,7 +3469,7 @@ function navigate(page) {
     } else {
         adminBadge.style.display = 'none';
     }
-    
+
     if (page === 'dashboard') renderDashboard();
     else if (page === 'kanban') renderKanban();
     else if (page === 'funnel') renderFunnel();
@@ -3485,7 +3584,7 @@ async function loadStats() {
         <div class="stat-card" style="border-left: 4px solid var(--blue);"><div class="stat-label">Всего</div><div class="stat-value">${totalCount}</div></div>
         <div class="stat-card new"><div class="stat-label">Новые</div><div class="stat-value">${newCount}</div></div>
         <div class="stat-card in-progress"><div class="stat-label">В работе</div><div class="stat-value">${inProgressCount}</div></div>
-        <div class="stat-card review"><div class="stat-label">На проверке</div><div class="stat-value">${reviewCount}</div></div>
+        <div class="stat-card review"><div class="stat-label">Согласование</div><div class="stat-value">${reviewCount}</div></div>
         <div class="stat-card done"><div class="stat-label">Готово</div><div class="stat-value">${doneCount}</div></div>
         <div class="stat-card overdue"><div class="stat-label">Просрочено</div><div class="stat-value">${overdueCount}</div></div>
     `;
@@ -3634,7 +3733,7 @@ async function renderKanban() {
     const statusConfig = {
         new:         {label: 'Новые',        color: '#3b82f6', bg: '#eff6ff',  icon: '📋'},
         in_progress: {label: 'В работе',     color: '#f59e0b', bg: '#fffbeb',  icon: '⚡'},
-        review:      {label: 'На проверке',  color: '#8b5cf6', bg: '#f5f3ff',  icon: '🔍'},
+        review:      {label: 'Согласование',  color: '#8b5cf6', bg: '#f5f3ff',  icon: '🔍'},
         done:        {label: 'Готово',        color: '#22c55e', bg: '#f0fdf4',  icon: '✅'}
     };
 
@@ -3666,6 +3765,17 @@ async function renderKanban() {
             </div>
         `;
     }).join('');
+
+    // Add selection mode toggle button
+    let selectBtn = document.getElementById('kanbanSelectBtn');
+    if (!selectBtn) {
+        selectBtn = document.createElement('button');
+        selectBtn.id = 'kanbanSelectBtn';
+        selectBtn.onclick = toggleKanbanSelectMode;
+        board.parentNode.insertBefore(selectBtn, board);
+    }
+    selectBtn.style.cssText = 'margin-bottom:8px;padding:6px 14px;border:1px solid ' + (kanbanSelectMode ? '#ef4444' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanSelectMode ? '#fef2f2' : 'white') + ';color:' + (kanbanSelectMode ? '#ef4444' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
+    selectBtn.textContent = kanbanSelectMode ? '✕ Отменить выбор' : '☑ Выбрать для удаления';
 
     statuses.forEach(status => {
         const cfg = statusConfig[status];
@@ -3715,15 +3825,22 @@ async function renderKanban() {
 
             const card = document.createElement('div');
             card.className = 'kanban-card';
-            card.draggable = true;
+            card.draggable = !kanbanSelectMode;
             card.setAttribute('data-task-id', task.id);
             const cardBorder = isOverdue ? '2px solid #ef4444' : (isUrgent ? '2px solid #f59e0b' : '1px solid #e8ecf1');
             const cardShadow = isOverdue ? '0 0 12px rgba(239,68,68,0.3)' : (isUrgent ? '0 0 8px rgba(245,158,11,0.2)' : '0 1px 4px rgba(0,0,0,0.06)');
-            card.style.cssText = `background:white;border-radius:10px;padding:14px 14px 12px;cursor:grab;transition:box-shadow 0.2s,transform 0.15s,border 0.2s;box-shadow:${cardShadow};border:${cardBorder};`;
+            card.style.cssText = `background:white;border-radius:10px;padding:14px 14px 12px;cursor:${kanbanSelectMode ? 'pointer' : 'grab'};transition:box-shadow 0.2s,transform 0.15s,border 0.2s;box-shadow:${cardShadow};border:${cardBorder};`;
             let wasDragged = false;
             card.addEventListener('dragstart', e => { wasDragged = true; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', task.id); card.style.opacity = '0.4'; });
             card.addEventListener('dragend', () => { card.style.opacity = '1'; setTimeout(() => { wasDragged = false; }, 100); });
-            card.addEventListener('click', () => { if (!wasDragged) showTaskDetail(task.id); });
+            card.addEventListener('click', function(e) {
+                if (kanbanSelectMode && e.target !== this.querySelector('.kanban-select-cb')) {
+                    const cb = this.querySelector('.kanban-select-cb');
+                    if (cb) { cb.checked = !cb.checked; toggleKanbanSelect(task.id, cb); }
+                } else if (!wasDragged && !kanbanSelectMode) {
+                    showTaskDetail(task.id);
+                }
+            });
             card.addEventListener('mouseenter', () => { card.style.boxShadow = isOverdue ? '0 0 16px rgba(239,68,68,0.5)' : (isUrgent ? '0 0 12px rgba(245,158,11,0.4)' : '0 4px 16px rgba(0,0,0,0.1)'); card.style.transform = 'translateY(-2px)'; });
             card.addEventListener('mouseleave', () => { card.style.boxShadow = cardShadow; card.style.transform = 'none'; });
 
@@ -3735,10 +3852,12 @@ async function renderKanban() {
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
                     <span style="font-weight:600;font-size:13px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.4;flex:1;">${task.title}</span>
                     <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-top:2px;">
-                        ${currentUser.role === 'admin' ? `<button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>` : ''}
+                        ${task.status !== 'done' ? `<button onclick="event.stopPropagation();quickCompleteTask(${task.id})" title="Завершить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#f0fdf4';this.style.color='#22c55e'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
+                        <button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
                         <span style="width:8px;height:8px;border-radius:50%;background:${p.c};margin-left:4px;${isOverdue ? 'animation: pulse 2s infinite;' : ''}" title="${p.l}"></span>
                     </div>
                 </div>
+                ${kanbanSelectMode ? `<div style="margin-bottom:6px;"><input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:16px;height:16px;cursor:pointer;accent-color:#ef4444;"></div>` : ''}
                 ${task.description ? `<div style="font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${task.description.substring(0,100)}</div>` : ''}
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
                     ${dept ? `<span style="background:${dept.color || '#94a3b8'}18;color:${dept.color || '#64748b'};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:0.3px;">${dept.name}</span>` : ''}
@@ -3770,8 +3889,9 @@ async function renderKanban() {
                         <option value="">Отдел *</option>
                         ${allDepartments.map(d => '<option value="'+d.id+'"'+(currentUser.department_id==d.id?' selected':'')+'>'+d.name+'</option>').join('')}
                     </select>
-                    <div style="flex:0;width:140px;display:flex;align-items:center;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;cursor:pointer;background:white;transition:background 0.2s;" onclick="let input=this.querySelector('.qt-deadline'); input.focus(); input.click(); if(input.showPicker) input.showPicker();" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='white'">
-                        <input type="datetime-local" class="qt-deadline" style="border:none;background:transparent;width:100%;font-size:12px;outline:none;cursor:pointer;padding:0;color:#64748b;" placeholder="Дата">
+                    <div style="flex:0 0 auto;display:flex;gap:4px;align-items:center;">
+                        <input type="date" class="qt-deadline-date" style="width:130px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;" placeholder="Дата">
+                        <input type="time" class="qt-deadline-time" style="width:90px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;" placeholder="Время">
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;">
@@ -3881,6 +4001,63 @@ async function submitQuickTask(el, status) {
     }
 }
 
+async function quickCompleteTask(taskId) {
+    const task = allTasks.find(t => t.id === taskId);
+    if (!task || task.status === 'done') return;
+    task.status = 'done';
+    renderKanban();
+    const resp = await apiCall('/api/tasks/' + taskId, {method: 'PUT', body: JSON.stringify({status: 'done'})});
+    if (resp && !resp.error) {
+        showToast('Задача завершена!', 'success');
+        apiCall('/api/gamification/check', {method: 'POST', body: JSON.stringify({task_id: taskId})});
+    } else {
+        task.status = task.status;
+        loadTasks();
+        showToast('Ошибка', 'error');
+    }
+}
+
+function toggleKanbanSelectMode() {
+    kanbanSelectMode = !kanbanSelectMode;
+    kanbanSelectedIds.clear();
+    renderKanban();
+    updateKanbanSelectionBar();
+}
+
+function toggleKanbanSelect(taskId, checkbox) {
+    if (checkbox.checked) kanbanSelectedIds.add(taskId);
+    else kanbanSelectedIds.delete(taskId);
+    updateKanbanSelectionBar();
+}
+
+function updateKanbanSelectionBar() {
+    let bar = document.getElementById('kanbanSelectionBar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'kanbanSelectionBar';
+        bar.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:white;padding:12px 24px;border-radius:12px;display:none;align-items:center;gap:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:100;font-size:14px;';
+        document.body.appendChild(bar);
+    }
+    if (kanbanSelectMode && kanbanSelectedIds.size > 0) {
+        bar.style.display = 'flex';
+        bar.innerHTML = `<span>Выбрано: ${kanbanSelectedIds.size}</span><button onclick="deleteSelectedTasks()" style="padding:8px 16px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Удалить</button><button onclick="toggleKanbanSelectMode()" style="padding:8px 16px;background:#475569;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Отмена</button>`;
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+async function deleteSelectedTasks() {
+    if (!confirm('Удалить выбранные задачи (' + kanbanSelectedIds.size + ')?')) return;
+    for (const id of kanbanSelectedIds) {
+        await apiCall('/api/tasks/' + id, {method: 'DELETE'});
+    }
+    kanbanSelectedIds.clear();
+    kanbanSelectMode = false;
+    showToast('Задачи удалены', 'success');
+    await loadTasks();
+    updateKanbanSelectionBar();
+}
+
 // =================================
 // 7. FUNNEL VIEW
 // =================================
@@ -3890,7 +4067,7 @@ async function renderFunnel() {
     container.innerHTML = '';
     
     const statuses = ['new', 'in_progress', 'review', 'done'];
-    const statusLabels = {new: 'Новые', in_progress: 'В работе', review: 'На проверке', done: 'Готово'};
+    const statusLabels = {new: 'Новые', in_progress: 'В работе', review: 'Согласование', done: 'Готово'};
     
     const filtered = getFilteredTasks();
     let maxCount = 0;
@@ -4264,14 +4441,14 @@ async function showTaskDetail(taskId) {
     const assignee = allUsers.find(u => u.id === task.assigned_to);
     const deadline = deadlineInfo(task.deadline);
     const dept = allDepartments.find(d => d.id === task.department_id);
-    const statusCfg = {new:{l:'Новая',c:'#3b82f6'},in_progress:{l:'В работе',c:'#f59e0b'},review:{l:'На проверке',c:'#8b5cf6'},done:{l:'Готово',c:'#22c55e'},cancelled:{l:'Отменена',c:'#94a3b8'}};
+    const statusCfg = {new:{l:'Новая',c:'#3b82f6'},in_progress:{l:'В работе',c:'#f59e0b'},review:{l:'Согласование',c:'#8b5cf6'},done:{l:'Готово',c:'#22c55e'},cancelled:{l:'Отменена',c:'#94a3b8'}};
     const priCfg = {high:{l:'Высокий',c:'#ef4444'},medium:{l:'Средний',c:'#f59e0b'},low:{l:'Низкий',c:'#22c55e'}};
     const sc = statusCfg[task.status] || statusCfg.new;
     const pc = priCfg[task.priority] || priCfg.medium;
 
     // Header: title + close + status badge + edit btn + stage switcher
     const allStatuses = ['new','in_progress','review','done','cancelled'];
-    const stageLabels = {new:'Новая',in_progress:'В работе',review:'Проверка',done:'Готово',cancelled:'Отменена'};
+    const stageLabels = {new:'Новая',in_progress:'В работе',review:'Согласование',done:'Готово',cancelled:'Отменена'};
     const stageColors = {new:'#3b82f6',in_progress:'#f59e0b',review:'#8b5cf6',done:'#22c55e',cancelled:'#94a3b8'};
     const currentIdx = allStatuses.indexOf(task.status);
 
@@ -4663,23 +4840,118 @@ async function renderMessenger() {
 
 async function selectConversation(userId) {
     selectedConversationUserId = userId;
-    const chatHeader = document.getElementById('chatHeader');
     const user = allUsers.find(u => u.id === userId);
-    chatHeader.textContent = user ? user.full_name : 'Chat';
-    
+
+    // Update header with partner name and avatar
+    const chatPartnerName = document.getElementById('chatPartnerName');
+    const chatPartnerAvatar = document.getElementById('chatPartnerAvatar');
+    const chatPartnerStatus = document.getElementById('chatPartnerStatus');
+
+    if (user) {
+        chatPartnerName.textContent = user.full_name;
+        chatPartnerAvatar.innerHTML = avatarHTML(user.full_name, user.avatar_color, 36, user.avatar_url);
+        chatPartnerStatus.textContent = 'В сети';
+    }
+
     document.getElementById('chatInputArea').style.display = 'flex';
-    
+
     const messages = await apiCall('/api/messenger/messages/' + userId) || [];
     const chatMessages = document.getElementById('chatMessages');
     if (messages && messages.length) {
         chatMessages.innerHTML = messages.map(m => `
             <div style="margin-bottom: 12px; text-align: ${m.sender_id === currentUser.id ? 'right' : 'left'};">
-                <div style="display: inline-block; background: ${m.sender_id === currentUser.id ? 'var(--blue)' : 'var(--bg-main)'}; color: ${m.sender_id === currentUser.id ? 'white' : 'black'}; padding: 8px 12px; border-radius: 8px; max-width: 70%;">
-                    ${m.text}
+                <div style="display: inline-block; background: ${m.sender_id === currentUser.id ? 'var(--blue)' : 'var(--bg-main)'}; color: ${m.sender_id === currentUser.id ? 'white' : 'black'}; padding: 8px 12px; border-radius: 8px; max-width: 70%; word-wrap: break-word;">
+                    ${renderMessageText(m.text)}
+                    ${m.sender_id === currentUser.id ? `<span style="font-size:10px;color:${m.is_read ? '#3b82f6' : '#94a3b8'};margin-left:6px;">✓✓</span>` : ''}
                 </div>
             </div>
         `).join('');
     }
+
+    // Setup typing indicator
+    setupTypingIndicator(userId);
+
+    // Refresh badge after opening conversation
+    refreshMessengerBadge();
+}
+
+function renderMessageText(text) {
+    // Image attachments
+    text = text.replace(/\[img\](.*?)\[\/img\]/g, '<img src="$1" style="max-width:200px;max-height:200px;border-radius:8px;cursor:pointer;margin-top:4px;" onclick="window.open(this.src)">');
+    // File attachments
+    text = text.replace(/\[file\](.*?)\[\/file\]/g, '<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">📎 Файл</a>');
+    return text;
+}
+
+let typingInterval = null;
+let typingCheckInterval = null;
+
+function setupTypingIndicator(partnerId) {
+    // Clear previous
+    if (typingInterval) clearInterval(typingInterval);
+    if (typingCheckInterval) clearInterval(typingCheckInterval);
+
+    // Send typing status when user types
+    const input = document.getElementById('messageInput');
+    if (input) {
+        let lastTypingNotify = 0;
+        input.oninput = () => {
+            const now = Date.now();
+            if (now - lastTypingNotify > 2000) {
+                lastTypingNotify = now;
+                apiCall('/api/messenger/typing/' + partnerId, {method:'POST', body:'{}'});
+            }
+        };
+    }
+
+    // Check if partner is typing
+    typingCheckInterval = setInterval(async () => {
+        const resp = await apiCall('/api/messenger/typing/' + partnerId);
+        const statusEl = document.getElementById('chatPartnerStatus');
+        if (statusEl) {
+            statusEl.textContent = (resp && resp.typing) ? 'печатает...' : 'В сети';
+            statusEl.style.color = (resp && resp.typing) ? '#3b82f6' : '#94a3b8';
+        }
+    }, 2000);
+}
+
+async function refreshMessengerBadge() {
+    const resp = await apiCall('/api/messenger/unread');
+    const badge = document.getElementById('messengerBadge');
+    if (badge) {
+        if (resp && resp.count > 0) {
+            badge.textContent = resp.count;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+async function handleMessengerUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await fetch('/api/messenger/upload', {
+        method: 'POST',
+        headers: {'Authorization': 'Bearer ' + localStorage.getItem('token')},
+        body: formData
+    });
+    const data = await resp.json();
+    if (data.ok && data.url) {
+        // Send as message with image
+        const isImage = file.type.startsWith('image/');
+        const msgText = isImage ? `[img]${data.url}[/img]` : `[file]${data.url}[/file]`;
+        // Use existing send logic with this text
+        const dmInput = document.getElementById('messageInput');
+        if (dmInput) {
+            dmInput.value = msgText;
+            // Trigger send
+            sendDirectMessage();
+        }
+    }
+    input.value = '';
 }
 
 function setupMessengerInterval() {
@@ -4801,7 +5073,7 @@ async function renderLeaderboard() {
                 </div>
                 <div style="text-align:center;">
                     <div style="font-size: 20px; font-weight:700;">${s.streak_days}</div>
-                    <div style="font-size: 11px; opacity:0.6;">Дней подряд</div>
+                    <div style="font-size: 11px; opacity:0.6;">Серия активности 🔥</div>
                 </div>
             </div>
             ${levelReached ? `
@@ -4820,16 +5092,38 @@ async function renderLeaderboard() {
         {type:'consistent', name:'Стабильность', description:'7-дневная серия активности', icon:'📅'},
         {type:'team_player', name:'Командный игрок', description:'Создайте 10 задач для других', icon:'🤝'},
         {type:'commentator', name:'Комментатор', description:'Оставьте 50 комментариев', icon:'💬'},
-        {type:'century', name:'Сотня', description:'Завершите 100 задач', icon:'💯'}
+        {type:'century', name:'Сотня', description:'Завершите 100 задач', icon:'💯'},
+        {type:'marathon', name:'Марафон', description:'Завершите 25 задач', icon:'🏃'},
+        {type:'social', name:'Общительный', description:'Оставьте 10 комментариев', icon:'🗣️'},
+        {type:'department_star', name:'Звезда отдела', description:'5 задач за день', icon:'⭐'},
+        {type:'early_bird', name:'Ранняя пташка', description:'Завершите до дедлайна', icon:'🐦'},
+        {type:'perfectionist', name:'Перфекционист', description:'10 задач до дедлайна', icon:'💎'},
+        {type:'leader', name:'Лидер', description:'Наберите 500 км', icon:'👑'}
     ];
     const earned = myStats && myStats.achievements ? myStats.achievements.map(a => a.type) : [];
-    achievementGrid.innerHTML = allAchievements.map(ach => `
+    const visibleAchievements = allAchievements.slice(0, 6);
+    const hasMore = allAchievements.length > 6;
+
+    let html = visibleAchievements.map(ach => `
         <div class="achievement-card ${earned.includes(ach.type) ? '' : 'locked'}">
             <div style="font-size: 32px; margin-bottom: 8px;">${ach.icon}</div>
             <div style="font-weight: 600; margin-bottom: 4px;">${ach.name}</div>
             <div style="font-size: 12px; color: var(--text-secondary);">${ach.description}</div>
         </div>
     `).join('');
+
+    if (hasMore) {
+        html += `
+            <div class="achievement-card" style="cursor:pointer;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f0f4f8,#e8eef8);border:1px dashed #cbd5e1;min-height:120px;" onclick="showAllAchievements()">
+                <div style="text-align:center;">
+                    <div style="font-size:24px;margin-bottom:6px;">⋯</div>
+                    <div style="font-weight:600;font-size:13px;color:#3b82f6;">Показать все</div>
+                </div>
+            </div>
+        `;
+    }
+
+    achievementGrid.innerHTML = html;
 
     // Leaderboard table
     const lbData = await apiCall('/api/gamification/leaderboard');
@@ -5075,6 +5369,46 @@ function claimReward() {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 }
 
+function showFeedbackModal() {
+    let modal = document.getElementById('feedbackModal');
+    if (modal) { modal.style.display = 'flex'; return; }
+    modal = document.createElement('div');
+    modal.id = 'feedbackModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div style="font-size:18px;font-weight:700;margin-bottom:16px;">💬 Обратная связь</div>
+        <div style="margin-bottom:12px;font-size:13px;color:#64748b;">Как вам сервис?</div>
+        <div id="feedbackStars" style="display:flex;gap:8px;margin-bottom:16px;font-size:28px;cursor:pointer;">
+            ${[1,2,3,4,5].map(n => `<span onclick="setFeedbackRating(${n})" data-star="${n}" style="opacity:0.3;transition:opacity 0.15s;">⭐</span>`).join('')}
+        </div>
+        <textarea id="feedbackText" placeholder="Расскажите, что можно улучшить..." style="width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;min-height:80px;box-sizing:border-box;outline:none;font-family:inherit;" rows="3"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button onclick="submitFeedback()" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">Отправить</button>
+            <button onclick="document.getElementById('feedbackModal').style.display='none'" style="padding:10px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Отмена</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+let feedbackRating = 0;
+function setFeedbackRating(n) {
+    feedbackRating = n;
+    document.querySelectorAll('#feedbackStars span').forEach(s => {
+        s.style.opacity = parseInt(s.dataset.star) <= n ? '1' : '0.3';
+    });
+}
+async function submitFeedback() {
+    const text = document.getElementById('feedbackText').value.trim();
+    if (!text) { showToast('Напишите отзыв', 'error'); return; }
+    const resp = await apiCall('/api/feedback', {method:'POST', body:JSON.stringify({text, rating: feedbackRating})});
+    if (resp && !resp.error) {
+        showToast('Спасибо за отзыв! 🙏', 'success');
+        document.getElementById('feedbackModal').style.display = 'none';
+        document.getElementById('feedbackText').value = '';
+        feedbackRating = 0;
+    }
+}
+
 const PERMISSION_LABELS = {
     'view_all_tasks': 'Просмотр всех задач',
     'create_tasks': 'Создание задач',
@@ -5310,7 +5644,7 @@ function openCardEditor(event, taskId, field) {
     } else if (field === 'status') {
         modalHTML = '<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;">Выбрать статус</div>';
         const statuses = ['new', 'in_progress', 'review', 'done', 'cancelled'];
-        const statusLabels = {new:'Новая', in_progress:'В работе', review:'На проверке', done:'Готово', cancelled:'Отменена'};
+        const statusLabels = {new:'Новая', in_progress:'В работе', review:'Согласование', done:'Готово', cancelled:'Отменена'};
         const statusColors = {new:'#3b82f6', in_progress:'#f59e0b', review:'#8b5cf6', done:'#22c55e', cancelled:'#94a3b8'};
         modalHTML += '<div style="display:flex;flex-direction:column;gap:8px;">';
         statuses.forEach(s => {
