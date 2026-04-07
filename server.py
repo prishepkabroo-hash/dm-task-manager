@@ -143,7 +143,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS user_stats (
         user_id INTEGER UNIQUE NOT NULL,
         total_km REAL DEFAULT 0,
-        level TEXT DEFAULT 'Карт',
+        level TEXT DEFAULT 'Босоногий',
         tasks_completed INTEGER DEFAULT 0,
         tasks_created INTEGER DEFAULT 0,
         comments_count INTEGER DEFAULT 0,
@@ -274,7 +274,7 @@ def init_db():
         CREATE TABLE user_stats (
             user_id INTEGER UNIQUE NOT NULL,
             total_km REAL DEFAULT 0,
-            level TEXT DEFAULT 'Карт',
+            level TEXT DEFAULT 'Босоногий',
             tasks_completed INTEGER DEFAULT 0,
             tasks_created INTEGER DEFAULT 0,
             comments_count INTEGER DEFAULT 0,
@@ -482,39 +482,48 @@ def calculate_working_hours(start_dt_str, end_dt_str):
 
 def get_level_from_km(total_km):
     """Calculate level name from total_km."""
-    if total_km >= 1000:
+    if total_km >= 1500:
         return "Чемпион"
-    elif total_km >= 500:
+    elif total_km >= 1000:
         return "Формула 1"
-    elif total_km >= 300:
+    elif total_km >= 650:
         return "Формула 2"
-    elif total_km >= 150:
+    elif total_km >= 400:
         return "Формула 3"
+    elif total_km >= 200:
+        return "Водитель"
+    elif total_km >= 100:
+        return "Байкер"
     elif total_km >= 50:
-        return "Формула 4"
+        return "Моноколёсник"
+    elif total_km >= 20:
+        return "Самокатчик"
     else:
-        return "Карт"
+        return "Босоногий"
 
 def get_next_level(total_km):
     """Calculate next level info from total_km."""
     levels = [
-        {"name": "Формула 4", "km_needed": 50},
-        {"name": "Формула 3", "km_needed": 150},
-        {"name": "Формула 2", "km_needed": 300},
-        {"name": "Формула 1", "km_needed": 500},
-        {"name": "Чемпион", "km_needed": 1000}
+        {"name": "Самокатчик", "km_needed": 20},
+        {"name": "Моноколёсник", "km_needed": 50},
+        {"name": "Байкер", "km_needed": 100},
+        {"name": "Водитель", "km_needed": 200},
+        {"name": "Формула 3", "km_needed": 400},
+        {"name": "Формула 2", "km_needed": 650},
+        {"name": "Формула 1", "km_needed": 1000},
+        {"name": "Чемпион", "km_needed": 1500}
     ]
     for level in levels:
         if total_km < level["km_needed"]:
             return level
-    return {"name": "Чемпион", "km_needed": 1000}
+    return {"name": "Чемпион", "km_needed": 1500}
 
 def ensure_user_stats(conn, user_id):
     """Ensure a user has a stats row."""
     existing = conn.execute("SELECT user_id FROM user_stats WHERE user_id=?", (user_id,)).fetchone()
     if not existing:
         conn.execute("INSERT INTO user_stats (user_id, total_km, level, tasks_completed, tasks_created, comments_count, streak_days, last_active) VALUES (?,?,?,?,?,?,?,?)",
-            (user_id, 0, "Карт", 0, 0, 0, 0, str(date.today())))
+            (user_id, 0, "Босоногий", 0, 0, 0, 0, str(date.today())))
 
 def update_km(conn, user_id, km_amount):
     """Add km to a user's total and update level."""
