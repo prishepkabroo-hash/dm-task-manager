@@ -5274,9 +5274,14 @@ async function renderAnalytics() {
 }
 
 async function renderLeaderboard() {
+  try {
     // Load user's own gamification stats
     const myStats = await apiCall('/api/gamification/me');
     const userCard = document.getElementById('userRacingCard');
+    if (!myStats || !myStats.stats) {
+        userCard.innerHTML = '<div style="color:#ef4444;padding:20px;">Ошибка загрузки данных: ' + JSON.stringify(myStats) + '</div>';
+        return;
+    }
     if (myStats && myStats.stats) {
         const s = myStats.stats;
         const nextLevel = myStats.next_level || {name: 'Чемпион', km_needed: s.total_km};
@@ -5442,6 +5447,11 @@ async function renderLeaderboard() {
             `;
         }).join('');
     }
+  } catch(err) {
+    const uc = document.getElementById('userRacingCard');
+    if (uc) uc.innerHTML = '<div style="color:#ef4444;padding:20px;font-size:13px;word-break:break-all;">JS Error: ' + err.message + '<br><br>' + err.stack + '</div>';
+    console.error('renderLeaderboard error:', err);
+  }
 }
 
 function showAllAchievements() {
