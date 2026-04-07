@@ -1186,6 +1186,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
+            # Recalculate all levels from km
+            all_stats = conn.execute("SELECT user_id, total_km FROM user_stats").fetchall()
+            for row in all_stats:
+                correct = get_level_from_km(row["total_km"])
+                conn.execute("UPDATE user_stats SET level=? WHERE user_id=?", (correct, row["user_id"]))
+            conn.commit()
             leaderboard = conn.execute("""
                 SELECT u.id, u.full_name, u.avatar_color, s.total_km, s.level, s.tasks_completed,
                        d.name as department_name
