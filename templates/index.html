@@ -2362,6 +2362,15 @@
             border-right: 10px solid white;
             left: -10px;
         }
+        .time-picker-custom { display:inline-flex; align-items:center; gap:2px; }
+        .time-picker-custom input { width:36px; padding:6px 4px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; text-align:center; outline:none; -moz-appearance:textfield; }
+        .time-picker-custom input::-webkit-outer-spin-button,
+        .time-picker-custom input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+        .time-picker-custom span { font-weight:600; color:#64748b; }
+        .online-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-left:4px; vertical-align:middle; border:2px solid white; }
+        .online-dot.online { background:#22c55e; }
+        .online-dot.away { background:#f59e0b; }
+        .online-dot.offline { background:#94a3b8; }
     </style>
 </head>
 <body>
@@ -2773,12 +2782,16 @@
                                 </div>
                             </div>
                             <div class="chat-messages" id="chatMessages"></div>
-                            <div class="chat-input-area" id="chatInputArea" style="display: none;">
+                            <div class="chat-input-area" id="chatInputArea" style="display: none; position: relative;">
+                                <div id="mentionDropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:white;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 -4px 12px rgba(0,0,0,0.1);max-height:200px;overflow-y:auto;z-index:100;"></div>
                                 <label style="cursor:pointer;display:flex;align-items:center;padding:8px;color:#94a3b8;transition:color 0.15s;" onmouseenter="this.style.color='#3b82f6'" onmouseleave="this.style.color='#94a3b8'">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
                                     <input type="file" accept="image/*,video/*" style="display:none;" onchange="handleMessengerUpload(this)">
                                 </label>
-                                <input type="text" id="messageInput" placeholder="Напишите сообщение...">
+                                <input type="text" id="messageInput" placeholder="Напишите сообщение..." oninput="handleMentionInput(event)">
+                                <button id="voiceRecordBtn" onclick="toggleVoiceRecord()" style="width:40px;height:40px;border-radius:50%;border:none;background:#f1f5f9;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" title="Голосовое сообщение">
+                                    🎤
+                                </button>
                                 <button id="messengerSendBtn" onclick="sendDirectMessage()">Отправить</button>
                             </div>
                         </div>
@@ -3037,7 +3050,11 @@
                         <label class="form-label">Дедлайн</label>
                         <div style="display:flex;gap:8px;">
                             <input type="date" id="taskDeadlineDate" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Дата">
-                            <input type="time" id="taskDeadlineTime" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Время">
+                            <div class="time-picker-custom" id="taskDeadlineTime">
+                              <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                              <span>:</span>
+                              <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3114,6 +3131,8 @@ let messengerUnreadInterval = null;
 let selectedConversationUserId = null;
 let kanbanSelectMode = false;
 let kanbanSelectedIds = new Set();
+let userOnlineStatus = {};
+let lastMessageCount = {};
 
 const token = localStorage.getItem('dm_token');
 
@@ -3179,6 +3198,11 @@ function levelIcon(level) {
     return icons[level] || '🏎️';
 }
 
+function levelCarEmoji(level) {
+    const cars = {'Карт':'🏎️','Формула 4':'🏎️','Формула 3':'🏎️','Формула 2':'🏎️','Формула 1':'🏎️','Чемпион':'🏆'};
+    return cars[level] || '🏎️';
+}
+
 function roleBadgeHTML(role) {
     if (role === 'admin') return '<span class="role-badge role-admin">ADMIN</span>';
     if (role === 'head') return '<span class="role-badge role-head">ГЛАВА</span>';
@@ -3191,6 +3215,32 @@ function avatarHTML(name, color, size=32, avatarUrl=null) {
     }
     const letter = (name || '?')[0].toUpperCase();
     return `<div class="avatar" style="width:${size}px;height:${size}px;background:${color||'#666'};border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:${size*0.4}px;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.12);">${letter}</div>`;
+}
+
+function getCustomTime(container) {
+    const h = container.querySelector('.tp-hours');
+    const m = container.querySelector('.tp-minutes');
+    if (!h.value && !m.value) return '';
+    const hh = (h.value || '0').padStart(2, '0');
+    const mm = (m.value || '0').padStart(2, '0');
+    return hh + ':' + mm;
+}
+
+function setCustomTime(container, timeStr) {
+    if (!timeStr) return;
+    const parts = timeStr.split(':');
+    container.querySelector('.tp-hours').value = parts[0] || '';
+    container.querySelector('.tp-minutes').value = parts[1] || '';
+}
+
+async function refreshOnlineStatus() {
+    const data = await apiCall('/api/users/online');
+    if (data) userOnlineStatus = data;
+}
+
+function onlineDotHtml(userId) {
+    const status = userOnlineStatus[userId] || 'offline';
+    return `<span class="online-dot ${status}" title="${status === 'online' ? 'В сети' : status === 'away' ? 'Отошёл' : 'Не в сети'}"></span>`;
 }
 
 // =================================
@@ -3422,6 +3472,7 @@ async function loadApp() {
     setupNotificationInterval();
     setupMessengerInterval();
     setupMessengerUnreadInterval();
+    refreshOnlineStatus();
 }
 
 // =================================
@@ -3891,7 +3942,11 @@ async function renderKanban() {
                     </select>
                     <div style="flex:0 0 auto;display:flex;gap:4px;align-items:center;">
                         <input type="date" class="qt-deadline-date" style="width:130px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;" placeholder="Дата">
-                        <input type="time" class="qt-deadline-time" style="width:90px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;" placeholder="Время">
+                        <div class="time-picker-custom qt-deadline-time">
+                          <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                          <span>:</span>
+                          <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
+                        </div>
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;">
@@ -3984,14 +4039,18 @@ async function submitQuickTask(el, status) {
     const form = el.closest('.quick-task-form');
     const titleInput = form.querySelector('input[type="text"]');
     const deptSelect = form.querySelector('.qt-dept');
-    const deadlineInput = form.querySelector('.qt-deadline');
+    const dateInput = form.querySelector('.qt-deadline-date');
+    const timeContainer = form.querySelector('.qt-deadline-time');
     const title = titleInput.value.trim();
     const department_id = deptSelect.value ? parseInt(deptSelect.value) : null;
 
     if (!title) { titleInput.style.borderColor = '#ef4444'; return; }
     if (!department_id) { deptSelect.style.borderColor = '#ef4444'; return; }
 
-    const payload = {title, description:'', status, priority:'medium', department_id, deadline: deadlineInput.value || null, assigned_to: currentUser.id};
+    const dateVal = dateInput.value;
+    const timeVal = timeContainer ? getCustomTime(timeContainer) : '';
+    const deadline = dateVal ? (dateVal + 'T' + timeVal) : null;
+    const payload = {title, description:'', status, priority:'medium', department_id, deadline, assigned_to: currentUser.id};
     const resp = await apiCall('/api/tasks', {method:'POST', body:JSON.stringify(payload)});
     if (resp && resp.ok) {
         showToast('Задача создана', 'success');
@@ -4308,7 +4367,10 @@ async function showTaskForm(taskId = null) {
         document.getElementById('taskStatus').value = task.status;
         document.getElementById('taskPriority').value = task.priority;
         document.getElementById('taskDepartment').value = task.department_id || '';
-        document.getElementById('taskDeadline').value = task.deadline ? task.deadline.slice(0, 16) : '';
+        const dlDate = task.deadline ? task.deadline.split('T')[0] : '';
+        const dlTime = task.deadline && task.deadline.includes('T') ? task.deadline.split('T')[1].slice(0, 5) : '09:00';
+        document.getElementById('taskDeadlineDate').value = dlDate;
+        setCustomTime(document.getElementById('taskDeadlineTime'), dlTime);
         document.getElementById('taskAssignee').value = task.assigned_to || '';
     } else {
         titleSpan.textContent = 'Новая задача';
@@ -4385,7 +4447,9 @@ async function saveTask() {
     const priority = document.getElementById('taskPriority').value;
     const deptVal = document.getElementById('taskDepartment').value;
     const department_id = deptVal ? parseInt(deptVal) : null;
-    const deadline = document.getElementById('taskDeadline').value;
+    const dateVal = document.getElementById('taskDeadlineDate').value;
+    const timeVal = getCustomTime(document.getElementById('taskDeadlineTime'));
+    const deadline = dateVal ? (dateVal + 'T' + timeVal) : null;
     const assignVal = document.getElementById('taskAssignee').value;
     const assigned_to = assignVal ? parseInt(assignVal) : null;
 
@@ -4802,39 +4866,80 @@ async function loadDetailActivity(taskId) {
 // 11. MESSENGER
 // =================================
 
+function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+}
+
+function showBrowserNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+            new Notification(title, { body: body, icon: '/static/icon.png', tag: 'dm-message' });
+        } catch(e) { console.log('Notification error', e); }
+    }
+}
+
 async function renderMessenger() {
+    // Request notification permission when messenger opens
+    requestNotificationPermission();
+
     const conversationList = document.getElementById('conversationList');
     const conversations = await apiCall('/api/messenger/conversations') || [];
-    
-    // New conversation button + user list
+    const groups = await apiCall('/api/messenger/groups') || [];
+
+    // New conversation button + user list + create group button
     let html = `<div style="padding: 12px; border-bottom: 2px solid var(--border-color);">
+        <button onclick="showCreateGroupModal()" style="width:100%;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-bottom:12px;">
+            👥 Создать групповой чат
+        </button>
         <select id="newConvSelect" onchange="if(this.value) selectConversation(parseInt(this.value))" style="width:100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px;">
             <option value="">Новый чат...</option>
             ${allUsers.filter(u => u.id !== currentUser.id).map(u => `<option value="${u.id}">${u.full_name}</option>`).join('')}
         </select>
     </div>`;
 
+    // Group chats
+    if (groups && groups.length) {
+        html += `<div style="font-size:11px;font-weight:600;color:#94a3b8;padding:12px 12px 4px;text-transform:uppercase;">Групповые чаты</div>`;
+        html += groups.map(group => `
+            <div class="conversation-item group-item" data-group-id="${group.id}" style="padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:${group.avatar_color};display:flex;align-items:center;justify-content:center;color:white;font-size:18px;">👥</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; display: flex; justify-content: space-between;">${group.name}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${group.last_message || 'Нет сообщений'}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Direct conversations
     if (conversations && conversations.length) {
+        html += `<div style="font-size:11px;font-weight:600;color:#94a3b8;padding:12px 12px 4px;text-transform:uppercase;">Прямые сообщения</div>`;
         html += conversations.map(conv => `
             <div class="conversation-item" data-user-id="${conv.user_id}" style="padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; gap: 10px;">
                 ${avatarHTML(conv.full_name, conv.avatar_color, 36, conv.avatar_url)}
                 <div style="flex: 1; min-width: 0;">
-                    <div style="font-weight: 600; display: flex; justify-content: space-between;">
-                        <span>${conv.full_name}</span>
+                    <div style="font-weight: 600; display: flex; justify-content: space-between; align-items:center;">
+                        <span>${conv.full_name}${onlineDotHtml(conv.user_id)}</span>
                         ${conv.unread_count > 0 ? `<span style="background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 11px;">${conv.unread_count}</span>` : ''}
                     </div>
                     <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${conv.last_message || ''}</div>
                 </div>
             </div>
         `).join('');
-    } else {
+    } else if (!groups || groups.length === 0) {
         html += '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">Нет диалогов</div>';
     }
 
     conversationList.innerHTML = html;
 
-    conversationList.querySelectorAll('.conversation-item').forEach(item => {
+    conversationList.querySelectorAll('.conversation-item:not(.group-item)').forEach(item => {
         item.addEventListener('click', () => selectConversation(parseInt(item.getAttribute('data-user-id'))));
+    });
+
+    conversationList.querySelectorAll('.group-item').forEach(item => {
+        item.addEventListener('click', () => openGroupChat(parseInt(item.getAttribute('data-group-id'))));
     });
 }
 
@@ -4848,14 +4953,31 @@ async function selectConversation(userId) {
     const chatPartnerStatus = document.getElementById('chatPartnerStatus');
 
     if (user) {
-        chatPartnerName.textContent = user.full_name;
+        const status = userOnlineStatus[userId] || 'offline';
+        const statusLabel = status === 'online' ? 'В сети' : status === 'away' ? 'Отошёл' : 'Не в сети';
+        chatPartnerName.innerHTML = user.full_name + onlineDotHtml(userId);
         chatPartnerAvatar.innerHTML = avatarHTML(user.full_name, user.avatar_color, 36, user.avatar_url);
-        chatPartnerStatus.textContent = 'В сети';
+        chatPartnerStatus.textContent = statusLabel;
     }
 
     document.getElementById('chatInputArea').style.display = 'flex';
 
     const messages = await apiCall('/api/messenger/messages/' + userId) || [];
+
+    // Detect new messages and show notifications
+    const prevCount = lastMessageCount[userId] || 0;
+    if (messages.length > prevCount && prevCount > 0) {
+        // New messages detected - show notification only if not currently viewing this chat
+        const newMessages = messages.slice(prevCount);
+        newMessages.forEach(m => {
+            if (m.sender_id !== currentUser.id) {
+                const preview = m.text.substring(0, 50) + (m.text.length > 50 ? '...' : '');
+                showBrowserNotification(user.full_name, preview);
+            }
+        });
+    }
+    lastMessageCount[userId] = messages.length;
+
     const chatMessages = document.getElementById('chatMessages');
     if (messages && messages.length) {
         chatMessages.innerHTML = messages.map(m => `
@@ -4880,6 +5002,10 @@ function renderMessageText(text) {
     text = text.replace(/\[img\](.*?)\[\/img\]/g, '<img src="$1" style="max-width:200px;max-height:200px;border-radius:8px;cursor:pointer;margin-top:4px;" onclick="window.open(this.src)">');
     // File attachments
     text = text.replace(/\[file\](.*?)\[\/file\]/g, '<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">📎 Файл</a>');
+    // Voice messages
+    text = text.replace(/\[voice\](.*?)\[\/voice\]/g, '<audio controls src="$1" style="max-width:250px;height:36px;"></audio>');
+    // Mentions
+    text = text.replace(/@(\w+)/g, '<span style="color:#3b82f6;font-weight:600;">@$1</span>');
     return text;
 }
 
@@ -4960,6 +5086,7 @@ function setupMessengerInterval() {
         if (currentPage === 'messenger' && selectedConversationUserId) {
             selectConversation(selectedConversationUserId);
         }
+        refreshOnlineStatus();
     }, 5000);
 }
 
@@ -4974,7 +5101,7 @@ function setupMessengerUnreadInterval() {
         } else {
             badge.style.display = 'none';
         }
-    }, 10000);
+    }, 5000);
 }
 
 // =================================
@@ -5055,8 +5182,16 @@ async function renderLeaderboard() {
                     <div style="font-size: 13px; opacity: 0.7;">километров</div>
                 </div>
             </div>
-            <div class="progress-track" style="margin-top:20px;">
-                <div class="progress-fill" style="width: ${pct}%;"></div>
+            <div style="margin-top:20px;position:relative;">
+                <div style="position:relative;height:32px;background:linear-gradient(180deg,#374151 0%,#4b5563 40%,#374151 60%,#4b5563 100%);border-radius:16px;overflow:hidden;border:2px solid #6b7280;">
+                    <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:repeating-linear-gradient(90deg,#fbbf24 0px,#fbbf24 20px,transparent 20px,transparent 40px);transform:translateY(-50%);opacity:0.5;"></div>
+                    <div style="position:absolute;top:0;left:0;height:100%;width:${pct}%;background:linear-gradient(90deg,rgba(239,68,68,0.3),rgba(249,115,22,0.3));border-radius:14px;transition:width 0.5s ease;"></div>
+                    <div style="position:absolute;top:50%;left:calc(${Math.max(2, pct)}% - 16px);transform:translateY(-50%);font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));transition:left 0.5s ease;">${levelCarEmoji(s.level)}</div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                    <span style="font-size:11px;opacity:0.6;">🏁 Старт</span>
+                    <span style="font-size:11px;opacity:0.6;">🏆 ${nextLevel.name}</span>
+                </div>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 12px; opacity: 0.7; margin-top: 6px;">
                 <span>${s.total_km} км</span>
@@ -5590,7 +5725,11 @@ function openDeadlineCalendar(event, taskId) {
             </div>
             <div style="flex:1;">
                 <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">Время</label>
-                <input type="time" id="dlCalendarTime" value="${dlTime}" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;cursor:pointer;">
+                <div class="time-picker-custom" id="dlCalendarTime">
+                <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                <span>:</span>
+                <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
+              </div>
             </div>
         </div>
         <div style="display:flex;gap:10px;">
@@ -5601,12 +5740,13 @@ function openDeadlineCalendar(event, taskId) {
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    setCustomTime(document.getElementById('dlCalendarTime'), dlTime);
     document.getElementById('dlCalendarDate').focus();
 }
 
 async function saveDealineFromCalendar(taskId) {
     const dateVal = document.getElementById('dlCalendarDate').value;
-    const timeVal = document.getElementById('dlCalendarTime').value;
+    const timeVal = getCustomTime(document.getElementById('dlCalendarTime'));
     if (!dateVal) return;
     const deadlineStr = dateVal + 'T' + timeVal;
     await detailChangeField('deadline', deadlineStr);
@@ -5674,7 +5814,11 @@ function openCardEditor(event, taskId, field) {
         modalHTML += '</div>';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Время</label>';
-        modalHTML += '<input type="time" id="ceTime" value="' + dlTime + '" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">';
+        modalHTML += '<div class="time-picker-custom" id="ceTime">
+                  <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                  <span>:</span>
+                  <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
+                </div>';
         modalHTML += '</div>';
         modalHTML += '<button onclick="saveDeadlineFromCardEditor(' + taskId + ');overlay.remove();" style="width:100%;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseenter="this.style.background=\'#2563eb\'" onmouseleave="this.style.background=\'#3b82f6\'">Сохранить</button>';
         modalHTML += '</div>';
@@ -5690,6 +5834,10 @@ function openCardEditor(event, taskId, field) {
     modal.innerHTML = modalHTML;
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    if (field === 'deadline') {
+        const dlTime = task.deadline && task.deadline.includes('T') ? task.deadline.split('T')[1].slice(0, 5) : '09:00';
+        setCustomTime(document.getElementById('ceTime'), dlTime);
+    }
 }
 
 async function saveCardField(taskId, field, value) {
@@ -5705,7 +5853,7 @@ async function saveCardField(taskId, field, value) {
 
 async function saveDeadlineFromCardEditor(taskId) {
     const dateVal = document.getElementById('ceDate').value;
-    const timeVal = document.getElementById('ceTime').value;
+    const timeVal = getCustomTime(document.getElementById('ceTime'));
     if (!dateVal) return;
     const deadlineStr = dateVal + 'T' + timeVal;
     await saveCardField(taskId, 'deadline', deadlineStr);
@@ -6165,17 +6313,203 @@ function setupVoiceInput() {
     });
 }
 
-async function sendDirectMessage() {
-    if (!selectedConversationUserId) return;
+// =================================
+// FEATURE 1: @MENTIONS
+// =================================
+function handleMentionInput(e) {
+    const input = e.target;
+    const text = input.value;
+    const cursorPos = input.selectionStart;
+    const textBeforeCursor = text.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    const mentionDropdown = document.getElementById('mentionDropdown');
+    if (atMatch) {
+        const query = atMatch[1].toLowerCase();
+        const filtered = allUsers.filter(u => u.full_name.toLowerCase().includes(query) || u.username.toLowerCase().includes(query));
+        if (filtered.length > 0) {
+            mentionDropdown.innerHTML = filtered.slice(0, 5).map(u =>
+                `<div class="mention-item" onclick="insertMention('${u.full_name}', ${cursorPos - atMatch[0].length}, ${cursorPos})" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='white'">
+                    <div style="width:28px;height:28px;border-radius:50%;background:${u.avatar_color || '#666'};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;">${(u.full_name||'?')[0]}</div>
+                    <span>${u.full_name}</span>
+                </div>`
+            ).join('');
+            mentionDropdown.style.display = 'block';
+            return;
+        }
+    }
+    mentionDropdown.style.display = 'none';
+}
+
+function insertMention(name, start, end) {
+    const input = document.getElementById('messageInput') || document.querySelector('.msg-input');
+    const text = input.value;
+    input.value = text.slice(0, start) + '@' + name + ' ' + text.slice(end);
+    input.focus();
+    document.getElementById('mentionDropdown').style.display = 'none';
+}
+
+// =================================
+// FEATURE 3: VOICE MESSAGES
+// =================================
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+
+function toggleVoiceRecord() {
+    if (isRecording) {
+        stopVoiceRecord();
+    } else {
+        startVoiceRecord();
+    }
+}
+
+async function startVoiceRecord() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const blob = new Blob(audioChunks, {type: 'audio/webm'});
+            await sendVoiceMessage(blob);
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        const btn = document.getElementById('voiceRecordBtn');
+        btn.style.background = '#ef4444';
+        btn.style.color = 'white';
+        btn.innerHTML = '⏹️';
+        showToast('Запись...', 'info');
+    } catch(e) {
+        showToast('Нет доступа к микрофону', 'error');
+    }
+}
+
+function stopVoiceRecord() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    isRecording = false;
+    const btn = document.getElementById('voiceRecordBtn');
+    btn.style.background = '#f1f5f9';
+    btn.style.color = '';
+    btn.innerHTML = '🎤';
+}
+
+async function sendVoiceMessage(blob) {
+    const formData = new FormData();
+    formData.append('file', blob, 'voice_' + Date.now() + '.webm');
+    try {
+        const resp = await fetch('/api/messenger/upload', {method:'POST', body: formData});
+        const data = await resp.json();
+        if (data.ok && data.url) {
+            const partnerId = selectedConversationUserId;
+            if (partnerId) {
+                await apiCall('/api/messenger/messages/' + partnerId, {
+                    method: 'POST',
+                    body: JSON.stringify({text: '[voice]' + data.url + '[/voice]'})
+                });
+                selectConversation(partnerId);
+            }
+        }
+    } catch(e) {
+        showToast('Ошибка отправки голосового', 'error');
+    }
+}
+
+// =================================
+// FEATURE 2: GROUP CHATS
+// =================================
+let activeGroupId = null;
+
+function showCreateGroupModal() {
+    const userCheckboxes = allUsers.filter(u => u.id !== currentUser.id).map(u =>
+        `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
+            <input type="checkbox" value="${u.id}" class="group-member-cb">
+            <div style="width:28px;height:28px;border-radius:50%;background:${u.avatar_color||'#666'};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;">${(u.full_name||'?')[0]}</div>
+            ${u.full_name}
+        </label>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'createGroupModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;width:380px;max-height:80vh;overflow-y:auto;">
+            <h3 style="margin:0 0 16px;">Новый групповой чат</h3>
+            <input id="groupNameInput" placeholder="Название группы..." style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Участники:</div>
+            <div style="max-height:200px;overflow-y:auto;">${userCheckboxes}</div>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button onclick="createGroupChat()" style="flex:1;padding:10px;background:#6366f1;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Создать</button>
+                <button onclick="document.getElementById('createGroupModal').remove()" style="padding:10px 16px;background:#f1f5f9;border:none;border-radius:8px;cursor:pointer;">Отмена</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function createGroupChat() {
+    const name = document.getElementById('groupNameInput').value.trim();
+    const members = [...document.querySelectorAll('.group-member-cb:checked')].map(cb => cb.value);
+    if (!name) { showToast('Введите название', 'error'); return; }
+    const resp = await apiCall('/api/messenger/groups', {method:'POST', body: JSON.stringify({name, members})});
+    if (resp && resp.ok) {
+        document.getElementById('createGroupModal').remove();
+        showToast('Группа создана!', 'success');
+        renderMessenger();
+    }
+}
+
+async function sendGroupMessage(groupId) {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
-    await apiCall('/api/messenger/messages/' + selectedConversationUserId, {
+    await apiCall('/api/messenger/groups/' + groupId + '/messages', {
         method: 'POST',
         body: JSON.stringify({text})
     });
-    selectConversation(selectedConversationUserId);
+    openGroupChat(groupId);
+}
+
+async function openGroupChat(groupId) {
+    activeGroupId = groupId;
+    const messages = await apiCall('/api/messenger/groups/' + groupId + '/messages') || [];
+    const chatMessages = document.getElementById('chatMessages');
+    if (messages && messages.length) {
+        chatMessages.innerHTML = messages.map(m => `
+            <div style="margin-bottom: 12px; text-align: ${m.sender_id === currentUser.id ? 'right' : 'left'};">
+                <div style="font-size:12px;color:#94a3b8;margin-bottom:2px;">${m.sender_name}</div>
+                <div style="display: inline-block; background: ${m.sender_id === currentUser.id ? 'var(--blue)' : 'var(--bg-main)'}; color: ${m.sender_id === currentUser.id ? 'white' : 'black'}; padding: 8px 12px; border-radius: 8px; max-width: 70%; word-wrap: break-word;">
+                    ${renderMessageText(m.text)}
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+async function sendDirectMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+
+    if (activeGroupId) {
+        await apiCall('/api/messenger/groups/' + activeGroupId + '/messages', {
+            method: 'POST',
+            body: JSON.stringify({text})
+        });
+        openGroupChat(activeGroupId);
+    } else if (selectedConversationUserId) {
+        await apiCall('/api/messenger/messages/' + selectedConversationUserId, {
+            method: 'POST',
+            body: JSON.stringify({text})
+        });
+        selectConversation(selectedConversationUserId);
+    }
 }
 
 // Allow sending with Enter key in messenger

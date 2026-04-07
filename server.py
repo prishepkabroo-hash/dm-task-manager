@@ -170,6 +170,26 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+    CREATE TABLE IF NOT EXISTS group_chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        avatar_color TEXT DEFAULT '#6366f1'
+    );
+    CREATE TABLE IF NOT EXISTS group_chat_members (
+        group_id INTEGER,
+        user_id INTEGER,
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (group_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS group_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     """)
 
     # Migrate: add onboarding_done column if missing
@@ -293,6 +313,33 @@ def init_db():
         c.execute("SELECT avatar_url FROM users LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''")
+
+    # Migrate: create group_chats table if missing
+    try:
+        c.execute("SELECT 1 FROM group_chats LIMIT 1")
+    except sqlite3.OperationalError:
+        c.executescript("""
+        CREATE TABLE group_chats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            avatar_color TEXT DEFAULT '#6366f1'
+        );
+        CREATE TABLE group_chat_members (
+            group_id INTEGER,
+            user_id INTEGER,
+            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (group_id, user_id)
+        );
+        CREATE TABLE group_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL,
+            sender_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
 
     # Create role_permissions table
     c.execute("""
@@ -941,6 +988,37 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"unread": count})
 
+        if path == "/api/messenger/groups":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            groups = conn.execute("""
+                SELECT g.id, g.name, g.avatar_color, g.created_at,
+                       (SELECT text FROM group_messages WHERE group_id=g.id ORDER BY id DESC LIMIT 1) as last_message,
+                       (SELECT COUNT(*) FROM group_chat_members WHERE group_id=g.id) as member_count
+                FROM group_chats g
+                JOIN group_chat_members m ON g.id = m.group_id
+                WHERE m.user_id = ?
+                ORDER BY g.created_at DESC
+            """, (u["id"],)).fetchall()
+            conn.close()
+            return self._json([dict(g) for g in groups])
+
+        if path.startswith("/api/messenger/groups/") and path.endswith("/messages"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            gid = path.split("/")[4]
+            conn = get_db()
+            msgs = conn.execute("""
+                SELECT gm.*, u.full_name as sender_name, u.avatar_color
+                FROM group_messages gm
+                JOIN users u ON gm.sender_id = u.id
+                WHERE gm.group_id = ?
+                ORDER BY gm.id ASC
+            """, (gid,)).fetchall()
+            conn.close()
+            return self._json([dict(m) for m in msgs])
+
         if path == "/api/analytics":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
@@ -1416,6 +1494,33 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "INSERT INTO direct_messages (sender_id, recipient_id, text) VALUES (?,?,?)",
                 (u["id"], recipient_id, text)
             )
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/messenger/groups":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            name = data.get("name", "").strip()
+            members = data.get("members", [])
+            if not name: return self._json({"error": "Название обязательно"}, 400)
+            conn = get_db()
+            cur = conn.execute("INSERT INTO group_chats (name, created_by) VALUES (?,?)", (name, u["id"]))
+            gid = cur.lastrowid
+            conn.execute("INSERT INTO group_chat_members (group_id, user_id) VALUES (?,?)", (gid, u["id"]))
+            for mid in members:
+                try: conn.execute("INSERT INTO group_chat_members (group_id, user_id) VALUES (?,?)", (gid, int(mid)))
+                except: pass
+            conn.commit(); conn.close()
+            return self._json({"ok": True, "id": gid})
+
+        if path.startswith("/api/messenger/groups/") and path.endswith("/messages"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            gid = path.split("/")[4]
+            text = data.get("text", "").strip()
+            if not text: return self._json({"error": "empty"}, 400)
+            conn = get_db()
+            conn.execute("INSERT INTO group_messages (group_id, sender_id, text) VALUES (?,?,?)", (gid, u["id"], text))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
