@@ -341,6 +341,13 @@ def init_db():
         );
         """)
 
+    # Migrate: add old_value and new_value columns to task_activity if missing
+    try:
+        c.execute("SELECT old_value FROM task_activity LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE task_activity ADD COLUMN old_value TEXT")
+        c.execute("ALTER TABLE task_activity ADD COLUMN new_value TEXT")
+
     # Create role_permissions table
     c.execute("""
     CREATE TABLE IF NOT EXISTS role_permissions (
@@ -420,10 +427,10 @@ def generate_deadline_notifications():
     conn.commit()
     conn.close()
 
-def log_activity(conn, task_id, user_id, action, details=None):
+def log_activity(conn, task_id, user_id, action, details=None, old_value=None, new_value=None):
     """Log an activity to the task_activity table."""
-    conn.execute("INSERT INTO task_activity (task_id, user_id, action, details) VALUES (?,?,?,?)",
-        (task_id, user_id, action, details))
+    conn.execute("INSERT INTO task_activity (task_id, user_id, action, details, old_value, new_value) VALUES (?,?,?,?,?,?)",
+        (task_id, user_id, action, details, old_value, new_value))
 
 def calculate_working_hours(start_dt_str, end_dt_str):
     """Calculate working hours between two datetime strings, excluding non-working hours.
@@ -841,7 +848,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             task_id = path.split("/")[3]
             conn = get_db()
             r = conn.execute(
-                "SELECT a.*, u.full_name as user_name, u.avatar_color "
+                "SELECT a.id, a.task_id, a.user_id, a.action, a.details, a.created_at, "
+                "a.old_value, a.new_value, u.full_name as user_name, u.avatar_color "
                 "FROM task_activity a "
                 "JOIN users u ON a.user_id = u.id "
                 "WHERE a.task_id = ? ORDER BY a.created_at ASC", (task_id,)
@@ -1365,8 +1373,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                  u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None))
             task_id = c.lastrowid
 
-            # Log task creation
-            log_activity(conn, task_id, u["id"], "task_created", title)
+            # Log task creation with details
+            log_activity(conn, task_id, u["id"], "task_created", title, new_value=title)
 
             # Award km for creating task
             update_km(conn, u["id"], 2)
@@ -1474,6 +1482,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             old_watcher_ids = set([w["user_id"] for w in old_watchers])
             new_watcher_ids = set(watcher_ids)
             added_watchers = new_watcher_ids - old_watcher_ids
+            removed_watchers = old_watcher_ids - new_watcher_ids
 
             # Update watchers
             conn.execute("DELETE FROM task_watchers WHERE task_id=?", (task_id,))
@@ -1484,7 +1493,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Log added watchers
             for wid in added_watchers:
                 user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (wid,)).fetchone()
-                log_activity(conn, int(task_id), u["id"], "watcher_added", f"Добавлен наблюдатель: {user_name['full_name']}")
+                log_activity(conn, int(task_id), u["id"], "watcher_added", f"Добавлен наблюдатель: {user_name['full_name']}", new_value=user_name['full_name'])
+            # Log removed watchers
+            for wid in removed_watchers:
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (wid,)).fetchone()
+                log_activity(conn, int(task_id), u["id"], "watcher_removed", f"Убран наблюдатель: {user_name['full_name']}", old_value=user_name['full_name'])
 
             conn.commit(); conn.close()
             return self._json({"ok": True})
@@ -1810,19 +1823,39 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 params.append(task_id)
                 conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
 
-                # Log all field changes
+                # Log all field changes with old/new values
+                status_names = {"new":"Новая","todo":"Новая","in_progress":"В работе","review":"Согласование","done":"Готово","cancelled":"Отменена"}
+                priority_names = {"low":"Низкий","medium":"Средний","high":"Высокий","urgent":"Срочный"}
                 if old_task:
                     for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline"]:
                         if field in data:
                             old_val = old_task[field]
                             new_val = data[field] if data[field] != "" else None
                             if str(old_val or "") != str(new_val or ""):
-                                log_activity(conn, int(task_id), u["id"], f"{field}_changed",
-                                           f"Изменено с '{old_val or ''}' на '{new_val or ''}'")
+                                # Resolve human-readable values
+                                if field == "status":
+                                    ov = status_names.get(str(old_val), old_val or "—")
+                                    nv = status_names.get(str(new_val), new_val or "—")
+                                elif field == "priority":
+                                    ov = priority_names.get(str(old_val), old_val or "—")
+                                    nv = priority_names.get(str(new_val), new_val or "—")
+                                elif field == "assigned_to":
+                                    ov_user = conn.execute("SELECT full_name FROM users WHERE id=?", (old_val,)).fetchone() if old_val else None
+                                    nv_user = conn.execute("SELECT full_name FROM users WHERE id=?", (new_val,)).fetchone() if new_val else None
+                                    ov = ov_user["full_name"] if ov_user else "—"
+                                    nv = nv_user["full_name"] if nv_user else "—"
+                                elif field == "department_id":
+                                    ov_dept = conn.execute("SELECT name FROM departments WHERE id=?", (old_val,)).fetchone() if old_val else None
+                                    nv_dept = conn.execute("SELECT name FROM departments WHERE id=?", (new_val,)).fetchone() if new_val else None
+                                    ov = ov_dept["name"] if ov_dept else "—"
+                                    nv = nv_dept["name"] if nv_dept else "—"
+                                else:
+                                    ov = str(old_val) if old_val else "—"
+                                    nv = str(new_val) if new_val else "—"
+                                log_activity(conn, int(task_id), u["id"], f"{field}_changed", None, old_value=ov, new_value=nv)
 
-                # Log status change with notifications
+                # Status change notifications
                 if "status" in data and old_task and data["status"] != old_task["status"]:
-                    status_names = {"new":"Новая","in_progress":"В работе","review":"Согласование","done":"Готово","cancelled":"Отменена"}
                     msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
                     watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
                     notify_ids = set([w["user_id"] for w in watchers])
@@ -1832,12 +1865,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     for nid in notify_ids:
                         conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
                             (nid, task_id, "status_change", msg))
-
-                # Log assignment change with special handling
-                if "assigned_to" in data and old_task and data["assigned_to"] != old_task["assigned_to"]:
-                    new_assignee = conn.execute("SELECT full_name FROM users WHERE id=?", (data["assigned_to"],)).fetchone() if data["assigned_to"] else None
-                    details = f"Назначено: {new_assignee['full_name']}" if new_assignee else "Назначение отменено"
-                    log_activity(conn, int(task_id), u["id"], "assigned", details)
 
                 conn.commit()
             conn.close()
