@@ -3953,18 +3953,16 @@ async function renderKanban() {
             </div>
             <div class="quick-task-form" style="display:none;margin-top:8px;">
                 <input type="text" placeholder="Название задачи..." style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;" onkeydown="if(event.key==='Enter')submitQuickTask(this,'${status}')">
-                <div style="display:flex;gap:8px;margin-bottom:8px;">
-                    <select class="qt-dept" style="flex:1;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;">
-                        <option value="">Отдел *</option>
-                        ${allDepartments.map(d => '<option value="'+d.id+'"'+(currentUser.department_id==d.id?' selected':'')+'>'+d.name+'</option>').join('')}
-                    </select>
-                    <div style="flex:0 0 auto;display:flex;gap:4px;align-items:center;">
-                        <input type="date" class="qt-deadline-date" style="width:130px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;" placeholder="Дата">
-                        <div class="time-picker-custom qt-deadline-time">
-                          <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
-                          <span>:</span>
-                          <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
-                        </div>
+                <select class="qt-dept" style="width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;margin-bottom:6px;box-sizing:border-box;">
+                    <option value="">Отдел *</option>
+                    ${allDepartments.map(d => '<option value="'+d.id+'"'+(currentUser.department_id==d.id?' selected':'')+'>'+d.name+'</option>').join('')}
+                </select>
+                <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+                    <input type="date" class="qt-deadline-date" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;box-sizing:border-box;" placeholder="Дата">
+                    <div class="time-picker-custom qt-deadline-time" style="flex-shrink:0;">
+                      <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" style="width:32px;" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                      <span>:</span>
+                      <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" style="width:32px;" onchange="this.value=this.value.padStart(2,'0')">
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;">
