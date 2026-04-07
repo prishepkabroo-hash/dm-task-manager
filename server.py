@@ -1189,7 +1189,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "SELECT id, type, name, description, icon, earned_at FROM achievements WHERE user_id=? ORDER BY earned_at DESC",
                 (u["id"],)
             ).fetchall()
-            conn.close()
             next_level = get_next_level(stats["total_km"])
             stats_dict = dict(stats)
             # Include car_override if set
@@ -1198,6 +1197,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             role = u.get('role', 'member')
             perm_row = conn.execute("SELECT allowed FROM role_permissions WHERE role=? AND permission='switch_car'", (role,)).fetchone()
             can_switch_car = bool(perm_row and perm_row['allowed'])
+            conn.close()
             return self._json({
                 "stats": stats_dict,
                 "next_level": next_level,
