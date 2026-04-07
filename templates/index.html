@@ -2376,20 +2376,17 @@
         .online-dot.away { background:#f59e0b; }
         .online-dot.offline { background:#94a3b8; }
 
-        /* Racing animations */
-        @keyframes walkAnim { 0%{transform:translateY(0) rotate(0)} 100%{transform:translateY(-8px) rotate(2deg)} }
-        @keyframes scootAnim { 0%{transform:translateX(0) rotate(0)} 100%{transform:translateX(4px) rotate(3deg)} }
-        @keyframes monoAnim { 0%{transform:rotate(-6deg) translateY(0)} 100%{transform:rotate(6deg) translateY(-4px)} }
-        @keyframes bikeAnim { 0%{transform:translateY(0) translateX(0)} 100%{transform:translateY(-3px) translateX(3px)} }
-        @keyframes carAnim { 0%{transform:translateY(0) translateX(0)} 100%{transform:translateY(-3px) translateX(2px)} }
-        @keyframes f3Anim { 0%{transform:translateX(0)} 100%{transform:translateX(6px)} }
-        @keyframes f2Anim { 0%{transform:translateX(0)} 100%{transform:translateX(8px)} }
-        @keyframes f1Anim { 0%{transform:translateX(0) scale(1)} 100%{transform:translateX(10px) scale(1.02)} }
-        @keyframes champAnim { 0%{transform:translateX(0) scale(1)} 100%{transform:translateX(10px) scale(1.06)} }
-        @keyframes crownFloat { 0%{transform:translateX(-50%) translateY(0) rotate(-5deg)} 100%{transform:translateX(-50%) translateY(-8px) rotate(5deg)} }
-        @keyframes particleFade { 0%{opacity:0.8;transform:scale(1) translateX(0)} 100%{opacity:0;transform:scale(0.3) translateX(-20px)} }
-        @keyframes speedLine { 0%{opacity:0;transform:scaleX(0.3)} 100%{opacity:1;transform:scaleX(1)} }
-        @keyframes neonPulse { 0%,100%{opacity:0;transform:scale(0.8)} 50%{opacity:0.6;transform:scale(1.2)} }
+        /* Racing animations — premium clean */
+        @keyframes raceFloat { 0%{transform:translateY(0)} 50%{transform:translateY(-6px)} 100%{transform:translateY(0)} }
+        @keyframes raceRush { 0%{transform:translateX(0) translateY(0)} 25%{transform:translateX(3px) translateY(-4px)} 50%{transform:translateX(0) translateY(-6px)} 75%{transform:translateX(-2px) translateY(-3px)} 100%{transform:translateX(0) translateY(0)} }
+        @keyframes raceDrive { 0%{transform:translateX(0) translateY(0)} 50%{transform:translateX(4px) translateY(-2px)} 100%{transform:translateX(0) translateY(0)} }
+        @keyframes raceSpeed { 0%{transform:translateX(0) scaleX(1)} 50%{transform:translateX(6px) scaleX(1.02)} 100%{transform:translateX(0) scaleX(1)} }
+        @keyframes champPulse { 0%{transform:translateX(0) scale(1)} 25%{transform:translateX(5px) scale(1.04)} 50%{transform:translateX(8px) scale(1.02)} 75%{transform:translateX(3px) scale(1.05)} 100%{transform:translateX(0) scale(1)} }
+        @keyframes crownBob { 0%{transform:translateX(-50%) translateY(0) rotate(-3deg)} 50%{transform:translateX(-50%) translateY(-6px) rotate(3deg)} 100%{transform:translateX(-50%) translateY(0) rotate(-3deg)} }
+        @keyframes trailFade { 0%{opacity:0.7;transform:scaleX(0.5)} 50%{opacity:1;transform:scaleX(1)} 100%{opacity:0.7;transform:scaleX(0.5)} }
+        @keyframes glowPulse { 0%,100%{opacity:0.4;filter:blur(12px)} 50%{opacity:0.8;filter:blur(18px)} }
+        @keyframes exhaustPuff { 0%{opacity:0.6;transform:translateX(0) scale(1)} 100%{opacity:0;transform:translateX(-25px) scale(2)} }
+        @keyframes starSparkle { 0%,100%{opacity:0;transform:scale(0.5)} 50%{opacity:1;transform:scale(1)} }
     </style>
 </head>
 <body>
@@ -3224,7 +3221,7 @@ function priorityName(p) {
 }
 
 function levelIcon(level) {
-    const icons = {'Босоногий':'🦶','Самокатчик':'🛴','Моноколёсник':'🎡','Байкер':'🏍️','Водитель':'🚗','Формула 3':'🏎️','Формула 2':'🏎️','Формула 1':'🏎️','Чемпион':'👑','Карт':'🦶','Формула 4':'🛴'};
+    const icons = {'Босоногий':'🦶','Самокатчик':'🛴','Моноколёсник':'🛵','Байкер':'🏍️','Водитель':'🏎️','Формула 3':'🏎️','Формула 2':'🏎️','Формула 1':'🏎️','Чемпион':'👑','Карт':'🦶','Формула 4':'🛴'};
     return icons[level] || '🦶';
 }
 
@@ -3233,32 +3230,62 @@ function levelFunName(level) {
     return names[level] || level;
 }
 
-function twemojiUrl(code) { return 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/' + code + '.png'; }
+function twemojiSvg(code) { return 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/' + code + '.svg'; }
 
 function levelCarHtml(level) {
-    const data = {
-        'Босоногий':    {tw:'1f6b6', size:72, anim:'walkAnim', color:'#a78bfa', particles:0},
-        'Самокатчик':   {tw:'1f6f4', size:80, anim:'scootAnim', color:'#7c3aed', particles:2},
-        'Моноколёсник':  {tw:'1f6f9', size:80, anim:'monoAnim', color:'#22d3ee', particles:2},
-        'Байкер':       {tw:'1f3cd-fe0f', size:88, anim:'bikeAnim', color:'#ef4444', particles:3},
-        'Водитель':     {tw:'1f699', size:92, anim:'carAnim', color:'#3b82f6', particles:3},
-        'Формула 3':    {tw:'1f3ce-fe0f', size:96, anim:'f3Anim', color:'#22c55e', particles:4},
-        'Формула 2':    {tw:'1f3ce-fe0f', size:100, anim:'f2Anim', color:'#f59e0b', particles:5},
-        'Формула 1':    {tw:'1f3ce-fe0f', size:108, anim:'f1Anim', color:'#ef4444', particles:6},
-        'Чемпион':      {tw:'1f3ce-fe0f', size:116, anim:'champAnim', color:'#fbbf24', particles:8}
+    const levels = {
+        'Босоногий':    {tw:'1f6b6', size:64, anim:'raceFloat 2s ease-in-out infinite', glow:'#a78bfa', tier:0},
+        'Самокатчик':   {tw:'1f6f4', size:72, anim:'raceFloat 1.8s ease-in-out infinite', glow:'#8b5cf6', tier:1},
+        'Моноколёсник':  {tw:'1f6f5', size:72, anim:'raceRush 1.6s ease-in-out infinite', glow:'#06b6d4', tier:2},
+        'Байкер':       {tw:'1f3cd', size:80, anim:'raceDrive 1.4s ease-in-out infinite', glow:'#ef4444', tier:3},
+        'Водитель':     {tw:'1f3ce', size:84, anim:'raceDrive 1.2s ease-in-out infinite', glow:'#3b82f6', tier:4},
+        'Формула 3':    {tw:'1f3ce', size:88, anim:'raceSpeed 1s ease-in-out infinite', glow:'#22c55e', tier:5},
+        'Формула 2':    {tw:'1f3ce', size:92, anim:'raceSpeed 0.8s ease-in-out infinite', glow:'#f59e0b', tier:6},
+        'Формула 1':    {tw:'1f3ce', size:96, anim:'raceSpeed 0.6s ease-in-out infinite', glow:'#ef4444', tier:7},
+        'Чемпион':      {tw:'1f3ce', size:100, anim:'champPulse 1.2s ease-in-out infinite', glow:'#fbbf24', tier:8}
     };
-    const d = data[level] || data['Босоногий'];
-    const img = '<img src="' + twemojiUrl(d.tw) + '" style="width:' + d.size + 'px;height:' + d.size + 'px;animation:' + d.anim + ' 0.3s ease-in-out infinite alternate;filter:drop-shadow(0 4px 12px ' + d.color + '88) drop-shadow(0 0 ' + (d.particles * 4) + 'px ' + d.color + '66);transform-origin:center bottom;" draggable="false">';
-    let particles = '';
-    for (let i = 0; i < d.particles; i++) {
-        const delay = (i * 0.12).toFixed(2);
-        const yOff = Math.round(-8 + Math.random() * 16);
-        particles += '<div style="position:absolute;left:' + (-6 - i * 5) + 'px;top:calc(50% + ' + yOff + 'px);width:' + (6 + Math.random() * 6) + 'px;height:' + (6 + Math.random() * 6) + 'px;border-radius:50%;background:' + d.color + ';opacity:0;animation:particleFade 0.6s ease-out ' + delay + 's infinite;"></div>';
+    const d = levels[level] || levels['Босоногий'];
+    const g = d.glow;
+    // Main character image — crisp SVG, big, with premium drop shadow
+    const img = '<img src="' + twemojiSvg(d.tw) + '" width="' + d.size + '" height="' + d.size + '" style="animation:' + d.anim + ';filter:drop-shadow(0 4px 16px ' + g + 'aa) drop-shadow(0 0 24px ' + g + '55);display:block;" draggable="false">';
+    // Underglow — soft colored blob beneath
+    const underglow = '<div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:' + (d.size * 0.8) + 'px;height:16px;background:' + g + ';border-radius:50%;animation:glowPulse 2s ease-in-out infinite;opacity:0.5;"></div>';
+    // Speed trails for tier >= 3
+    let trails = '';
+    if (d.tier >= 3) {
+        const count = Math.min(d.tier - 1, 5);
+        for (let i = 0; i < count; i++) {
+            const w = 12 + i * 8;
+            const top = 20 + i * 12;
+            const delay = (i * 0.15).toFixed(2);
+            trails += '<div style="position:absolute;left:-' + (w + 8) + 'px;top:' + top + 'px;width:' + w + 'px;height:2px;background:linear-gradient(90deg,transparent,' + g + ');border-radius:1px;animation:trailFade 0.8s ease-in-out ' + delay + 's infinite;"></div>';
+        }
     }
-    const speedLines = d.particles >= 4 ? '<div style="position:absolute;left:-30px;top:30%;right:60%;height:2px;background:linear-gradient(90deg,transparent,' + d.color + '55);animation:speedLine 0.4s ease-in-out infinite alternate;border-radius:1px;"></div><div style="position:absolute;left:-25px;top:55%;right:65%;height:1.5px;background:linear-gradient(90deg,transparent,' + d.color + '44);animation:speedLine 0.5s ease-in-out 0.1s infinite alternate;border-radius:1px;"></div><div style="position:absolute;left:-35px;top:70%;right:70%;height:1px;background:linear-gradient(90deg,transparent,' + d.color + '33);animation:speedLine 0.6s ease-in-out 0.2s infinite alternate;border-radius:1px;"></div>' : '';
-    const crown = level === 'Чемпион' ? '<img src="' + twemojiUrl('1f451') + '" style="position:absolute;top:-28px;left:50%;transform:translateX(-50%);width:36px;height:36px;animation:crownFloat 1s ease-in-out infinite alternate;filter:drop-shadow(0 0 12px #fbbf24);" draggable="false">' : '';
-    const neonRing = d.particles >= 5 ? '<div style="position:absolute;inset:-12px;border-radius:50%;border:2px solid ' + d.color + '44;animation:neonPulse 1.2s ease-in-out infinite;pointer-events:none;"></div>' : '';
-    return '<div style="position:relative;display:inline-block;">' + crown + neonRing + img + '<div style="position:absolute;inset:0;pointer-events:none;">' + particles + speedLines + '</div></div>';
+    // Exhaust puffs for tier >= 5
+    let exhaust = '';
+    if (d.tier >= 5) {
+        for (let i = 0; i < 3; i++) {
+            const sz = 6 + i * 2;
+            const delay = (i * 0.3).toFixed(2);
+            const top = Math.round(d.size * 0.5 + (i - 1) * 8);
+            exhaust += '<div style="position:absolute;left:-8px;top:' + top + 'px;width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:rgba(255,255,255,0.4);animation:exhaustPuff 1s ease-out ' + delay + 's infinite;"></div>';
+        }
+    }
+    // Crown for champion
+    let crown = '';
+    if (level === 'Чемпион') {
+        crown = '<img src="' + twemojiSvg('1f451') + '" width="32" height="32" style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);animation:crownBob 2s ease-in-out infinite;filter:drop-shadow(0 0 10px #fbbf24cc);" draggable="false">';
+        // Gold sparkles around champion
+        for (let i = 0; i < 4; i++) {
+            const angle = i * 90 + 45;
+            const rad = angle * Math.PI / 180;
+            const x = Math.round(Math.cos(rad) * (d.size * 0.55));
+            const y = Math.round(Math.sin(rad) * (d.size * 0.55));
+            const delay = (i * 0.5).toFixed(1);
+            crown += '<div style="position:absolute;left:calc(50% + ' + x + 'px - 3px);top:calc(50% + ' + y + 'px - 3px);width:6px;height:6px;background:#fbbf24;border-radius:50%;animation:starSparkle 2s ease-in-out ' + delay + 's infinite;"></div>';
+        }
+    }
+    return '<div style="position:relative;display:inline-flex;align-items:center;justify-content:center;">' + crown + underglow + img + '<div style="position:absolute;inset:0;pointer-events:none;">' + trails + exhaust + '</div></div>';
 }
 
 function roleBadgeHTML(role) {
@@ -5326,26 +5353,26 @@ async function renderLeaderboard() {
                     <div style="font-size: 13px; opacity: 0.7;">километров</div>
                 </div>
             </div>
-            <div style="margin-top:24px;position:relative;padding:80px 0 4px 0;">
-                <!-- Трек -->
-                <div style="position:relative;height:44px;background:linear-gradient(180deg,#0f172a 0%,#1e293b 30%,#334155 50%,#1e293b 70%,#0f172a 100%);border-radius:22px;border:2px solid #475569;box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),0 4px 16px rgba(0,0,0,0.3);">
-                    <!-- Дорожная разметка -->
-                    <div style="position:absolute;top:50%;left:12px;right:12px;height:2px;background:repeating-linear-gradient(90deg,#fbbf24 0px,#fbbf24 20px,transparent 20px,transparent 40px);transform:translateY(-50%);opacity:0.5;"></div>
-                    <!-- Бордюры -->
-                    <div style="position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,#ef4444 0px,#ef4444 12px,#fff 12px,#fff 24px);border-radius:22px 22px 0 0;opacity:0.6;"></div>
-                    <div style="position:absolute;bottom:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,#ef4444 0px,#ef4444 12px,#fff 12px,#fff 24px);border-radius:0 0 22px 22px;opacity:0.6;"></div>
-                    <!-- Пройденный путь с неоновым свечением -->
-                    <div style="position:absolute;top:6px;left:3px;height:calc(100% - 12px);width:${pct}%;background:linear-gradient(90deg,rgba(34,197,94,0.15),rgba(249,115,22,0.2));border-radius:16px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);box-shadow:inset 0 0 12px rgba(34,197,94,0.15);"></div>
-                    <!-- Финишные флажки -->
-                    <div style="position:absolute;right:6px;top:8px;bottom:8px;width:24px;background:repeating-conic-gradient(#fff 0% 25%,#111 0% 50%) 0 0/8px 8px;border-radius:4px;opacity:0.3;"></div>
+            <div style="margin-top:28px;position:relative;padding:100px 0 4px 0;">
+                <!-- Трек — premium dark asphalt -->
+                <div style="position:relative;height:48px;background:linear-gradient(180deg,#0a0f1a 0%,#151d2e 40%,#1a2540 60%,#0f1629 100%);border-radius:24px;border:1px solid rgba(255,255,255,0.08);box-shadow:inset 0 2px 12px rgba(0,0,0,0.6),0 8px 32px rgba(0,0,0,0.4),0 0 1px rgba(255,255,255,0.1);">
+                    <!-- Центральная разметка -->
+                    <div style="position:absolute;top:50%;left:16px;right:16px;height:2px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.25) 0px,rgba(255,255,255,0.25) 16px,transparent 16px,transparent 36px);transform:translateY(-50%);"></div>
+                    <!-- Бордюры F1 стиль -->
+                    <div style="position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,#e11d48 0px,#e11d48 10px,#fff 10px,#fff 20px);border-radius:24px 24px 0 0;opacity:0.5;"></div>
+                    <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,#e11d48 0px,#e11d48 10px,#fff 10px,#fff 20px);border-radius:0 0 24px 24px;opacity:0.5;"></div>
+                    <!-- Прогресс — неоновая полоса -->
+                    <div style="position:absolute;top:4px;left:4px;height:calc(100% - 8px);width:${pct}%;max-width:calc(100% - 8px);background:linear-gradient(90deg,rgba(59,130,246,0.2),rgba(34,197,94,0.25));border-radius:20px;transition:width 1s cubic-bezier(0.4,0,0.2,1);box-shadow:0 0 20px rgba(34,197,94,0.15);"></div>
+                    <!-- Финиш -->
+                    <div style="position:absolute;right:4px;top:4px;bottom:4px;width:28px;background:repeating-conic-gradient(#fff 0% 25%,#0a0f1a 0% 50%) 0 0/8px 8px;border-radius:0 20px 20px 0;opacity:0.2;"></div>
                 </div>
-                <!-- Отражение трека -->
-                <div style="height:12px;margin:0 10px;background:linear-gradient(180deg,rgba(30,41,59,0.3),transparent);border-radius:0 0 20px 20px;filter:blur(2px);"></div>
-                <!-- Персонаж -->
-                <div style="position:absolute;bottom:36px;left:calc(${Math.max(5, pct)}% - 36px);transition:left 0.8s cubic-bezier(0.4,0,0.2,1);z-index:2;line-height:0;">${levelCarHtml(s.level)}</div>
-                <div style="display:flex;justify-content:space-between;margin-top:4px;">
-                    <span style="font-size:12px;opacity:0.5;">🏁 Старт</span>
-                    <span style="font-size:12px;opacity:0.5;">🏆 ${nextLevel.name}</span>
+                <!-- Тень трека -->
+                <div style="height:8px;margin:0 16px;background:linear-gradient(180deg,rgba(15,22,41,0.4),transparent);border-radius:0 0 16px 16px;"></div>
+                <!-- Персонаж на треке -->
+                <div style="position:absolute;bottom:30px;left:calc(${Math.max(5, pct)}% - 40px);transition:left 1s cubic-bezier(0.4,0,0.2,1);z-index:2;line-height:0;">${levelCarHtml(s.level)}</div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;padding:0 4px;">
+                    <span style="font-size:11px;opacity:0.4;letter-spacing:0.5px;">🏁 СТАРТ</span>
+                    <span style="font-size:11px;opacity:0.4;letter-spacing:0.5px;">🏆 ${nextLevel.name}</span>
                 </div>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 12px; opacity: 0.7; margin-top: 6px;">
