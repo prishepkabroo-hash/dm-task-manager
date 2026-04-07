@@ -1164,6 +1164,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
             ensure_user_stats(conn, u["id"])
+            # Recalculate level from km (handles legacy level names)
+            stats_row = conn.execute("SELECT total_km FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            correct_level = get_level_from_km(stats_row["total_km"])
+            conn.execute("UPDATE user_stats SET level=? WHERE user_id=?", (correct_level, u["id"]))
+            conn.commit()
             stats = conn.execute("SELECT * FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
             achievements = conn.execute(
                 "SELECT id, type, name, description, icon, earned_at FROM achievements WHERE user_id=? ORDER BY earned_at DESC",
