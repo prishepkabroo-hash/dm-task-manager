@@ -5879,11 +5879,7 @@ function openCardEditor(event, taskId, field) {
         modalHTML += '</div>';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Время</label>';
-        modalHTML += '<div class="time-picker-custom" id="ceTime">
-                  <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
-                  <span>:</span>
-                  <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
-                </div>';
+        modalHTML += '<div class="time-picker-custom" id="ceTime"><input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,\'0\')" onkeydown="if(event.key===\'Enter\'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}"><span>:</span><input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,\'0\')"></div>';
         modalHTML += '</div>';
         modalHTML += '<button onclick="saveDeadlineFromCardEditor(' + taskId + ');overlay.remove();" style="width:100%;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseenter="this.style.background=\'#2563eb\'" onmouseleave="this.style.background=\'#3b82f6\'">Сохранить</button>';
         modalHTML += '</div>';
