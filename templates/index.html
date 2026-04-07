@@ -4911,17 +4911,35 @@ async function loadDetailActivity(taskId) {
     }
 }
 
+function translateValue(val, action) {
+    if (!val) return val;
+    const statusMap = {'new':'Новая','todo':'Новая','in_progress':'В работе','review':'На согласовании','done':'Готово','cancelled':'Отменена'};
+    const priorityMap = {'low':'Низкий','medium':'Средний','high':'Высокий','urgent':'Срочный'};
+    if (action && (action.includes('status'))) return statusMap[val] || val;
+    if (action && (action.includes('priority'))) return priorityMap[val] || val;
+    // Auto-detect if value looks like a known key
+    if (statusMap[val]) return statusMap[val];
+    if (priorityMap[val]) return priorityMap[val];
+    return val;
+}
+
 function formatActivityDetails(a, info) {
-    const ov = a.old_value || (a.details && a.details.includes("Изменено с") ? a.details.split("'")[1] : null);
-    const nv = a.new_value || (a.details && a.details.includes("' на '") ? a.details.split("' на '")[1]?.replace("'","") : null);
+    const act = a.action || '';
+    let ov = a.old_value || (a.details && a.details.includes("Изменено с") ? a.details.split("'")[1] : null);
+    let nv = a.new_value || (a.details && a.details.includes("' на '") ? a.details.split("' на '")[1]?.replace("'","") : null);
+    ov = translateValue(ov, act);
+    nv = translateValue(nv, act);
     if (ov && nv) {
-        return '<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fef2f2,#fff);border-left:3px solid #fca5a5;border-radius:0 6px 6px 0;font-size:12px;color:#94a3b8;text-decoration:line-through;">' + ov + '</div>' +
-               '<div style="margin-top:4px;padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#fff);border-left:3px solid #86efac;border-radius:0 6px 6px 0;font-size:12px;color:#166534;font-weight:500;">' + nv + '</div>';
+        return '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<div style="padding:6px 12px;background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#b91c1c;text-decoration:line-through;">' + ov + '</div>' +
+            '<span style="color:#94a3b8;font-size:14px;">→</span>' +
+            '<div style="padding:6px 12px;background:linear-gradient(135deg,#f0fdf4,#fff);border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#166534;font-weight:600;">' + nv + '</div></div>';
     }
-    if (nv) return '<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#fff);border-left:3px solid #86efac;border-radius:0 6px 6px 0;font-size:12px;color:#166534;font-weight:500;">' + nv + '</div>';
-    if (ov) return '<div style="margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fef2f2,#fff);border-left:3px solid #fca5a5;border-radius:0 6px 6px 0;font-size:12px;color:#94a3b8;text-decoration:line-through;">' + ov + '</div>';
+    if (nv) return '<div style="margin-top:8px;"><div style="display:inline-block;padding:6px 12px;background:linear-gradient(135deg,#f0fdf4,#fff);border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#166534;font-weight:600;">' + nv + '</div></div>';
+    if (ov) return '<div style="margin-top:8px;"><div style="display:inline-block;padding:6px 12px;background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#b91c1c;text-decoration:line-through;">' + ov + '</div></div>';
     if (a.details && a.action !== 'task_created' && a.action !== 'created') {
-        return '<div style="margin-top:8px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:0 6px 6px 0;font-size:12px;color:#475569;">' + a.details + '</div>';
+        const translatedDetails = translateValue(a.details, act);
+        return '<div style="margin-top:8px;"><div style="display:inline-block;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;">' + translatedDetails + '</div></div>';
     }
     return '';
 }
