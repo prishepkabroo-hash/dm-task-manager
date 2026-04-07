@@ -3801,7 +3801,7 @@ async function renderDashboard() {
         const widget = document.createElement('div');
         widget.id = 'dashboardGamifWidget';
         widget.style.cssText = 'background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); color: white; border-radius: 12px; padding: 24px; margin-top: 30px; box-shadow: 0 4px 20px rgba(15,23,42,0.3);';
-        const _lt = {'Босоногий':0,'Самокатчик':20,'Моноколёсник':50,'Байкер':100,'Водитель':200,'Формула 3':400,'Формула 2':650,'Формула 1':1000,'Чемпион':1500};
+        const _lt = {'Босоногий':0,'Самокатчик':100,'Моноколёсник':500,'Байкер':1500,'Водитель':3500,'Формула 3':7000,'Формула 2':12000,'Формула 1':18000,'Чемпион':25000};
         const _ct = _lt[s.level] || 0;
         const _nt = nl.km_needed || s.total_km;
         const _rng = _nt - _ct;
@@ -5307,8 +5307,8 @@ async function renderLeaderboard() {
         const nextLevel = myStats.next_level || {name: 'Чемпион', km_needed: s.total_km};
         // Level thresholds to calculate progress within current level
         const levelThresholds = {
-            'Босоногий':0, 'Самокатчик':20, 'Моноколёсник':50, 'Байкер':100,
-            'Водитель':200, 'Формула 3':400, 'Формула 2':650, 'Формула 1':1000, 'Чемпион':1500
+            'Босоногий':0, 'Самокатчик':100, 'Моноколёсник':500, 'Байкер':1500,
+            'Водитель':3500, 'Формула 3':7000, 'Формула 2':12000, 'Формула 1':18000, 'Чемпион':25000
         };
         const currentThreshold = levelThresholds[s.level] || 0;
         const nextThreshold = nextLevel.km_needed || s.total_km;

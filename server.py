@@ -481,22 +481,24 @@ def calculate_working_hours(start_dt_str, end_dt_str):
     return total_minutes / 60.0, hours, minutes
 
 def get_level_from_km(total_km):
-    """Calculate level name from total_km."""
-    if total_km >= 1500:
+    """Calculate level name from total_km.
+    ~240-360 km/day at 20 tasks. Progression takes ~3-4 months to Champion.
+    """
+    if total_km >= 25000:
         return "Чемпион"
-    elif total_km >= 1000:
+    elif total_km >= 18000:
         return "Формула 1"
-    elif total_km >= 650:
+    elif total_km >= 12000:
         return "Формула 2"
-    elif total_km >= 400:
+    elif total_km >= 7000:
         return "Формула 3"
-    elif total_km >= 200:
+    elif total_km >= 3500:
         return "Водитель"
-    elif total_km >= 100:
+    elif total_km >= 1500:
         return "Байкер"
-    elif total_km >= 50:
+    elif total_km >= 500:
         return "Моноколёсник"
-    elif total_km >= 20:
+    elif total_km >= 100:
         return "Самокатчик"
     else:
         return "Босоногий"
@@ -504,19 +506,19 @@ def get_level_from_km(total_km):
 def get_next_level(total_km):
     """Calculate next level info from total_km."""
     levels = [
-        {"name": "Самокатчик", "km_needed": 20},
-        {"name": "Моноколёсник", "km_needed": 50},
-        {"name": "Байкер", "km_needed": 100},
-        {"name": "Водитель", "km_needed": 200},
-        {"name": "Формула 3", "km_needed": 400},
-        {"name": "Формула 2", "km_needed": 650},
-        {"name": "Формула 1", "km_needed": 1000},
-        {"name": "Чемпион", "km_needed": 1500}
+        {"name": "Самокатчик", "km_needed": 100},
+        {"name": "Моноколёсник", "km_needed": 500},
+        {"name": "Байкер", "km_needed": 1500},
+        {"name": "Водитель", "km_needed": 3500},
+        {"name": "Формула 3", "km_needed": 7000},
+        {"name": "Формула 2", "km_needed": 12000},
+        {"name": "Формула 1", "km_needed": 18000},
+        {"name": "Чемпион", "km_needed": 25000}
     ]
     for level in levels:
         if total_km < level["km_needed"]:
             return level
-    return {"name": "Чемпион", "km_needed": 1500}
+    return {"name": "Чемпион", "km_needed": 25000}
 
 def ensure_user_stats(conn, user_id):
     """Ensure a user has a stats row."""
