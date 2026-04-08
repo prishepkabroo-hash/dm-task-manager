@@ -3899,12 +3899,17 @@ async function renderKanban() {
         // Column header — colored bar like Bitrix24
         const header = document.createElement('div');
         header.style.cssText = `background:${cfg.color}; color:white; padding:14px 16px; display:flex; align-items:center; justify-content:space-between;`;
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        const canDeleteStage = isAdmin && allStages.length > 2;
         header.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:18px;">${cfg.icon}</span>
                 <span style="font-weight:700;font-size:15px;letter-spacing:0.3px;">${cfg.label}</span>
             </div>
-            <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;">${tasks.length}</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;">${tasks.length}</span>
+                ${canDeleteStage ? `<button onclick="event.stopPropagation();showDeleteStageModal('${status}')" style="width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.4);background:transparent;color:rgba(255,255,255,0.7);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;line-height:1;" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Удалить этап">&times;</button>` : ''}
+            </div>
         `;
         col.appendChild(header);
 
@@ -4014,6 +4019,17 @@ async function renderKanban() {
 
         board.appendChild(col);
     });
+
+    // "+ Новый этап" column (admin only)
+    if (currentUser && currentUser.role === 'admin') {
+        const addCol = document.createElement('div');
+        addCol.style.cssText = 'min-width:200px;max-width:200px;border-radius:12px;border:2px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;flex-shrink:0;';
+        addCol.onmouseenter = function() { this.style.borderColor='#3b82f6'; this.style.background='#eff6ff'; };
+        addCol.onmouseleave = function() { this.style.borderColor='#cbd5e1'; this.style.background=''; };
+        addCol.onclick = () => showAddStageKanbanModal();
+        addCol.innerHTML = '<div style="text-align:center;color:#94a3b8;"><div style="font-size:28px;margin-bottom:6px;">+</div><div style="font-size:13px;font-weight:600;">Новый этап</div></div>';
+        board.appendChild(addCol);
+    }
 
     board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:12px 0;';
 }
@@ -5770,6 +5786,118 @@ async function editStageInline(id) {
         showToast('Обновлено', 'success');
         await loadStages();
         renderAdminStages();
+    } else {
+        showToast(result?.error || 'Ошибка', 'error');
+    }
+}
+
+// === Kanban stage modals ===
+function showDeleteStageModal(stageKey) {
+    const stage = allStages.find(s => s.key === stageKey);
+    if (!stage) return;
+    const otherStages = allStages.filter(s => s.key !== stageKey);
+    if (!otherStages.length) return;
+    const taskCount = allTasks.filter(t => t.status === stageKey).length;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'deleteStageOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn 0.2s;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:28px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.2);animation:slideUp 0.25s ease-out;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                <div style="width:42px;height:42px;border-radius:12px;background:#fef2f2;display:flex;align-items:center;justify-content:center;font-size:20px;">⚠️</div>
+                <div>
+                    <div style="font-size:17px;font-weight:700;color:#1e293b;">Удалить этап «${stage.label}»?</div>
+                    <div style="font-size:13px;color:#64748b;margin-top:2px;">${taskCount ? taskCount + ' задач будут перемещены' : 'Задач нет'}</div>
+                </div>
+            </div>
+            ${taskCount ? `
+            <div style="margin-bottom:20px;">
+                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Переместить задачи в:</label>
+                <select id="migrateStageTo" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;box-sizing:border-box;">
+                    ${otherStages.map(s => `<option value="${s.key}">${s.icon} ${s.label}</option>`).join('')}
+                </select>
+            </div>
+            ` : ''}
+            <div style="display:flex;gap:10px;">
+                <button onclick="confirmDeleteStage(${stage.id},'${stageKey}',${taskCount > 0})" style="flex:1;padding:11px;background:#ef4444;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;transition:all 0.15s;" onmouseenter="this.style.background='#dc2626'" onmouseleave="this.style.background='#ef4444'">Удалить</button>
+                <button onclick="document.getElementById('deleteStageOverlay').remove()" style="flex:1;padding:11px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;transition:all 0.15s;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">Отмена</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function confirmDeleteStage(stageId, stageKey, hasTasks) {
+    const moveToKey = hasTasks ? (document.getElementById('migrateStageTo')?.value || 'new') : 'new';
+    const overlay = document.getElementById('deleteStageOverlay');
+    if (overlay) overlay.remove();
+    const result = await apiCall('/api/stages/delete', {method:'POST', body: JSON.stringify({id: stageId, move_to_key: moveToKey})});
+    if (result && result.ok) {
+        showToast('Этап удалён', 'success');
+        await loadStages();
+        await loadTasks();
+        renderKanban();
+        if (typeof renderAdminStages === 'function') renderAdminStages();
+    } else {
+        showToast(result?.error || 'Ошибка', 'error');
+    }
+}
+
+function showAddStageKanbanModal() {
+    const colors = ['#3b82f6','#f59e0b','#22c55e','#8b5cf6','#ef4444','#06b6d4','#ec4899','#f97316'];
+    const icons = ['📋','⚡','✅','🔍','🚀','⏳','📝','🎯','💬','🔧'];
+
+    const overlay = document.createElement('div');
+    overlay.id = 'addStageOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn 0.2s;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:28px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.2);animation:slideUp 0.25s ease-out;">
+            <div style="font-size:17px;font-weight:700;color:#1e293b;margin-bottom:20px;">Новый этап</div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Название</label>
+                <input id="kanbanNewStageLabel" type="text" placeholder="Например: На проверке" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;" autofocus>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Цвет</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${colors.map((c, i) => `<div onclick="this.parentNode.querySelectorAll('div').forEach(d=>d.style.outline='none');this.style.outline='3px solid #333';document.getElementById('kanbanNewStageColor').value='${c}'" style="width:32px;height:32px;border-radius:8px;background:${c};cursor:pointer;transition:all 0.15s;${i===0?'outline:3px solid #333;':''}"></div>`).join('')}
+                </div>
+                <input id="kanbanNewStageColor" type="hidden" value="#3b82f6">
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Иконка</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${icons.map((ic, i) => `<div onclick="this.parentNode.querySelectorAll('div').forEach(d=>d.style.outline='none');this.style.outline='3px solid #333';document.getElementById('kanbanNewStageIcon').value='${ic}'" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.15s;${i===0?'outline:3px solid #333;':''}"></div>`).join('')}
+                </div>
+                <input id="kanbanNewStageIcon" type="hidden" value="📋">
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="confirmAddStageKanban()" style="flex:1;padding:11px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;transition:all 0.15s;" onmouseenter="this.style.background='#2563eb'" onmouseleave="this.style.background='#3b82f6'">Добавить</button>
+                <button onclick="document.getElementById('addStageOverlay').remove()" style="flex:1;padding:11px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;">Отмена</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => document.getElementById('kanbanNewStageLabel')?.focus(), 100);
+}
+
+async function confirmAddStageKanban() {
+    const label = document.getElementById('kanbanNewStageLabel')?.value.trim();
+    if (!label) { showToast('Введите название', 'error'); return; }
+    const color = document.getElementById('kanbanNewStageColor')?.value || '#3b82f6';
+    const icon = document.getElementById('kanbanNewStageIcon')?.value || '📋';
+    const overlay = document.getElementById('addStageOverlay');
+    if (overlay) overlay.remove();
+    const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify({label, color, icon})});
+    if (result && result.ok) {
+        showToast('Этап «' + label + '» добавлен', 'success');
+        await loadStages();
+        renderKanban();
     } else {
         showToast(result?.error || 'Ошибка', 'error');
     }
