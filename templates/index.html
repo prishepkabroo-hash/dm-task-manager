@@ -3453,6 +3453,10 @@ async function loadApp() {
         return;
     }
     currentUser = data;
+    // Apply permissions from server for current user's role
+    if (data.permissions && data.role) {
+        currentPermissions[data.role] = data.permissions;
+    }
     await Promise.all([loadDepartments(), loadUsers(), loadStages()]);
     // Load tasks before showing UI so pages render instantly
     const tasksData = await apiCall('/api/tasks');
@@ -3892,7 +3896,7 @@ async function renderKanban() {
     selectBtn.textContent = kanbanSelectMode ? '✕ Отменить выбор' : '☑ Выбрать для удаления';
     toolbar.appendChild(selectBtn);
 
-    if (currentUser && currentUser.role === 'admin') {
+    if (hasPermission('manage_kanban')) {
         const editBtn = document.createElement('button');
         editBtn.id = 'kanbanEditBtn';
         editBtn.onclick = () => { kanbanEditMode = !kanbanEditMode; renderKanban(); };
@@ -3918,8 +3922,8 @@ async function renderKanban() {
         // Column header — colored bar like Bitrix24
         const header = document.createElement('div');
         header.style.cssText = `background:${cfg.color}; color:white; padding:14px 16px; display:flex; align-items:center; justify-content:space-between;`;
-        const isAdmin = currentUser && currentUser.role === 'admin';
-        const showEditControls = isAdmin && kanbanEditMode;
+        const canManageKanban = hasPermission('manage_kanban');
+        const showEditControls = canManageKanban && kanbanEditMode;
         const canDeleteStage = showEditControls && allStages.length > 2;
         const canMoveLeft = showEditControls && colIdx > 0;
         const canMoveRight = showEditControls && colIdx < statuses.length - 1;
@@ -4066,7 +4070,7 @@ async function renderKanban() {
     });
 
     // "+ Новый этап" column (admin only, edit mode only)
-    if (currentUser && currentUser.role === 'admin' && kanbanEditMode) {
+    if (hasPermission('manage_kanban') && kanbanEditMode) {
         const addCol = document.createElement('div');
         addCol.style.cssText = 'min-width:200px;max-width:200px;border-radius:12px;border:2px dashed #3b82f6;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s;flex-shrink:0;background:#eff6ff;animation:fadeIn 0.3s ease-out;';
         addCol.onmouseenter = function() { this.style.background='#dbeafe'; this.style.borderColor='#2563eb'; };
@@ -6291,13 +6295,14 @@ const PERMISSION_LABELS = {
     'delete_users': 'Удаление пользователей',
     'messenger': 'Мессенджер',
     'leaderboard': 'Рейтинг и геймификация',
-    'switch_car': 'Смена машины (геймификация)'
+    'switch_car': 'Смена машины (геймификация)',
+    'manage_kanban': 'Настройка этапов канбана'
 };
 
 const DEFAULT_PERMISSIONS = {
-    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true, switch_car:true },
-    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false },
-    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false }
+    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true, switch_car:true, manage_kanban:true },
+    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false },
+    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false }
 };
 
 let currentPermissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
@@ -6308,6 +6313,13 @@ async function loadPermissions() {
         currentPermissions = data.permissions;
     }
     renderPermissionsTable();
+}
+
+function hasPermission(perm) {
+    if (!currentUser) return false;
+    const role = currentUser.role || 'member';
+    if (role === 'admin') return true;
+    return !!(currentPermissions[role] && currentPermissions[role][perm]);
 }
 
 function renderPermissionsTable() {

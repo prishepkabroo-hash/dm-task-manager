@@ -375,12 +375,12 @@ def init_db():
     # Seed default permissions if empty
     if c.execute("SELECT COUNT(*) FROM role_permissions").fetchone()[0] == 0:
         default_perms = {
-            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car'],
+            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban'],
             'head': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','messenger','leaderboard'],
             'member': ['create_tasks','assign_tasks','comments','messenger','leaderboard']
         }
         for role, perms in default_perms.items():
-            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car']
+            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban']
             for p in all_perms:
                 allowed = 1 if p in perms else 0
                 c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (?,?,?)", (role, p, allowed))
@@ -727,8 +727,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if row["department_id"]:
                 d = conn.execute("SELECT * FROM departments WHERE id=?", (row["department_id"],)).fetchone()
                 dept = dict(d) if d else None
+            # Fetch role permissions for current user's role
+            role = row["role"] or "member"
+            perm_rows = conn.execute("SELECT permission, allowed FROM role_permissions WHERE role=?", (role,)).fetchall()
+            my_perms = {p['permission']: bool(p['allowed']) for p in perm_rows}
             conn.close()
-            return self._json({**dict(row), "department": dept})
+            return self._json({**dict(row), "department": dept, "permissions": my_perms})
 
         if path == "/api/stages":
             conn = get_db()
