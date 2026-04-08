@@ -1378,6 +1378,44 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"ok": True, "avatar_url": avatar_url})
 
+        if path.startswith("/api/messenger/upload"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            content_type = self.headers.get("Content-Type", "")
+            if "multipart/form-data" not in content_type:
+                return self._json({"error": "Expected multipart/form-data"}, 400)
+            try:
+                boundary = content_type.split("boundary=")[1].strip()
+                boundary = boundary.strip('"')
+            except IndexError:
+                return self._json({"error": "Missing boundary"}, 400)
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            parts = body.split(("--" + boundary).encode())
+            file_data = None
+            filename = "upload"
+            for part in parts:
+                if b"Content-Disposition" in part:
+                    if b"filename=" in part:
+                        try:
+                            fn = part.split(b'filename="')[1].split(b'"')[0].decode()
+                            if fn: filename = fn
+                        except: pass
+                        header_end = part.index(b"\r\n\r\n") + 4
+                        file_data = part[header_end:]
+                        if file_data.endswith(b"\r\n"):
+                            file_data = file_data[:-2]
+            if not file_data:
+                return self._json({"error": "No file"}, 400)
+            upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            ext = os.path.splitext(filename)[1] or ".bin"
+            safe_name = f"msg_{u['id']}_{int(datetime.now().timestamp())}{ext}"
+            filepath = os.path.join(upload_dir, safe_name)
+            with open(filepath, "wb") as f:
+                f.write(file_data)
+            return self._json({"ok": True, "url": f"/static/uploads/{safe_name}"})
+
         data = self._body()
 
         if path == "/api/login":
@@ -1944,47 +1982,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             typing_key = f"{u['id']}_{path.split('/')[-1]}"
             typing_status[typing_key] = datetime.now().isoformat()
             return self._json({"ok": True})
-
-        if path.startswith("/api/messenger/upload"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            content_type = self.headers.get("Content-Type", "")
-            if "multipart/form-data" not in content_type:
-                return self._json({"error": "Expected multipart/form-data"}, 400)
-            try:
-                boundary = content_type.split("boundary=")[1].strip()
-                # Remove optional quotes around boundary
-                boundary = boundary.strip('"')
-            except IndexError:
-                return self._json({"error": "Missing boundary"}, 400)
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length)
-            parts = body.split(("--" + boundary).encode())
-            file_data = None
-            filename = "upload"
-            for part in parts:
-                if b"Content-Disposition" in part:
-                    if b"filename=" in part:
-                        try:
-                            fn = part.split(b'filename="')[1].split(b'"')[0].decode()
-                            if fn: filename = fn
-                        except: pass
-                        header_end = part.index(b"\r\n\r\n") + 4
-                        # Strip trailing boundary marker and whitespace
-                        file_data = part[header_end:]
-                        # Remove trailing \r\n that precedes the next boundary
-                        if file_data.endswith(b"\r\n"):
-                            file_data = file_data[:-2]
-            if not file_data:
-                return self._json({"error": "No file"}, 400)
-            upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
-            os.makedirs(upload_dir, exist_ok=True)
-            ext = os.path.splitext(filename)[1] or ".bin"
-            safe_name = f"msg_{u['id']}_{int(datetime.now().timestamp())}{ext}"
-            filepath = os.path.join(upload_dir, safe_name)
-            with open(filepath, "wb") as f:
-                f.write(file_data)
-            return self._json({"ok": True, "url": f"/static/uploads/{safe_name}"})
 
         self.send_response(404); self.end_headers()
 
