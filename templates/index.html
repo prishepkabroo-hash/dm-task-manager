@@ -5307,7 +5307,11 @@ async function renderLeaderboard() {
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div>
                     <div style="font-size: 12px; text-transform:uppercase; letter-spacing:1px; opacity:0.6; margin-bottom:4px;">Ваш уровень</div>
-                    <div style="font-size: 28px; font-weight: 700; margin-bottom: 2px;">${levelIcon(displayLevel)} ${displayLevel}</div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                        ${canSwitch ? '<button onclick="switchCarPrev()" style="width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" onmouseenter="this.style.background=\'rgba(255,255,255,0.2)\';this.style.borderColor=\'rgba(255,255,255,0.4)\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.borderColor=\'rgba(255,255,255,0.2)\'">\u25C0</button>' : ''}
+                        <span style="font-size: 28px; font-weight: 700;">${levelIcon(displayLevel)} ${displayLevel}</span>
+                        ${canSwitch ? '<button onclick="switchCarNext()" style="width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" onmouseenter="this.style.background=\'rgba(255,255,255,0.2)\';this.style.borderColor=\'rgba(255,255,255,0.4)\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.borderColor=\'rgba(255,255,255,0.2)\'">\u25B6</button>' : ''}
+                    </div>
                     <div style="font-size: 12px; opacity: 0.6; font-style:italic; margin-bottom:2px;">\u00AB${levelFunName(displayLevel)}\u00BB</div>
                     <div style="font-size: 14px; opacity: 0.8;">${currentUser.full_name}</div>
                 </div>
@@ -5320,11 +5324,9 @@ async function renderLeaderboard() {
 
             <!-- ====== ТРАССА ====== -->
             <div style="margin-top:28px;position:relative;padding-top:100px;">
-                <!-- Персонаж + стрелки переключения -->
-                <div style="position:absolute;bottom:62px;left:calc(${Math.max(4, Math.min(90, pct))}% - 30px);transition:left 1.2s cubic-bezier(0.25,0.46,0.45,0.94);z-index:10;line-height:0;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.7));display:flex;align-items:center;gap:4px;">
-                    ${canSwitch ? '<button onclick="switchCarPrev()" style="width:28px;height:28px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;backdrop-filter:blur(4px);" onmouseenter="this.style.background=\'rgba(255,255,255,0.25)\'" onmouseleave="this.style.background=\'rgba(0,0,0,0.5)\'">\u25C0</button>' : ''}
-                    <div style="line-height:0;">${levelCarHtml(displayLevel)}</div>
-                    ${canSwitch ? '<button onclick="switchCarNext()" style="width:28px;height:28px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;backdrop-filter:blur(4px);" onmouseenter="this.style.background=\'rgba(255,255,255,0.25)\'" onmouseleave="this.style.background=\'rgba(0,0,0,0.5)\'">\u25B6</button>' : ''}
+                <!-- Персонаж -->
+                <div style="position:absolute;bottom:62px;left:calc(${Math.max(4, Math.min(90, pct))}% - 30px);transition:left 1.2s cubic-bezier(0.25,0.46,0.45,0.94);z-index:10;line-height:0;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.7));">
+                    ${levelCarHtml(displayLevel)}
                 </div>
 
                 <!-- Дорога -->
