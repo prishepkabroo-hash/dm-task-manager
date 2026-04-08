@@ -4341,60 +4341,39 @@ async function renderList() {
 
 // ============ CALENDAR VIEW ============
 let calendarDate = new Date();
+let calendarView = 'day'; // 'day', 'week', 'month'
 
 function renderCalendar() {
     const container = document.getElementById('calendarContainer');
     const today = new Date(calendarDate);
     today.setHours(0,0,0,0);
-    const dateStr = today.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    const realToday = new Date(); realToday.setHours(0,0,0,0);
+    const allFiltered = getFilteredTasks();
 
-    // Get tasks for this day
-    const tasks = getFilteredTasks().filter(t => {
-        if (!t.deadline) return false;
-        const dl = new Date(t.deadline);
-        return dl.getFullYear() === today.getFullYear() && dl.getMonth() === today.getMonth() && dl.getDate() === today.getDate();
-    });
-
-    // Also get tasks without time (just date)
-    const tasksWithTime = tasks.filter(t => t.deadline.includes('T') && !t.deadline.endsWith('T00:00')).sort((a,b) => new Date(a.deadline) - new Date(b.deadline));
-    const tasksNoTime = tasks.filter(t => !t.deadline.includes('T') || t.deadline.endsWith('T00:00'));
-
-    // Get tasks due today but without specific date match (overdue or no deadline shown in "Без времени")
-    const overdueTasks = getFilteredTasks().filter(t => {
-        if (!t.deadline) return false;
-        const dl = new Date(t.deadline);
-        dl.setHours(0,0,0,0);
-        return dl < today && t.status !== 'done' && t.status !== 'cancelled';
-    });
-
-    // Build hour slots from 6:00 to 23:00
-    const hours = [];
-    for (let h = 6; h <= 23; h++) hours.push(h);
-
-    // Week mini-nav
-    const weekDays = [];
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(startOfWeek);
-        d.setDate(startOfWeek.getDate() + i);
-        weekDays.push(d);
-    }
-
-    const statusColors = {new:'#3b82f6',in_progress:'#f59e0b',review:'#8b5cf6',done:'#22c55e',cancelled:'#94a3b8'};
+    const statusColors = {};
+    allStages.forEach(function(s){ statusColors[s.key] = s.color; });
+    statusColors['cancelled'] = '#94a3b8';
     const priColors = {high:'#ef4444',medium:'#f59e0b',low:'#22c55e'};
+    const dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
-    function taskCard(t, showTime) {
-        const sc = statusColors[t.status] || '#94a3b8';
+    function sameDay(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+    function taskCard(t, compact) {
+        const sc = statusColors[t.status] || getStageColor(t.status);
         const pc = priColors[t.priority] || '#f59e0b';
-        const assignee = allUsers.find(u => u.id === t.assigned_to);
-        const dl = new Date(t.deadline);
-        const timeStr = showTime ? dl.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
+        const assignee = allUsers.find(function(u){ return u.id === t.assigned_to; });
+        const dl = t.deadline ? new Date(t.deadline) : null;
+        const timeStr = dl && t.deadline.includes('T') && !t.deadline.endsWith('T00:00') ? dl.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
+        if (compact) {
+            return '<div onclick="showTaskDetail('+t.id+')" style="padding:4px 8px;background:'+sc+'18;border-left:3px solid '+sc+';border-radius:4px;cursor:pointer;transition:all 0.15s;margin-bottom:2px;overflow:hidden;" onmouseenter="this.style.boxShadow=\'0 2px 6px rgba(0,0,0,0.1)\'" onmouseleave="this.style.boxShadow=\'none\'">'
+                +'<div style="font-size:11px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(timeStr?'<span style="color:'+sc+';margin-right:4px;">'+timeStr+'</span>':'')+t.title+'</div>'
+                +'</div>';
+        }
         return '<div onclick="showTaskDetail('+t.id+')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:white;border-radius:10px;border:1px solid #e8ecf1;cursor:pointer;transition:all 0.15s;border-left:4px solid '+sc+';" onmouseenter="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\';this.style.transform=\'translateY(-1px)\'" onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">'
             +'<div style="flex:1;min-width:0;">'
             +'<div style="font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.title+'</div>'
             +'<div style="display:flex;gap:6px;align-items:center;margin-top:4px;">'
-            +'<span style="background:'+sc+';color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">'+statusName(t.status)+'</span>'
+            +'<span style="background:'+sc+';color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">'+getStageLabel(t.status)+'</span>'
             +'<span style="width:6px;height:6px;border-radius:50%;background:'+pc+';"></span>'
             +(assignee ? '<span style="font-size:11px;color:#64748b;">'+assignee.full_name+'</span>' : '')
             +'</div></div>'
@@ -4402,50 +4381,173 @@ function renderCalendar() {
             +'</div>';
     }
 
-    var calHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'
+    function getTasksForDay(d) {
+        return allFiltered.filter(function(t){
+            if (!t.deadline) return false;
+            var dl = new Date(t.deadline);
+            return sameDay(dl, d);
+        });
+    }
+
+    // === NAVIGATION HEADER ===
+    var navLabel = '';
+    var prevFn = '', nextFn = '';
+    if (calendarView === 'day') {
+        navLabel = today.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+        prevFn = "calendarDate.setDate(calendarDate.getDate()-1);renderCalendar()";
+        nextFn = "calendarDate.setDate(calendarDate.getDate()+1);renderCalendar()";
+    } else if (calendarView === 'week') {
+        var ws = new Date(today); ws.setDate(today.getDate() - ((today.getDay()+6)%7));
+        var we = new Date(ws); we.setDate(ws.getDate()+6);
+        navLabel = ws.getDate() + ' ' + ws.toLocaleDateString('ru-RU',{month:'short'}) + ' — ' + we.getDate() + ' ' + we.toLocaleDateString('ru-RU',{month:'short', year:'numeric'});
+        prevFn = "calendarDate.setDate(calendarDate.getDate()-7);renderCalendar()";
+        nextFn = "calendarDate.setDate(calendarDate.getDate()+7);renderCalendar()";
+    } else {
+        navLabel = today.toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
+        prevFn = "calendarDate.setMonth(calendarDate.getMonth()-1);renderCalendar()";
+        nextFn = "calendarDate.setMonth(calendarDate.getMonth()+1);renderCalendar()";
+    }
+
+    var viewBtnStyle = function(v) {
+        return 'padding:6px 14px;border:1px solid '+(calendarView===v?'#3b82f6':'#e2e8f0')+';border-radius:8px;background:'+(calendarView===v?'#3b82f6':'white')+';color:'+(calendarView===v?'white':'#64748b')+';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;';
+    };
+
+    var calHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">'
         +'<div style="display:flex;align-items:center;gap:12px;">'
-        +'<button onclick="calendarDate.setDate(calendarDate.getDate()-1);renderCalendar()" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8249;</button>'
-        +'<div style="font-size:18px;font-weight:700;color:#1e293b;text-transform:capitalize;">'+dateStr+'</div>'
-        +'<button onclick="calendarDate.setDate(calendarDate.getDate()+1);renderCalendar()" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8250;</button>'
+        +'<button onclick="'+prevFn+'" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8249;</button>'
+        +'<div style="font-size:18px;font-weight:700;color:#1e293b;text-transform:capitalize;">'+navLabel+'</div>'
+        +'<button onclick="'+nextFn+'" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8250;</button>'
         +'</div>'
-        +'<button onclick="calendarDate=new Date();renderCalendar()" style="padding:6px 16px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:12px;font-weight:600;color:#3b82f6;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background=\'#3b82f6\';this.style.color=\'white\'" onmouseleave="this.style.background=\'white\';this.style.color=\'#3b82f6\'">Сегодня</button>'
-        +'</div>';
+        +'<div style="display:flex;gap:4px;align-items:center;">'
+        +'<button onclick="calendarView=\'day\';renderCalendar()" style="'+viewBtnStyle('day')+'">День</button>'
+        +'<button onclick="calendarView=\'week\';renderCalendar()" style="'+viewBtnStyle('week')+'">Неделя</button>'
+        +'<button onclick="calendarView=\'month\';renderCalendar()" style="'+viewBtnStyle('month')+'">Месяц</button>'
+        +'<button onclick="calendarDate=new Date();renderCalendar()" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:12px;font-weight:600;color:#3b82f6;cursor:pointer;transition:all 0.15s;margin-left:4px;" onmouseenter="this.style.background=\'#3b82f6\';this.style.color=\'white\'" onmouseleave="this.style.background=\'white\';this.style.color=\'#3b82f6\'">Сегодня</button>'
+        +'</div></div>';
 
-    // Week mini-nav
-    calHtml += '<div style="display:flex;gap:4px;margin-bottom:16px;">';
-    weekDays.forEach(function(d) {
-        var isSelected = d.getDate()===today.getDate()&&d.getMonth()===today.getMonth();
-        var dayNames = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
-        var isNow = d.toDateString() === new Date().toDateString();
-        calHtml += '<div onclick="calendarDate=new Date('+d.getTime()+');renderCalendar()" style="flex:1;text-align:center;padding:8px 4px;border-radius:10px;cursor:pointer;transition:all 0.15s;'+(isSelected?'background:#3b82f6;color:white;':'background:white;color:#475569;border:1px solid #e8ecf1;')+'">'
-            +'<div style="font-size:10px;font-weight:600;opacity:0.7;">'+dayNames[d.getDay()]+'</div>'
-            +'<div style="font-size:16px;font-weight:700;margin-top:2px;">'+d.getDate()+'</div>'
-            +(isNow&&!isSelected?'<div style="width:4px;height:4px;border-radius:50%;background:#3b82f6;margin:2px auto 0;"></div>':'')
-            +'</div>';
-    });
-    calHtml += '</div>';
+    // ===================== DAY VIEW =====================
+    if (calendarView === 'day') {
+        var dayTasks = getTasksForDay(today);
+        var tasksWithTime = dayTasks.filter(function(t){ return t.deadline.includes('T') && !t.deadline.endsWith('T00:00'); }).sort(function(a,b){ return new Date(a.deadline) - new Date(b.deadline); });
+        var tasksNoTime = dayTasks.filter(function(t){ return !t.deadline.includes('T') || t.deadline.endsWith('T00:00'); });
+        var overdueTasks = allFiltered.filter(function(t){
+            if (!t.deadline) return false;
+            var dl = new Date(t.deadline); dl.setHours(0,0,0,0);
+            return dl < today && t.status !== 'done' && t.status !== 'cancelled';
+        });
 
-    // Overdue tasks
-    if (overdueTasks.length) {
-        calHtml += '<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Просроченные задачи ('+overdueTasks.length+')</div><div style="display:flex;flex-direction:column;gap:6px;">'+overdueTasks.map(function(t){return taskCard(t,true);}).join('')+'</div></div>';
+        // Week mini-nav
+        var weekDays = [];
+        var startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - ((today.getDay()+6)%7));
+        for (var i = 0; i < 7; i++) { var d = new Date(startOfWeek); d.setDate(startOfWeek.getDate()+i); weekDays.push(d); }
+
+        calHtml += '<div style="display:flex;gap:4px;margin-bottom:16px;">';
+        weekDays.forEach(function(d) {
+            var isSelected = sameDay(d, today);
+            var isNow = sameDay(d, realToday);
+            calHtml += '<div onclick="calendarDate=new Date('+d.getTime()+');renderCalendar()" style="flex:1;text-align:center;padding:8px 4px;border-radius:10px;cursor:pointer;transition:all 0.15s;'+(isSelected?'background:#3b82f6;color:white;':'background:white;color:#475569;border:1px solid #e8ecf1;')+'">'
+                +'<div style="font-size:10px;font-weight:600;opacity:0.7;">'+dayNames[(d.getDay()+6)%7]+'</div>'
+                +'<div style="font-size:16px;font-weight:700;margin-top:2px;">'+d.getDate()+'</div>'
+                +(isNow&&!isSelected?'<div style="width:4px;height:4px;border-radius:50%;background:#3b82f6;margin:2px auto 0;"></div>':'')
+                +'</div>';
+        });
+        calHtml += '</div>';
+
+        if (overdueTasks.length) {
+            calHtml += '<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Просроченные ('+overdueTasks.length+')</div><div style="display:flex;flex-direction:column;gap:6px;">'+overdueTasks.map(function(t){return taskCard(t,false);}).join('')+'</div></div>';
+        }
+        if (tasksNoTime.length) {
+            calHtml += '<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Без времени ('+tasksNoTime.length+')</div><div style="display:flex;flex-direction:column;gap:6px;">'+tasksNoTime.map(function(t){return taskCard(t,false);}).join('')+'</div></div>';
+        }
+        // Timeline
+        calHtml += '<div style="background:white;border-radius:12px;border:1px solid #e8ecf1;overflow:hidden;">';
+        for (var h = 6; h <= 23; h++) {
+            var hourTasks = tasksWithTime.filter(function(t){ return new Date(t.deadline).getHours() === h; });
+            calHtml += '<div style="display:flex;min-height:48px;border-bottom:1px solid #f1f5f9;">'
+                +'<div style="width:60px;padding:12px 8px;text-align:right;font-size:12px;font-weight:600;color:#94a3b8;border-right:1px solid #f1f5f9;flex-shrink:0;">'+String(h).padStart(2,'0')+':00</div>'
+                +'<div style="flex:1;padding:6px 10px;display:flex;flex-direction:column;gap:4px;">'
+                +(hourTasks.length ? hourTasks.map(function(t){return taskCard(t,false);}).join('') : '')
+                +'</div></div>';
+        }
+        calHtml += '</div>';
+        calHtml += '<div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">Всего задач: '+dayTasks.length+'</div>';
     }
-    // Tasks without time
-    if (tasksNoTime.length) {
-        calHtml += '<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Без указанного времени ('+tasksNoTime.length+')</div><div style="display:flex;flex-direction:column;gap:6px;">'+tasksNoTime.map(function(t){return taskCard(t,false);}).join('')+'</div></div>';
+
+    // ===================== WEEK VIEW =====================
+    else if (calendarView === 'week') {
+        var ws = new Date(today); ws.setDate(today.getDate() - ((today.getDay()+6)%7));
+        var weekDays = [];
+        for (var i = 0; i < 7; i++) { var d = new Date(ws); d.setDate(ws.getDate()+i); weekDays.push(d); }
+
+        calHtml += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">';
+        weekDays.forEach(function(d) {
+            var isToday = sameDay(d, realToday);
+            var dayTasks = getTasksForDay(d).sort(function(a,b){ return new Date(a.deadline) - new Date(b.deadline); });
+            calHtml += '<div style="background:white;border-radius:12px;border:1px solid '+(isToday?'#3b82f6':'#e8ecf1')+';overflow:hidden;min-height:120px;">'
+                +'<div onclick="calendarDate=new Date('+d.getTime()+');calendarView=\'day\';renderCalendar()" style="padding:10px 12px;text-align:center;cursor:pointer;border-bottom:1px solid #f1f5f9;background:'+(isToday?'#3b82f6':'#f8fafc')+';color:'+(isToday?'white':'#475569')+';transition:all 0.15s;" onmouseenter="if(!'+isToday+')this.style.background=\'#eff6ff\'" onmouseleave="if(!'+isToday+')this.style.background=\'#f8fafc\'">'
+                +'<div style="font-size:10px;font-weight:600;opacity:0.8;">'+dayNames[(d.getDay()+6)%7]+'</div>'
+                +'<div style="font-size:18px;font-weight:700;">'+d.getDate()+'</div>'
+                +'</div>'
+                +'<div style="padding:6px;">';
+            if (dayTasks.length === 0) {
+                calHtml += '<div style="padding:8px;text-align:center;color:#cbd5e1;font-size:11px;">—</div>';
+            } else {
+                dayTasks.forEach(function(t){ calHtml += taskCard(t, true); });
+            }
+            calHtml += '</div></div>';
+        });
+        calHtml += '</div>';
     }
 
-    // Timeline
-    calHtml += '<div style="background:white;border-radius:12px;border:1px solid #e8ecf1;overflow:hidden;">';
-    hours.forEach(function(h) {
-        var hourTasks = tasksWithTime.filter(function(t){ return new Date(t.deadline).getHours() === h; });
-        calHtml += '<div style="display:flex;min-height:48px;border-bottom:1px solid #f1f5f9;">'
-            +'<div style="width:60px;padding:12px 8px;text-align:right;font-size:12px;font-weight:600;color:#94a3b8;border-right:1px solid #f1f5f9;flex-shrink:0;">'+String(h).padStart(2,'0')+':00</div>'
-            +'<div style="flex:1;padding:6px 10px;display:flex;flex-direction:column;gap:4px;">'
-            +(hourTasks.length ? hourTasks.map(function(t){return taskCard(t,true);}).join('') : '')
-            +'</div></div>';
-    });
-    calHtml += '</div>';
-    calHtml += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">Всего задач на этот день: '+tasks.length+'</div>';
+    // ===================== MONTH VIEW =====================
+    else if (calendarView === 'month') {
+        var year = today.getFullYear(), month = today.getMonth();
+        var firstDay = new Date(year, month, 1);
+        var lastDay = new Date(year, month+1, 0);
+        var startOffset = (firstDay.getDay()+6)%7; // 0=Mon
+
+        // Day name headers
+        calHtml += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">';
+        dayNames.forEach(function(dn) {
+            calHtml += '<div style="text-align:center;font-size:11px;font-weight:700;color:#94a3b8;padding:6px;">'+dn+'</div>';
+        });
+        calHtml += '</div>';
+
+        calHtml += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+        // Empty cells before first day
+        for (var i = 0; i < startOffset; i++) {
+            calHtml += '<div style="min-height:90px;background:#f8fafc;border-radius:8px;"></div>';
+        }
+        // Day cells
+        for (var day = 1; day <= lastDay.getDate(); day++) {
+            var cellDate = new Date(year, month, day);
+            var isToday = sameDay(cellDate, realToday);
+            var dayTasks = getTasksForDay(cellDate).sort(function(a,b){ return new Date(a.deadline) - new Date(b.deadline); });
+            var hasOverdue = dayTasks.some(function(t){ return t.status !== 'done' && t.status !== 'cancelled' && new Date(t.deadline) < realToday; });
+
+            calHtml += '<div style="min-height:90px;background:white;border-radius:8px;border:1px solid '+(isToday?'#3b82f6':hasOverdue?'#fecaca':'#e8ecf1')+';overflow:hidden;">'
+                +'<div onclick="calendarDate=new Date('+cellDate.getTime()+');calendarView=\'day\';renderCalendar()" style="padding:4px 8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">'
+                +'<span style="font-size:13px;font-weight:700;color:'+(isToday?'#3b82f6':'#475569')+';">'+day+'</span>'
+                +(dayTasks.length ? '<span style="font-size:10px;font-weight:600;color:#94a3b8;">'+dayTasks.length+'</span>' : '')
+                +'</div>'
+                +'<div style="padding:0 4px 4px;">';
+            // Show max 3 tasks, then "+N more"
+            var shown = dayTasks.slice(0, 3);
+            shown.forEach(function(t){ calHtml += taskCard(t, true); });
+            if (dayTasks.length > 3) {
+                calHtml += '<div onclick="calendarDate=new Date('+cellDate.getTime()+');calendarView=\'day\';renderCalendar()" style="font-size:10px;color:#3b82f6;font-weight:600;padding:2px 8px;cursor:pointer;">+'+(dayTasks.length-3)+' ещё</div>';
+            }
+            calHtml += '</div></div>';
+        }
+        // Trailing empty cells
+        var totalCells = startOffset + lastDay.getDate();
+        var remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+        for (var i = 0; i < remaining; i++) {
+            calHtml += '<div style="min-height:90px;background:#f8fafc;border-radius:8px;"></div>';
+        }
+        calHtml += '</div>';
+    }
 
     container.innerHTML = calHtml;
 }
