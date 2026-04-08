@@ -1950,7 +1950,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             content_type = self.headers.get("Content-Type", "")
             if "multipart/form-data" not in content_type:
                 return self._json({"error": "Expected multipart/form-data"}, 400)
-            boundary = content_type.split("boundary=")[1].strip()
+            try:
+                boundary = content_type.split("boundary=")[1].strip()
+                # Remove optional quotes around boundary
+                boundary = boundary.strip('"')
+            except IndexError:
+                return self._json({"error": "Missing boundary"}, 400)
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             parts = body.split(("--" + boundary).encode())
@@ -1964,7 +1969,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                             if fn: filename = fn
                         except: pass
                         header_end = part.index(b"\r\n\r\n") + 4
-                        file_data = part[header_end:].rstrip(b"\r\n--")
+                        # Strip trailing boundary marker and whitespace
+                        file_data = part[header_end:]
+                        # Remove trailing \r\n that precedes the next boundary
+                        if file_data.endswith(b"\r\n"):
+                            file_data = file_data[:-2]
             if not file_data:
                 return self._json({"error": "No file"}, 400)
             upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
