@@ -1600,17 +1600,22 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            # Check switch_car permission
-            role = u.get('role', 'member')
-            perm_row = conn.execute("SELECT allowed FROM role_permissions WHERE role=? AND permission='switch_car'", (role,)).fetchone()
-            if not perm_row or not perm_row['allowed']:
-                conn.close()
-                return self._json({"error": "Нет прав для смены машины"}, 403)
             car_level = data.get('car_level', '').strip()
             valid_levels = ['Босоногий','Самокатчик','Моноколёсник','Байкер','Водитель','Формула 3','Формула 2','Формула 1','Чемпион','']
             if car_level not in valid_levels:
                 conn.close()
                 return self._json({"error": "Неверный уровень"}, 400)
+            # Admin can pick any level; others only unlocked ones
+            role = u.get('role', 'member')
+            if car_level and role != 'admin':
+                level_thresholds = {'Босоногий':0,'Самокатчик':100,'Моноколёсник':500,'Байкер':1500,'Водитель':3500,'Формула 3':7000,'Формула 2':12000,'Формула 1':18000,'Чемпион':25000}
+                ensure_user_stats(conn, u["id"])
+                row = conn.execute("SELECT total_km FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+                total_km = row['total_km'] if row else 0
+                needed = level_thresholds.get(car_level, 999999)
+                if total_km < needed:
+                    conn.close()
+                    return self._json({"error": "Этот персонаж ещё не разблокирован"}, 403)
             ensure_user_stats(conn, u["id"])
             conn.execute("UPDATE user_stats SET car_override=? WHERE user_id=?", (car_level, u["id"]))
             conn.commit()

@@ -5302,8 +5302,8 @@ async function renderLeaderboard() {
         const displayLevel = myStats.car_override || s.level;
         const allLevels = ['Босоногий','Самокатчик','Моноколёсник','Байкер','Водитель','Формула 3','Формула 2','Формула 1','Чемпион'];
         const currentIdx = allLevels.indexOf(displayLevel);
-        // Can switch: from API permission OR admin role fallback
-        const canSwitch = myStats.can_switch_car || (currentUser && currentUser.role === 'admin');
+        // Everyone can open the car picker — locked characters shown with 🔒
+        const canSwitch = true;
 
         userCard.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
