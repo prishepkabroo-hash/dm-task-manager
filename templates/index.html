@@ -3642,8 +3642,15 @@ async function loadDepartments() {
 
 function renderDepartmentItems() {
     const deptList = document.getElementById('departmentsList');
+    const sectionTitle = document.getElementById('departmentsSectionTitle');
     deptList.innerHTML = '';
-    allDepartments.forEach(dept => {
+    // Filter departments based on permission
+    const canViewAll = hasPermission('view_all_departments');
+    const visibleDepts = canViewAll ? allDepartments : allDepartments.filter(d => currentUser && d.id === currentUser.department_id);
+    // Hide section if user has no departments to show
+    if (sectionTitle) sectionTitle.style.display = visibleDepts.length ? '' : 'none';
+    deptList.style.display = visibleDepts.length ? '' : 'none';
+    visibleDepts.forEach(dept => {
         const div = document.createElement('div');
         div.className = 'dept-item';
         if (selectedDepartment === dept.id) div.classList.add('active');
@@ -6296,13 +6303,14 @@ const PERMISSION_LABELS = {
     'messenger': 'Мессенджер',
     'leaderboard': 'Рейтинг и геймификация',
     'switch_car': 'Смена машины (геймификация)',
-    'manage_kanban': 'Настройка этапов канбана'
+    'manage_kanban': 'Настройка этапов канбана',
+    'view_all_departments': 'Доступ ко всем отделам (сайдбар)'
 };
 
 const DEFAULT_PERMISSIONS = {
-    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true, switch_car:true, manage_kanban:true },
-    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false },
-    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false }
+    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true, switch_car:true, manage_kanban:true, view_all_departments:true },
+    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false, view_all_departments:false },
+    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false, view_all_departments:false }
 };
 
 let currentPermissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));

@@ -315,6 +315,13 @@ def init_db():
         c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', 'switch_car', 0)")
         c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', 'switch_car', 0)")
 
+    # Migrate: add new permissions if missing
+    for perm, admin_val in [('manage_kanban', 1), ('view_all_departments', 1)]:
+        if perm not in existing_perms:
+            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', ?, ?)", (perm, admin_val))
+            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', ?, 0)", (perm,))
+            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', ?, 0)", (perm,))
+
     # Migrate: add head_user_id column to departments if missing
     try:
         c.execute("SELECT head_user_id FROM departments LIMIT 1")
@@ -375,12 +382,12 @@ def init_db():
     # Seed default permissions if empty
     if c.execute("SELECT COUNT(*) FROM role_permissions").fetchone()[0] == 0:
         default_perms = {
-            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban'],
+            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments'],
             'head': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','messenger','leaderboard'],
             'member': ['create_tasks','assign_tasks','comments','messenger','leaderboard']
         }
         for role, perms in default_perms.items():
-            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban']
+            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments']
             for p in all_perms:
                 allowed = 1 if p in perms else 0
                 c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (?,?,?)", (role, p, allowed))
