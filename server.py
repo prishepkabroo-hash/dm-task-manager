@@ -714,6 +714,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             with open(fp, "r", encoding="utf-8") as f: content = f.read()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(content.encode("utf-8"))
         except FileNotFoundError:
@@ -1089,7 +1092,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/messenger/messages/"):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            other_user_id = path.split("/")[4]
+            other_user_id = int(path.split("/")[4])
             conn = get_db()
 
             # Get messages
@@ -1705,8 +1708,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/messenger/messages/"):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            recipient_id = path.split("/")[4]
+            recipient_id = int(path.split("/")[4])
             text = data.get("text", "").strip()
+            print(f"[MESSENGER POST] user={u['id']} -> recipient={recipient_id}, text='{text[:50]}', path={path}")
             if not text:
                 return self._json({"error": "Empty message"}, 400)
             conn = get_db()
@@ -1715,6 +1719,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 (u["id"], recipient_id, text)
             )
             conn.commit(); conn.close()
+            print(f"[MESSENGER POST] Message saved successfully!")
             return self._json({"ok": True})
 
         if path == "/api/messenger/groups":
@@ -2048,7 +2053,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/messenger/mark-read/"):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            partner_id = path.split("/")[-1]
+            partner_id = int(path.split("/")[-1])
             conn = get_db()
             conn.execute("UPDATE direct_messages SET is_read=1 WHERE sender_id=? AND recipient_id=?", (partner_id, u["id"]))
             conn.commit(); conn.close()
@@ -2383,6 +2388,19 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Delete the department
             conn.execute("DELETE FROM departments WHERE id=?", (dept_id,))
 
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        # Delete entire conversation with a user
+        if path.startswith("/api/messenger/conversations/") and path.count("/") == 4:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            other_user_id = int(path.split("/")[4])
+            conn = get_db()
+            conn.execute(
+                "DELETE FROM direct_messages WHERE (sender_id=? AND recipient_id=?) OR (sender_id=? AND recipient_id=?)",
+                (u["id"], other_user_id, other_user_id, u["id"])
+            )
             conn.commit(); conn.close()
             return self._json({"ok": True})
 

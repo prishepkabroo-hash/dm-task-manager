@@ -2813,6 +2813,9 @@
                                     <button onclick="searchInChat()" style="width:36px;height:36px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background='#e2e8f0';this.style.color='#7c3aed'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'" title="Поиск">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                     </button>
+                                    <button onclick="deleteConversation()" style="width:36px;height:36px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background='#fee2e2';this.style.color='#dc2626'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'" title="Удалить диалог">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                    </button>
                                 </div>
                             </div>
                             <div class="chat-messages" id="chatMessages">
@@ -5323,82 +5326,11 @@ function showMessageToast(title, body) {
 
 async function renderMessenger() {
     requestNotificationPermission();
-
     const conversationList = document.getElementById('conversationList');
+    if (!conversationList) return;
     const conversations = await apiCall('/api/messenger/conversations') || [];
     const groups = await apiCall('/api/messenger/groups') || [];
-
-    // Header with search and new chat
-    let html = `<div style="padding:16px 16px 12px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-            <div style="font-size:20px;font-weight:800;color:#1e293b;flex:1;letter-spacing:-0.02em;">Чаты</div>
-            <button onclick="showCreateGroupModal()" style="width:36px;height:36px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;" onmouseenter="this.style.background='#ede9fe';this.style.color='#7c3aed'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'" title="Создать группу">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            </button>
-        </div>
-        <select id="newConvSelect" onchange="if(this.value) selectConversation(parseInt(this.value))" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:13px;background:#f8fafc;color:#64748b;outline:none;cursor:pointer;transition:all 0.2s;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
-            <option value="">Новый диалог...</option>
-            ${allUsers.filter(u => u.id !== currentUser.id).map(u => `<option value="${u.id}">${u.full_name}</option>`).join('')}
-        </select>
-    </div>`;
-
-    // Group chats
-    if (groups && groups.length) {
-        html += `<div style="font-size:10px;font-weight:700;color:#7c3aed;padding:14px 20px 6px;text-transform:uppercase;letter-spacing:1px;">Группы</div>`;
-        html += groups.map(group => {
-            const isActive = activeGroupId === group.id;
-            return `<div class="conversation-item group-item${isActive ? ' active' : ''}" data-group-id="${group.id}">
-                <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,${group.avatar_color || '#6366f1'},#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.1);">👥</div>
-                <div style="flex:1;min-width:0;">
-                    <div class="conversation-name">${group.name}</div>
-                    <div class="conversation-preview">${group.last_message || 'Нет сообщений'}</div>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    // Direct conversations
-    if (conversations && conversations.length) {
-        html += `<div style="font-size:10px;font-weight:700;color:#7c3aed;padding:14px 20px 6px;text-transform:uppercase;letter-spacing:1px;">Личные</div>`;
-        html += conversations.map(conv => {
-            const isActive = selectedConversationUserId === conv.user_id;
-            const timeStr = conv.last_message_time ? new Date(conv.last_message_time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
-            const online = userOnlineStatus[conv.user_id] === 'online';
-            return `<div class="conversation-item${isActive ? ' active' : ''}" data-user-id="${conv.user_id}">
-                <div style="position:relative;">
-                    ${avatarHTML(conv.full_name, conv.avatar_color, 48, conv.avatar_url)}
-                    ${online ? '<div style="position:absolute;bottom:1px;right:1px;width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid #fff;"></div>' : ''}
-                </div>
-                <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                        <span class="conversation-name">${conv.full_name}</span>
-                        <span class="conversation-time">${timeStr}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                        <div class="conversation-preview">${conv.last_message || ''}</div>
-                        ${conv.unread_count > 0 ? `<span class="conversation-unread">${conv.unread_count}</span>` : ''}
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-    } else if (!groups || groups.length === 0) {
-        html += `<div style="padding:60px 20px;text-align:center;">
-            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#ede9fe,#e0e7ff);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            </div>
-            <div style="color:#94a3b8;font-size:13px;line-height:1.5;">Нет диалогов<br><span style="font-size:12px;">Выберите пользователя выше</span></div>
-        </div>`;
-    }
-
-    conversationList.innerHTML = html;
-
-    conversationList.querySelectorAll('.conversation-item:not(.group-item)').forEach(item => {
-        item.addEventListener('click', () => selectConversation(parseInt(item.getAttribute('data-user-id'))));
-    });
-
-    conversationList.querySelectorAll('.group-item').forEach(item => {
-        item.addEventListener('click', () => openGroupChat(parseInt(item.getAttribute('data-group-id'))));
-    });
+    _buildConversationListHTML(conversationList, conversations, groups);
 }
 
 let replyToMessage = null;
@@ -5545,6 +5477,24 @@ function showMsgContextMenu(e, msgId, isMine, text, senderName, msgType) {
     setTimeout(() => document.addEventListener('click', close), 10);
 }
 
+async function deleteConversation() {
+    if (!selectedConversationUserId) return;
+    const user = allUsers.find(u => u.id === selectedConversationUserId);
+    const name = user ? user.full_name : 'этим пользователем';
+    if (!confirm('Удалить весь диалог с ' + name + '? Все сообщения будут удалены.')) return;
+    await apiCall('/api/messenger/conversations/' + selectedConversationUserId, {method: 'DELETE'});
+    selectedConversationUserId = null;
+    // Hide chat area
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('chatInputArea').style.display = 'none';
+    document.getElementById('chatHeader').style.display = 'none';
+    const emptyState = document.getElementById('chatEmptyState');
+    if (emptyState) emptyState.style.display = 'flex';
+    // Refresh sidebar
+    await renderMessenger();
+    showToast('Диалог удалён', 'success');
+}
+
 async function markChatRead() {
     if (selectedConversationUserId) {
         await apiCall('/api/messenger/mark-read/' + selectedConversationUserId, {method:'POST', body:'{}'});
@@ -5568,6 +5518,87 @@ function searchInChat() {
         }
     });
     if (!found) showToast('Ничего не найдено', 'info');
+}
+
+function _buildConversationListHTML(conversationList, conversations, groups) {
+    // IDs of users who already have conversations — to filter dropdown
+    const existingUserIds = new Set(conversations.map(c => Number(c.user_id)));
+
+    // Users available for NEW dialogs (exclude self + existing conversations)
+    const availableUsers = allUsers.filter(u => u.id !== currentUser.id && !existingUserIds.has(Number(u.id)));
+
+    let html = `<div style="padding:16px 16px 12px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <div style="font-size:20px;font-weight:800;color:#1e293b;flex:1;letter-spacing:-0.02em;">Чаты</div>
+            <button onclick="showCreateGroupModal()" style="width:36px;height:36px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;" onmouseenter="this.style.background='#ede9fe';this.style.color='#7c3aed'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'" title="Создать группу">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+        </div>`;
+
+    if (availableUsers.length > 0) {
+        html += `<select id="newConvSelect" onchange="if(this.value){selectConversation(Number(this.value));}" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:13px;background:#f8fafc;color:#64748b;outline:none;cursor:pointer;transition:all 0.2s;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+            <option value="">Новый диалог...</option>
+            ${availableUsers.map(u => `<option value="${u.id}">${u.full_name}</option>`).join('')}
+        </select>`;
+    }
+    html += `</div>`;
+
+    // Group chats
+    if (groups && groups.length) {
+        html += `<div style="font-size:10px;font-weight:700;color:#7c3aed;padding:14px 20px 6px;text-transform:uppercase;letter-spacing:1px;">Группы</div>`;
+        html += groups.map(group => {
+            const isActive = activeGroupId === group.id;
+            return `<div class="conversation-item group-item${isActive ? ' active' : ''}" data-group-id="${group.id}">
+                <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,${group.avatar_color || '#6366f1'},#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.1);">👥</div>
+                <div style="flex:1;min-width:0;">
+                    <div class="conversation-name">${group.name}</div>
+                    <div class="conversation-preview">${group.last_message || 'Нет сообщений'}</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Direct conversations
+    if (conversations && conversations.length) {
+        html += `<div style="font-size:10px;font-weight:700;color:#7c3aed;padding:14px 20px 6px;text-transform:uppercase;letter-spacing:1px;">Личные</div>`;
+        html += conversations.map(conv => {
+            const isActive = selectedConversationUserId === conv.user_id || selectedConversationUserId === Number(conv.user_id);
+            const timeStr = conv.last_message_time ? parseUTCDate(conv.last_message_time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
+            const online = userOnlineStatus[conv.user_id] === 'online';
+            return `<div class="conversation-item${isActive ? ' active' : ''}" data-user-id="${conv.user_id}">
+                <div style="position:relative;">
+                    ${avatarHTML(conv.full_name, conv.avatar_color, 48, conv.avatar_url)}
+                    ${online ? '<div style="position:absolute;bottom:1px;right:1px;width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid #fff;"></div>' : ''}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <span class="conversation-name">${conv.full_name}</span>
+                        <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">${timeStr}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <div class="conversation-preview">${conv.last_message || ''}</div>
+                        ${conv.unread_count > 0 ? `<span class="conversation-unread">${conv.unread_count}</span>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } else if (!groups || groups.length === 0) {
+        html += `<div style="padding:60px 20px;text-align:center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#ede9fe,#e0e7ff);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <div style="color:#94a3b8;font-size:13px;line-height:1.5;">Нет диалогов<br><span style="font-size:12px;">Выберите пользователя выше</span></div>
+        </div>`;
+    }
+
+    conversationList.innerHTML = html;
+    // Attach click handlers
+    conversationList.querySelectorAll('.conversation-item[data-user-id]').forEach(el => {
+        el.onclick = () => selectConversation(Number(el.dataset.userId));
+    });
+    conversationList.querySelectorAll('.conversation-item[data-group-id]').forEach(el => {
+        el.onclick = () => openGroupChat(Number(el.dataset.groupId));
+    });
 }
 
 async function selectConversation(userId) {
@@ -5626,7 +5657,7 @@ async function selectConversation(userId) {
             const isMine = m.sender_id === currentUser.id;
             const isGroupStart = m.sender_id !== prevSender;
             prevSender = m.sender_id;
-            const msgDate = m.created_at ? new Date(m.created_at) : new Date();
+            const msgDate = parseUTCDate(m.created_at);
             const dateStr = msgDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
             const time = msgDate.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
             const senderUser = !isMine ? allUsers.find(u => u.id === m.sender_id) : null;
@@ -5697,6 +5728,15 @@ async function selectConversation(userId) {
 
     setupTypingIndicator(userId);
     refreshMessengerBadge();
+}
+
+function parseUTCDate(str) {
+    if (!str) return new Date();
+    // SQLite CURRENT_TIMESTAMP returns UTC without 'Z'. Add it so JS parses as UTC.
+    if (!str.endsWith('Z') && !str.includes('+') && !str.includes('T')) {
+        return new Date(str.replace(' ', 'T') + 'Z');
+    }
+    return new Date(str);
 }
 
 function renderMessageText(text) {
@@ -5793,7 +5833,8 @@ async function handleMessengerUpload(input) {
                 await apiCall('/api/messenger/messages/' + selectedConversationUserId, {
                     method: 'POST', body: JSON.stringify({text: msgText})
                 });
-                selectConversation(selectedConversationUserId);
+                await renderMessenger();
+                await selectConversation(selectedConversationUserId);
             }
         } else {
             showToast(data.error || 'Ошибка загрузки файла', 'error');
@@ -5808,9 +5849,14 @@ async function handleMessengerUpload(input) {
 
 function setupMessengerInterval() {
     if (messengerInterval) clearInterval(messengerInterval);
-    messengerInterval = setInterval(() => {
-        if (currentPage === 'messenger' && selectedConversationUserId) {
-            selectConversation(selectedConversationUserId);
+    messengerInterval = setInterval(async () => {
+        if (currentPage === 'messenger') {
+            await renderMessenger();
+            if (selectedConversationUserId) {
+                selectConversation(selectedConversationUserId);
+            } else if (activeGroupId) {
+                openGroupChat(activeGroupId);
+            }
         }
         refreshOnlineStatus();
     }, 5000);
@@ -7715,7 +7761,8 @@ async function sendVoiceMessage(blob) {
                 await apiCall('/api/messenger/messages/' + selectedConversationUserId, {
                     method: 'POST', body: JSON.stringify({text: voiceMsg})
                 });
-                selectConversation(selectedConversationUserId);
+                await renderMessenger();
+                await selectConversation(selectedConversationUserId);
             }
         } else {
             showToast(data.error || 'Ошибка загрузки голосового', 'error');
@@ -7830,11 +7877,13 @@ async function sendDirectMessage() {
         });
         openGroupChat(activeGroupId);
     } else if (selectedConversationUserId) {
-        await apiCall('/api/messenger/messages/' + selectedConversationUserId, {
+        const sendResp = await apiCall('/api/messenger/messages/' + selectedConversationUserId, {
             method: 'POST',
             body: JSON.stringify({text})
         });
-        selectConversation(selectedConversationUserId);
+        // Full re-render of sidebar (fetches fresh conversations + filters dropdown)
+        await renderMessenger();
+        await selectConversation(selectedConversationUserId);
     }
 }
 
