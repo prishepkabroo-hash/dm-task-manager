@@ -2364,6 +2364,8 @@
         @keyframes crownBob { 0%{transform:translateX(-50%) translateY(0) rotate(-3deg)} 50%{transform:translateX(-50%) translateY(-6px) rotate(3deg)} 100%{transform:translateX(-50%) translateY(0) rotate(-3deg)} }
         @keyframes trailFade { 0%{opacity:0.7;transform:scaleX(0.5)} 50%{opacity:1;transform:scaleX(1)} 100%{opacity:0.7;transform:scaleX(0.5)} }
         @keyframes glowPulse { 0%,100%{opacity:0.4;filter:blur(12px)} 50%{opacity:0.8;filter:blur(18px)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(30px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes exhaustPuff { 0%{opacity:0.6;transform:translateX(0) scale(1)} 100%{opacity:0;transform:translateX(-25px) scale(2)} }
         @keyframes starSparkle { 0%,100%{opacity:0;transform:scale(0.5)} 50%{opacity:1;transform:scale(1)} }
     </style>
@@ -5307,10 +5309,9 @@ async function renderLeaderboard() {
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div>
                     <div style="font-size: 12px; text-transform:uppercase; letter-spacing:1px; opacity:0.6; margin-bottom:4px;">Ваш уровень</div>
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-                        ${canSwitch ? '<button onclick="switchCarPrev()" style="width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" onmouseenter="this.style.background=\'rgba(255,255,255,0.2)\';this.style.borderColor=\'rgba(255,255,255,0.4)\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.borderColor=\'rgba(255,255,255,0.2)\'">\u25C0</button>' : ''}
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px;">
                         <span style="font-size: 28px; font-weight: 700;">${levelIcon(displayLevel)} ${displayLevel}</span>
-                        ${canSwitch ? '<button onclick="switchCarNext()" style="width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" onmouseenter="this.style.background=\'rgba(255,255,255,0.2)\';this.style.borderColor=\'rgba(255,255,255,0.4)\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.borderColor=\'rgba(255,255,255,0.2)\'">\u25B6</button>' : ''}
+                        ${canSwitch ? '<button onclick="openCarPicker()" style="padding:3px 10px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:11px;cursor:pointer;transition:all 0.2s;white-space:nowrap;" onmouseenter="this.style.background=\'rgba(255,255,255,0.15)\';this.style.color=\'#fff\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.color=\'rgba(255,255,255,0.7)\'">Сменить</button>' : ''}
                     </div>
                     <div style="font-size: 12px; opacity: 0.6; font-style:italic; margin-bottom:2px;">\u00AB${levelFunName(displayLevel)}\u00BB</div>
                     <div style="font-size: 14px; opacity: 0.8;">${currentUser.full_name}</div>
@@ -5721,8 +5722,9 @@ async function deleteUser(userId, name) {
     else alert('Ошибка: ' + (result && result.error || 'Неизвестная ошибка'));
 }
 
-// Car switcher state
+// Car picker
 window._carAllLevels = ['Босоногий','Самокатчик','Моноколёсник','Байкер','Водитель','Формула 3','Формула 2','Формула 1','Чемпион'];
+window._carThresholds = {'Босоногий':0,'Самокатчик':100,'Моноколёсник':500,'Байкер':1500,'Водитель':3500,'Формула 3':7000,'Формула 2':12000,'Формула 1':18000,'Чемпион':25000};
 
 async function switchCarTo(level) {
     const result = await apiCall('/api/gamification/car-override', {method:'POST', body: JSON.stringify({car_level: level})});
@@ -5734,28 +5736,76 @@ async function switchCarTo(level) {
     }
 }
 
-async function switchCarNext() {
+async function openCarPicker() {
     const stats = await apiCall('/api/gamification/me');
     if (!stats || !stats.stats) return;
-    const current = stats.car_override || stats.stats.level;
-    const idx = window._carAllLevels.indexOf(current);
-    const nextIdx = (idx + 1) % window._carAllLevels.length;
-    switchCarTo(window._carAllLevels[nextIdx]);
+    const totalKm = stats.stats.total_km || 0;
+    const currentDisplay = stats.car_override || stats.stats.level;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+
+    // Build grid items
+    let gridHtml = '';
+    window._carAllLevels.forEach((name, i) => {
+        const km = window._carThresholds[name];
+        const unlocked = isAdmin || totalKm >= km;
+        const isActive = name === currentDisplay;
+        const fileMap = {'Босоногий':'1-barefoot.png','Самокатчик':'2-scooter.png','Моноколёсник':'3-monowheel.png','Байкер':'4-biker.png','Водитель':'5-driver.png','Формула 3':'6-f3.png','Формула 2':'7-f2.png','Формула 1':'8-f1.png','Чемпион':'9-champion.png'};
+        const file = fileMap[name];
+
+        if (unlocked) {
+            gridHtml += `
+                <div onclick="selectCarFromPicker('${name}')" style="cursor:pointer;padding:12px 8px;border-radius:14px;text-align:center;transition:all 0.2s;border:2px solid ${isActive ? '#3b82f6' : 'rgba(255,255,255,0.08)'};background:${isActive ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)'};" onmouseenter="if(!${isActive})this.style.background='rgba(255,255,255,0.1)';this.style.transform='scale(1.05)'" onmouseleave="if(!${isActive})this.style.background='rgba(255,255,255,0.04)';this.style.transform='scale(1)'">
+                    <img src="/static/levels/${file}?v=3" style="height:50px;width:auto;display:block;margin:0 auto 8px;" draggable="false">
+                    <div style="font-size:11px;font-weight:600;color:#fff;line-height:1.2;">${name}</div>
+                    <div style="font-size:9px;opacity:0.4;margin-top:2px;">${km} км</div>
+                    ${isActive ? '<div style="font-size:9px;color:#3b82f6;font-weight:700;margin-top:3px;">Выбрано</div>' : ''}
+                </div>`;
+        } else {
+            gridHtml += `
+                <div style="padding:12px 8px;border-radius:14px;text-align:center;border:2px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);opacity:0.5;">
+                    <div style="height:50px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;font-size:28px;">🔒</div>
+                    <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);line-height:1.2;">${name}</div>
+                    <div style="font-size:9px;opacity:0.5;margin-top:2px;">${km} км</div>
+                </div>`;
+        }
+    });
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'carPickerOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn 0.3s;backdrop-filter:blur(4px);';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = `
+        <div style="background:linear-gradient(145deg,#1e1e2e,#161622);border-radius:20px;padding:28px;max-width:420px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.08);animation:slideUp 0.3s ease-out;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <div style="font-size:18px;font-weight:700;color:#fff;">Выбор персонажа</div>
+                    <div style="font-size:12px;opacity:0.5;margin-top:2px;">Ваш прогресс: ${totalKm} км</div>
+                </div>
+                <button onclick="document.getElementById('carPickerOverlay').remove()" style="width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.15)'" onmouseleave="this.style.background='rgba(255,255,255,0.08)'">&times;</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                ${gridHtml}
+            </div>
+            ${stats.car_override ? '<div style="text-align:center;margin-top:16px;"><button onclick="resetCarFromPicker()" style="padding:6px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:rgba(255,255,255,0.5);font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.color=\'#fff\'" onmouseleave="this.style.color=\'rgba(255,255,255,0.5)\'">Сбросить на текущий уровень</button></div>' : ''}
+        </div>
+    `;
+    document.body.appendChild(overlay);
 }
 
-async function switchCarPrev() {
-    const stats = await apiCall('/api/gamification/me');
-    if (!stats || !stats.stats) return;
-    const current = stats.car_override || stats.stats.level;
-    const idx = window._carAllLevels.indexOf(current);
-    const prevIdx = (idx - 1 + window._carAllLevels.length) % window._carAllLevels.length;
-    switchCarTo(window._carAllLevels[prevIdx]);
+async function selectCarFromPicker(level) {
+    const overlay = document.getElementById('carPickerOverlay');
+    if (overlay) overlay.remove();
+    await switchCarTo(level);
 }
 
-async function resetCarOverride() {
+async function resetCarFromPicker() {
+    const overlay = document.getElementById('carPickerOverlay');
+    if (overlay) overlay.remove();
     const result = await apiCall('/api/gamification/car-override', {method:'POST', body: JSON.stringify({car_level: ''})});
     if (result && result.ok) {
-        showToast('Сброшено', 'success');
+        showToast('Сброшено на текущий уровень', 'success');
         renderLeaderboard();
     } else {
         showToast(result?.error || 'Ошибка', 'error');
