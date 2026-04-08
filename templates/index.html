@@ -2601,6 +2601,10 @@
                     </svg>
                     <span>Рейтинг</span>
                 </div>
+                <div class="nav-item" data-page="feedback" id="feedbackNavItem" style="display: none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                    <span>Отзывы</span>
+                </div>
                 <div class="nav-item" data-page="profile" id="profileNavItem">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     <span>Профиль</span>
@@ -2855,6 +2859,18 @@
                             </thead>
                             <tbody id="leaderboardTable"></tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- FEEDBACK PAGE -->
+                <div class="page" id="page-feedback">
+                    <div style="max-width:800px;margin:0 auto;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+                            <h2 style="font-size:22px;font-weight:700;margin:0;">Обратная связь</h2>
+                        </div>
+                        <div id="feedbackPageList">
+                            <div style="padding:20px;text-align:center;color:var(--text-secondary);">Загрузка...</div>
+                        </div>
                     </div>
                 </div>
 
@@ -3477,6 +3493,7 @@ async function loadApp() {
     document.getElementById('adminNavItem').style.display = isAdmin ? 'flex' : 'none';
     document.getElementById('analyticsNavItem').style.display = (isAdmin || isHead) ? 'flex' : 'none';
     document.getElementById('leaderboardNavItem').style.display = 'flex'; // visible to all
+    document.getElementById('feedbackNavItem').style.display = hasPermission('view_feedback') ? 'flex' : 'none';
 
     // User info in sidebar footer
     const userInfo = document.getElementById('userInfo');
@@ -3510,6 +3527,7 @@ const titleMap = {
     messenger: 'Мессенджер',
     analytics: 'Аналитика',
     leaderboard: 'Рейтинг',
+    feedback: 'Обратная связь',
     profile: 'Профиль',
     admin: 'Администрирование'
 };
@@ -3551,6 +3569,7 @@ function navigate(page) {
     else if (page === 'messenger') renderMessenger();
     else if (page === 'analytics') renderAnalytics();
     else if (page === 'leaderboard') renderLeaderboard();
+    else if (page === 'feedback') renderFeedbackPage();
     else if (page === 'profile') renderProfile();
     else if (page === 'admin') renderAdmin();
 }
@@ -5734,6 +5753,29 @@ async function loadAdminFeedback() {
     }).join('');
 }
 
+// === Feedback Page (standalone, permission-based) ===
+async function renderFeedbackPage() {
+    const list = document.getElementById('feedbackPageList');
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Загрузка...</div>';
+    const data = await apiCall('/api/feedback');
+    if (!data || !data.length) {
+        list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary);font-size:15px;">Пока нет отзывов</div>';
+        return;
+    }
+    list.innerHTML = data.map(f => {
+        const stars = '\u2605'.repeat(f.rating || 0) + '\u2606'.repeat(5 - (f.rating || 0));
+        const date = f.created_at ? new Date(f.created_at).toLocaleString('ru-RU') : '';
+        return '<div style="padding:16px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:12px;background:var(--bg-secondary);">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                '<div style="font-weight:600;font-size:14px;">' + (f.full_name || '') + ' <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@' + (f.username || '') + '</span></div>' +
+                '<div style="font-size:12px;color:var(--text-secondary);">' + date + '</div>' +
+            '</div>' +
+            '<div style="color:#f59e0b;font-size:18px;margin-bottom:8px;">' + stars + '</div>' +
+            '<div style="font-size:14px;color:var(--text-primary);line-height:1.5;">' + (f.text || '<em style="color:var(--text-secondary);">Без комментария</em>') + '</div>' +
+        '</div>';
+    }).join('');
+}
+
 // === Admin Stages Management ===
 async function renderAdminStages() {
     const stages = await apiCall('/api/stages');
@@ -6304,13 +6346,14 @@ const PERMISSION_LABELS = {
     'leaderboard': 'Рейтинг и геймификация',
     'switch_car': 'Смена машины (геймификация)',
     'manage_kanban': 'Настройка этапов канбана',
-    'view_all_departments': 'Доступ ко всем отделам (сайдбар)'
+    'view_all_departments': 'Доступ ко всем отделам (сайдбар)',
+    'view_feedback': 'Просмотр обратной связи'
 };
 
 const DEFAULT_PERMISSIONS = {
-    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true, switch_car:true, manage_kanban:true, view_all_departments:true },
-    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false, view_all_departments:false },
-    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false, view_all_departments:false }
+    admin: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:true, manage_departments:true, delete_users:true, messenger:true, leaderboard:true, switch_car:true, manage_kanban:true, view_all_departments:true, view_feedback:true },
+    head: { view_all_tasks:true, create_tasks:true, assign_tasks:true, comments:true, analytics:true, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false, view_all_departments:false, view_feedback:false },
+    member: { view_all_tasks:false, create_tasks:true, assign_tasks:true, comments:true, analytics:false, manage_users:false, manage_departments:false, delete_users:false, messenger:true, leaderboard:true, switch_car:false, manage_kanban:false, view_all_departments:false, view_feedback:false }
 };
 
 let currentPermissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));

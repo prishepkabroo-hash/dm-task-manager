@@ -316,7 +316,7 @@ def init_db():
         c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', 'switch_car', 0)")
 
     # Migrate: add new permissions if missing
-    for perm, admin_val in [('manage_kanban', 1), ('view_all_departments', 1)]:
+    for perm, admin_val in [('manage_kanban', 1), ('view_all_departments', 1), ('view_feedback', 1)]:
         if perm not in existing_perms:
             c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', ?, ?)", (perm, admin_val))
             c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', ?, 0)", (perm,))
@@ -382,12 +382,12 @@ def init_db():
     # Seed default permissions if empty
     if c.execute("SELECT COUNT(*) FROM role_permissions").fetchone()[0] == 0:
         default_perms = {
-            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments'],
+            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments','view_feedback'],
             'head': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','messenger','leaderboard'],
             'member': ['create_tasks','assign_tasks','comments','messenger','leaderboard']
         }
         for role, perms in default_perms.items():
-            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments']
+            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments','view_feedback']
             for p in all_perms:
                 allowed = 1 if p in perms else 0
                 c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (?,?,?)", (role, p, allowed))
@@ -1300,8 +1300,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/feedback":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            if u.get("role") not in ("admin", "head"):
-                return self._json({"error": "forbidden"}, 403)
+            role = u.get("role", "member")
+            # Check view_feedback permission
+            if role != 'admin':
+                conn_p = get_db()
+                perm_row = conn_p.execute("SELECT allowed FROM role_permissions WHERE role=? AND permission='view_feedback'", (role,)).fetchone()
+                conn_p.close()
+                if not perm_row or not perm_row['allowed']:
+                    return self._json({"error": "forbidden"}, 403)
             conn = get_db()
             rows = conn.execute("""
                 SELECT f.id, f.text, f.rating, f.created_at, u.full_name, u.username
