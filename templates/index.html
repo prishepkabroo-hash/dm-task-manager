@@ -4812,7 +4812,7 @@ async function showTaskDetail(taskId) {
 
     // Main tab - instant render from local data
     const assigneeOptions = allUsers.map(u => `<option value="${u.id}" ${u.id === task.assigned_to ? 'selected' : ''}>${u.full_name}</option>`).join('');
-    const statusOptions = Object.entries(statusCfg).map(([k,v]) => `<option value="${k}" ${k === task.status ? 'selected' : ''}>${v.l}</option>`).join('');
+    const statusOptions = allStages.map(s => `<option value="${s.key}" ${s.key === task.status ? 'selected' : ''}>${s.label}</option>`).join('') + `<option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>Отменена</option>`;
     const priorityOptions = Object.entries(priCfg).map(([k,v]) => `<option value="${k}" ${k === task.priority ? 'selected' : ''}>${v.l}</option>`).join('');
 
     document.getElementById('td-main').innerHTML = `
