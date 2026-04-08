@@ -3852,23 +3852,25 @@ async function renderKanban() {
         board.parentNode.insertBefore(stagesBar, board);
     }
     const allFiltered = getFilteredTasks();
-    stagesBar.style.cssText = 'display:flex;gap:0;margin-bottom:12px;background:white;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);';
+    // Match the board's flex layout exactly: same gap, overflow-x, padding
+    stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;overflow-x:auto;padding:0 0 8px 0;';
     stagesBar.innerHTML = statuses.map((status, idx) => {
         const cfg = statusConfig[status];
         const count = allFiltered.filter(t => t.status === status).length;
         const isLast = idx === statuses.length - 1;
+        // Each tab matches column sizing: min-width:280px;max-width:320px;flex:1
         return `
             <div class="kanban-stage-tab" data-stage="${status}"
                  ondragover="event.preventDefault();this.style.background='${cfg.color}';this.style.color='white';"
                  ondragleave="this.style.background='';this.style.color='';"
                  ondrop="event.preventDefault();this.style.background='';this.style.color='';handleKanbanDrop(event,'${status}')"
-                 style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;${!isLast?'border-right:1px solid #e2e8f0;':''}"
+                 style="min-width:280px;max-width:320px;flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
                  onmouseenter="this.style.background='${cfg.color}12';this.style.color='${cfg.color}'"
-                 onmouseleave="this.style.background='';this.style.color='#64748b'">
+                 onmouseleave="this.style.background='white';this.style.color='#64748b'">
                 <div style="width:10px;height:10px;border-radius:50%;background:${cfg.color};flex-shrink:0;"></div>
                 <span>${cfg.label}</span>
                 <span style="background:${cfg.color}18;color:${cfg.color};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;">${count}</span>
-                ${!isLast ? '<svg style="position:absolute;right:-7px;top:50%;transform:translateY(-50%);z-index:1;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
+                ${!isLast ? '<svg style="position:absolute;right:-12px;top:50%;transform:translateY(-50%);z-index:1;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
             </div>
         `;
     }).join('');
@@ -3884,9 +3886,10 @@ async function renderKanban() {
     selectBtn.style.cssText = 'margin-bottom:8px;padding:6px 14px;border:1px solid ' + (kanbanSelectMode ? '#ef4444' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanSelectMode ? '#fef2f2' : 'white') + ';color:' + (kanbanSelectMode ? '#ef4444' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
     selectBtn.textContent = kanbanSelectMode ? '✕ Отменить выбор' : '☑ Выбрать для удаления';
 
-    statuses.forEach(status => {
+    statuses.forEach((status, colIdx) => {
         const cfg = statusConfig[status];
         const tasks = getFilteredTasks().filter(t => t.status === status);
+        const stageObj = allStages.find(s => s.key === status);
 
         const col = document.createElement('div');
         col.className = 'kanban-column';
@@ -3901,16 +3904,41 @@ async function renderKanban() {
         header.style.cssText = `background:${cfg.color}; color:white; padding:14px 16px; display:flex; align-items:center; justify-content:space-between;`;
         const isAdmin = currentUser && currentUser.role === 'admin';
         const canDeleteStage = isAdmin && allStages.length > 2;
+        const canMoveLeft = isAdmin && colIdx > 0;
+        const canMoveRight = isAdmin && colIdx < statuses.length - 1;
+        const arrowBtnStyle = 'width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.4);background:transparent;color:rgba(255,255,255,0.7);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;line-height:1;padding:0;';
         header.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:18px;">${cfg.icon}</span>
                 <span style="font-weight:700;font-size:15px;letter-spacing:0.3px;">${cfg.label}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;">
+            <div style="display:flex;align-items:center;gap:4px;">
                 <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;">${tasks.length}</span>
-                ${canDeleteStage ? `<button onclick="event.stopPropagation();showDeleteStageModal('${status}')" style="width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.4);background:transparent;color:rgba(255,255,255,0.7);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;line-height:1;" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Удалить этап">&times;</button>` : ''}
+                ${canMoveLeft ? `<button class="kanban-move-btn" data-dir="left" data-stage-id="${stageObj ? stageObj.id : ''}" style="${arrowBtnStyle}" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Переместить влево">◀</button>` : ''}
+                ${canMoveRight ? `<button class="kanban-move-btn" data-dir="right" data-stage-id="${stageObj ? stageObj.id : ''}" style="${arrowBtnStyle}" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Переместить вправо">▶</button>` : ''}
+                ${canDeleteStage ? `<button onclick="event.stopPropagation();showDeleteStageModal('${status}')" style="${arrowBtnStyle}" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Удалить этап">&times;</button>` : ''}
             </div>
         `;
+        // Attach move handlers
+        header.querySelectorAll('.kanban-move-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const dir = btn.getAttribute('data-dir');
+                const stageId = parseInt(btn.getAttribute('data-stage-id'));
+                if (!stageId) return;
+                const idx = allStages.findIndex(s => s.id === stageId);
+                if (idx < 0) return;
+                const newOrder = allStages.map(s => s.id);
+                if (dir === 'left' && idx > 0) { [newOrder[idx], newOrder[idx-1]] = [newOrder[idx-1], newOrder[idx]]; }
+                else if (dir === 'right' && idx < newOrder.length - 1) { [newOrder[idx], newOrder[idx+1]] = [newOrder[idx+1], newOrder[idx]]; }
+                else return;
+                const result = await apiCall('/api/stages/reorder', {method:'POST', body: JSON.stringify({order: newOrder})});
+                if (result && result.ok) {
+                    await loadStages();
+                    renderKanban();
+                } else { showToast(result?.error || 'Ошибка', 'error'); }
+            });
+        });
         col.appendChild(header);
 
         // Cards area
@@ -4031,7 +4059,13 @@ async function renderKanban() {
         board.appendChild(addCol);
     }
 
-    board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:12px 0;';
+    board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:4px 0 12px 0;';
+    // Sync horizontal scroll between stagesBar and board
+    const syncStagesBar = document.getElementById('kanbanStagesBar');
+    if (syncStagesBar) {
+        board.onscroll = function() { syncStagesBar.scrollLeft = board.scrollLeft; };
+        syncStagesBar.onscroll = function() { board.scrollLeft = syncStagesBar.scrollLeft; };
+    }
 }
 
 async function handleKanbanDrop(e, newStatus) {
@@ -5696,57 +5730,113 @@ async function renderAdminStages() {
 function showAddStageForm() {
     const container = document.getElementById('addStageFormContainer');
     container.style.display = 'block';
+    container.innerHTML = '';
+
     const colors = ['#3b82f6','#f59e0b','#22c55e','#8b5cf6','#ef4444','#06b6d4','#ec4899','#f97316'];
-    const icons = ['📋','⚡','✅','🔍','🚀','⏳','📝','🎯','💬','🔧'];
-    container.innerHTML = `
-        <div style="font-size:16px;font-weight:700;margin-bottom:16px;">Новый этап</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-            <div>
-                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Название</label>
-                <input id="newStageLabel" type="text" placeholder="Например: На проверке" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
-            </div>
-            <div>
-                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Ключ (англ, необязательно)</label>
-                <input id="newStageKey" type="text" placeholder="auto" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
-            </div>
+    const icons = ['\u{1F4CB}','\u{26A1}','\u{2705}','\u{1F50D}','\u{1F680}','\u{23F3}','\u{1F4DD}','\u{1F3AF}','\u{1F4AC}','\u{1F527}'];
+
+    let selectedColor = colors[0];
+    let selectedIcon = icons[0];
+
+    // Title
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:16px;font-weight:700;margin-bottom:16px;';
+    title.textContent = 'Новый этап';
+    container.appendChild(title);
+
+    // Name + key row
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;';
+    grid.innerHTML = `
+        <div>
+            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Название</label>
+            <input id="newStageLabel" type="text" placeholder="Например: На проверке" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
         </div>
-        <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">Цвет</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                ${colors.map(c => `<div onclick="document.getElementById('newStageColor').value='${c}';document.querySelectorAll('.stage-color-opt').forEach(el=>el.style.outline='none');this.style.outline='3px solid #333'" class="stage-color-opt" style="width:32px;height:32px;border-radius:8px;background:${c};cursor:pointer;transition:all 0.15s;"></div>`).join('')}
-            </div>
-            <input id="newStageColor" type="hidden" value="#3b82f6">
-        </div>
-        <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">Иконка</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                ${icons.map(ic => `<div onclick="document.getElementById('newStageIcon').value='${ic}';document.querySelectorAll('.stage-icon-opt').forEach(el=>el.style.outline='none');this.style.outline='3px solid #333'" class="stage-icon-opt" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.15s;">${ic}</div>`).join('')}
-            </div>
-            <input id="newStageIcon" type="hidden" value="📋">
-        </div>
-        <div style="display:flex;gap:8px;">
-            <button onclick="saveNewStage()" class="btn btn-primary" style="padding:8px 20px;font-size:13px;">Добавить</button>
-            <button onclick="document.getElementById('addStageFormContainer').style.display='none'" style="padding:8px 20px;border:1px solid var(--border-color);border-radius:8px;background:white;cursor:pointer;font-size:13px;">Отмена</button>
+        <div>
+            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Ключ (англ, необязательно)</label>
+            <input id="newStageKey" type="text" placeholder="auto" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
         </div>
     `;
+    container.appendChild(grid);
+
+    // Color section
+    const colorSection = document.createElement('div');
+    colorSection.style.cssText = 'margin-bottom:16px;';
+    const colorLabel = document.createElement('label');
+    colorLabel.style.cssText = 'font-size:12px;font-weight:600;display:block;margin-bottom:6px;';
+    colorLabel.textContent = 'Цвет';
+    colorSection.appendChild(colorLabel);
+    const colorRow = document.createElement('div');
+    colorRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+    colors.forEach((c, i) => {
+        const chip = document.createElement('div');
+        chip.style.cssText = 'width:32px;height:32px;border-radius:8px;cursor:pointer;transition:all 0.15s;background:' + c + ';' + (i === 0 ? 'outline:3px solid #333;' : '');
+        chip.addEventListener('click', () => {
+            colorRow.querySelectorAll('div').forEach(d => d.style.outline = 'none');
+            chip.style.outline = '3px solid #333';
+            selectedColor = c;
+        });
+        colorRow.appendChild(chip);
+    });
+    colorSection.appendChild(colorRow);
+    container.appendChild(colorSection);
+
+    // Icon section
+    const iconSection = document.createElement('div');
+    iconSection.style.cssText = 'margin-bottom:16px;';
+    const iconLabel = document.createElement('label');
+    iconLabel.style.cssText = 'font-size:12px;font-weight:600;display:block;margin-bottom:6px;';
+    iconLabel.textContent = 'Иконка';
+    iconSection.appendChild(iconLabel);
+    const iconRow = document.createElement('div');
+    iconRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+    icons.forEach((ic, i) => {
+        const chip = document.createElement('div');
+        chip.style.cssText = 'width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.15s;' + (i === 0 ? 'outline:3px solid #333;' : '');
+        chip.textContent = ic;
+        chip.addEventListener('click', () => {
+            iconRow.querySelectorAll('div').forEach(d => d.style.outline = 'none');
+            chip.style.outline = '3px solid #333';
+            selectedIcon = ic;
+        });
+        iconRow.appendChild(chip);
+    });
+    iconSection.appendChild(iconRow);
+    container.appendChild(iconSection);
+
+    // Buttons
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-primary';
+    addBtn.style.cssText = 'padding:8px 20px;font-size:13px;';
+    addBtn.textContent = 'Добавить';
+    addBtn.addEventListener('click', () => {
+        const label = document.getElementById('newStageLabel').value.trim();
+        if (!label) { showToast('Введите название', 'error'); return; }
+        const key = document.getElementById('newStageKey').value.trim();
+        (async () => {
+            const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify({label, key: key || undefined, color: selectedColor, icon: selectedIcon})});
+            if (result && result.ok) {
+                showToast('Этап добавлен', 'success');
+                container.style.display = 'none';
+                await loadStages();
+                renderAdminStages();
+            } else {
+                showToast(result?.error || 'Ошибка', 'error');
+            }
+        })();
+    });
+    btnRow.appendChild(addBtn);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.style.cssText = 'padding:8px 20px;border:1px solid var(--border-color);border-radius:8px;background:white;cursor:pointer;font-size:13px;';
+    cancelBtn.textContent = 'Отмена';
+    cancelBtn.addEventListener('click', () => { container.style.display = 'none'; });
+    btnRow.appendChild(cancelBtn);
+    container.appendChild(btnRow);
 }
 
-async function saveNewStage() {
-    const label = document.getElementById('newStageLabel').value.trim();
-    if (!label) { showToast('Введите название', 'error'); return; }
-    const key = document.getElementById('newStageKey').value.trim();
-    const color = document.getElementById('newStageColor').value;
-    const icon = document.getElementById('newStageIcon').value;
-    const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify({label, key: key || undefined, color, icon})});
-    if (result && result.ok) {
-        showToast('Этап добавлен', 'success');
-        document.getElementById('addStageFormContainer').style.display = 'none';
-        await loadStages();
-        renderAdminStages();
-    } else {
-        showToast(result?.error || 'Ошибка', 'error');
-    }
-}
+// saveNewStage removed — logic inlined into showAddStageForm()
 
 async function deleteStage(id, key, label) {
     const otherStages = allStages.filter(s => s.id !== id);
@@ -5848,60 +5938,87 @@ async function confirmDeleteStage(stageId, stageKey, hasTasks) {
 
 function showAddStageKanbanModal() {
     const colors = ['#3b82f6','#f59e0b','#22c55e','#8b5cf6','#ef4444','#06b6d4','#ec4899','#f97316'];
-    const icons = ['📋','⚡','✅','🔍','🚀','⏳','📝','🎯','💬','🔧'];
+    const icons = ['\u{1F4CB}','\u{26A1}','\u{2705}','\u{1F50D}','\u{1F680}','\u{23F3}','\u{1F4DD}','\u{1F3AF}','\u{1F4AC}','\u{1F527}'];
 
     const overlay = document.createElement('div');
     overlay.id = 'addStageOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn 0.2s;';
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
-    overlay.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:28px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.2);animation:slideUp 0.25s ease-out;">
-            <div style="font-size:17px;font-weight:700;color:#1e293b;margin-bottom:20px;">Новый этап</div>
-            <div style="margin-bottom:16px;">
-                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Название</label>
-                <input id="kanbanNewStageLabel" type="text" placeholder="Например: На проверке" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;" autofocus>
-            </div>
-            <div style="margin-bottom:16px;">
-                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Цвет</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    ${colors.map((c, i) => `<div onclick="this.parentNode.querySelectorAll('div').forEach(d=>d.style.outline='none');this.style.outline='3px solid #333';document.getElementById('kanbanNewStageColor').value='${c}'" style="width:32px;height:32px;border-radius:8px;background:${c};cursor:pointer;transition:all 0.15s;${i===0?'outline:3px solid #333;':''}"></div>`).join('')}
-                </div>
-                <input id="kanbanNewStageColor" type="hidden" value="#3b82f6">
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Иконка</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    ${icons.map((ic, i) => `<div onclick="this.parentNode.querySelectorAll('div').forEach(d=>d.style.outline='none');this.style.outline='3px solid #333';document.getElementById('kanbanNewStageIcon').value='${ic}'" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.15s;${i===0?'outline:3px solid #333;':''}"></div>`).join('')}
-                </div>
-                <input id="kanbanNewStageIcon" type="hidden" value="📋">
-            </div>
-            <div style="display:flex;gap:10px;">
-                <button onclick="confirmAddStageKanban()" style="flex:1;padding:11px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;transition:all 0.15s;" onmouseenter="this.style.background='#2563eb'" onmouseleave="this.style.background='#3b82f6'">Добавить</button>
-                <button onclick="document.getElementById('addStageOverlay').remove()" style="flex:1;padding:11px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;">Отмена</button>
-            </div>
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:white;border-radius:16px;padding:28px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.2);animation:slideUp 0.25s ease-out;';
+
+    // Build color chips
+    const colorRow = document.createElement('div');
+    colorRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+    let selectedColor = colors[0];
+    colors.forEach((c, i) => {
+        const chip = document.createElement('div');
+        chip.style.cssText = 'width:32px;height:32px;border-radius:8px;cursor:pointer;transition:all 0.15s;background:' + c + ';' + (i === 0 ? 'outline:3px solid #333;' : '');
+        chip.addEventListener('click', () => {
+            colorRow.querySelectorAll('div').forEach(d => d.style.outline = 'none');
+            chip.style.outline = '3px solid #333';
+            selectedColor = c;
+        });
+        colorRow.appendChild(chip);
+    });
+
+    // Build icon chips
+    const iconRow = document.createElement('div');
+    iconRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+    let selectedIcon = icons[0];
+    icons.forEach((ic, i) => {
+        const chip = document.createElement('div');
+        chip.style.cssText = 'width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.15s;' + (i === 0 ? 'outline:3px solid #333;' : '');
+        chip.textContent = ic;
+        chip.addEventListener('click', () => {
+            iconRow.querySelectorAll('div').forEach(d => d.style.outline = 'none');
+            chip.style.outline = '3px solid #333';
+            selectedIcon = ic;
+        });
+        iconRow.appendChild(chip);
+    });
+
+    modal.innerHTML = `
+        <div style="font-size:17px;font-weight:700;color:#1e293b;margin-bottom:20px;">Новый этап</div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Название</label>
+            <input id="kanbanNewStageLabel" type="text" placeholder="Например: На проверке" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;">
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Цвет</label>
+            <div id="colorRowSlot"></div>
+        </div>
+        <div style="margin-bottom:20px;">
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Иконка</label>
+            <div id="iconRowSlot"></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button id="addStageConfirmBtn" style="flex:1;padding:11px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;">Добавить</button>
+            <button id="addStageCancelBtn" style="flex:1;padding:11px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;">Отмена</button>
         </div>
     `;
+    overlay.appendChild(modal);
     document.body.appendChild(overlay);
+
+    modal.querySelector('#colorRowSlot').appendChild(colorRow);
+    modal.querySelector('#iconRowSlot').appendChild(iconRow);
+    modal.querySelector('#addStageConfirmBtn').onclick = async () => {
+        const label = document.getElementById('kanbanNewStageLabel')?.value.trim();
+        if (!label) { showToast('Введите название', 'error'); return; }
+        overlay.remove();
+        const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify({label, color: selectedColor, icon: selectedIcon})});
+        if (result && result.ok) {
+            showToast('Этап «' + label + '» добавлен', 'success');
+            await loadStages();
+            renderKanban();
+        } else { showToast(result?.error || 'Ошибка', 'error'); }
+    };
+    modal.querySelector('#addStageCancelBtn').onclick = () => overlay.remove();
     setTimeout(() => document.getElementById('kanbanNewStageLabel')?.focus(), 100);
 }
 
-async function confirmAddStageKanban() {
-    const label = document.getElementById('kanbanNewStageLabel')?.value.trim();
-    if (!label) { showToast('Введите название', 'error'); return; }
-    const color = document.getElementById('kanbanNewStageColor')?.value || '#3b82f6';
-    const icon = document.getElementById('kanbanNewStageIcon')?.value || '📋';
-    const overlay = document.getElementById('addStageOverlay');
-    if (overlay) overlay.remove();
-    const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify({label, color, icon})});
-    if (result && result.ok) {
-        showToast('Этап «' + label + '» добавлен', 'success');
-        await loadStages();
-        renderKanban();
-    } else {
-        showToast(result?.error || 'Ошибка', 'error');
-    }
-}
+// confirmAddStageKanban removed — logic inlined into showAddStageKanbanModal()
 
 async function renderAdminDepts() {
     const depts = await apiCall('/api/departments');
