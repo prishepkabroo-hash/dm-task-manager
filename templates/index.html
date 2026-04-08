@@ -3854,19 +3854,19 @@ async function renderKanban() {
     }
     const allFiltered = getFilteredTasks();
     // Match the board's flex layout exactly: same gap, overflow-x, padding
-    stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;overflow-x:auto;padding:0 0 8px 0;';
+    stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;padding:0 0 8px 0;' + (kanbanEditMode ? 'overflow-x:auto;' : '');
     stagesBar.innerHTML = statuses.map((status, idx) => {
         const cfg = statusConfig[status];
         const count = allFiltered.filter(t => t.status === status).length;
         const isLast = idx === statuses.length - 1;
         // Each tab matches column sizing
-        const tabMaxW = kanbanEditMode ? 'max-width:320px;' : '';
+        const tabSizing = kanbanEditMode ? 'min-width:280px;max-width:320px;' : 'min-width:0;';
         return `
             <div class="kanban-stage-tab" data-stage="${status}"
                  ondragover="event.preventDefault();this.style.background='${cfg.color}';this.style.color='white';"
                  ondragleave="this.style.background='';this.style.color='';"
                  ondrop="event.preventDefault();this.style.background='';this.style.color='';handleKanbanDrop(event,'${status}')"
-                 style="min-width:280px;${tabMaxW}flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+                 style="${tabSizing}flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
                  onmouseenter="this.style.background='${cfg.color}12';this.style.color='${cfg.color}'"
                  onmouseleave="this.style.background='white';this.style.color='#64748b'">
                 <div style="width:10px;height:10px;border-radius:50%;background:${cfg.color};flex-shrink:0;"></div>
@@ -3910,8 +3910,8 @@ async function renderKanban() {
 
         const col = document.createElement('div');
         col.className = 'kanban-column';
-        const colMaxW = kanbanEditMode ? 'max-width:320px;' : '';
-        col.style.cssText = `background:${cfg.bg}; border-radius:12px; min-width:280px; ${colMaxW} flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden;`;
+        const colSizing = kanbanEditMode ? 'min-width:280px;max-width:320px;' : 'min-width:0;';
+        col.style.cssText = `background:${cfg.bg}; border-radius:12px; ${colSizing} flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden;`;
         col.setAttribute('data-status', status);
         col.addEventListener('dragover', e => { e.preventDefault(); col.style.boxShadow = '0 0 0 2px ' + cfg.color + '44'; });
         col.addEventListener('dragleave', () => { col.style.boxShadow = 'none'; });
@@ -4078,12 +4078,16 @@ async function renderKanban() {
         board.appendChild(addCol);
     }
 
-    board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:4px 0 12px 0;';
-    // Sync horizontal scroll between stagesBar and board
-    const syncStagesBar = document.getElementById('kanbanStagesBar');
-    if (syncStagesBar) {
-        board.onscroll = function() { syncStagesBar.scrollLeft = board.scrollLeft; };
-        syncStagesBar.onscroll = function() { board.scrollLeft = syncStagesBar.scrollLeft; };
+    // In edit mode: overflow-x for scrolling to "+Новый этап"; normal mode: no overflow so flex:1 stretches columns
+    if (kanbanEditMode) {
+        board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:4px 0 12px 0;';
+        const syncStagesBar = document.getElementById('kanbanStagesBar');
+        if (syncStagesBar) {
+            board.onscroll = function() { syncStagesBar.scrollLeft = board.scrollLeft; };
+            syncStagesBar.onscroll = function() { board.scrollLeft = syncStagesBar.scrollLeft; };
+        }
+    } else {
+        board.style.cssText = 'display:flex;gap:16px;padding:4px 0 12px 0;';
     }
 }
 
