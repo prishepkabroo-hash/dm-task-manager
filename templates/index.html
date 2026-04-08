@@ -3127,6 +3127,7 @@ let notificationInterval = null;
 let messengerUnreadInterval = null;
 let selectedConversationUserId = null;
 let kanbanSelectMode = false;
+let kanbanEditMode = false;
 let kanbanSelectedIds = new Set();
 let userOnlineStatus = {};
 let lastMessageCount = {};
@@ -3875,16 +3876,31 @@ async function renderKanban() {
         `;
     }).join('');
 
-    // Add selection mode toggle button
-    let selectBtn = document.getElementById('kanbanSelectBtn');
-    if (!selectBtn) {
-        selectBtn = document.createElement('button');
-        selectBtn.id = 'kanbanSelectBtn';
-        selectBtn.onclick = toggleKanbanSelectMode;
-        board.parentNode.insertBefore(selectBtn, board);
+    // Toolbar: select mode + edit stages button
+    let toolbar = document.getElementById('kanbanToolbar');
+    if (!toolbar) {
+        toolbar = document.createElement('div');
+        toolbar.id = 'kanbanToolbar';
+        toolbar.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center;';
+        board.parentNode.insertBefore(toolbar, board);
     }
-    selectBtn.style.cssText = 'margin-bottom:8px;padding:6px 14px;border:1px solid ' + (kanbanSelectMode ? '#ef4444' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanSelectMode ? '#fef2f2' : 'white') + ';color:' + (kanbanSelectMode ? '#ef4444' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
+    toolbar.innerHTML = '';
+
+    const selectBtn = document.createElement('button');
+    selectBtn.id = 'kanbanSelectBtn';
+    selectBtn.onclick = toggleKanbanSelectMode;
+    selectBtn.style.cssText = 'padding:6px 14px;border:1px solid ' + (kanbanSelectMode ? '#ef4444' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanSelectMode ? '#fef2f2' : 'white') + ';color:' + (kanbanSelectMode ? '#ef4444' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
     selectBtn.textContent = kanbanSelectMode ? '✕ Отменить выбор' : '☑ Выбрать для удаления';
+    toolbar.appendChild(selectBtn);
+
+    if (currentUser && currentUser.role === 'admin') {
+        const editBtn = document.createElement('button');
+        editBtn.id = 'kanbanEditBtn';
+        editBtn.onclick = () => { kanbanEditMode = !kanbanEditMode; renderKanban(); };
+        editBtn.style.cssText = 'padding:6px 14px;border:1px solid ' + (kanbanEditMode ? '#3b82f6' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanEditMode ? '#eff6ff' : 'white') + ';color:' + (kanbanEditMode ? '#3b82f6' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
+        editBtn.textContent = kanbanEditMode ? '✕ Готово' : '⚙ Настроить этапы';
+        toolbar.appendChild(editBtn);
+    }
 
     statuses.forEach((status, colIdx) => {
         const cfg = statusConfig[status];
@@ -3903,9 +3919,10 @@ async function renderKanban() {
         const header = document.createElement('div');
         header.style.cssText = `background:${cfg.color}; color:white; padding:14px 16px; display:flex; align-items:center; justify-content:space-between;`;
         const isAdmin = currentUser && currentUser.role === 'admin';
-        const canDeleteStage = isAdmin && allStages.length > 2;
-        const canMoveLeft = isAdmin && colIdx > 0;
-        const canMoveRight = isAdmin && colIdx < statuses.length - 1;
+        const showEditControls = isAdmin && kanbanEditMode;
+        const canDeleteStage = showEditControls && allStages.length > 2;
+        const canMoveLeft = showEditControls && colIdx > 0;
+        const canMoveRight = showEditControls && colIdx < statuses.length - 1;
         const arrowBtnStyle = 'width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.4);background:transparent;color:rgba(255,255,255,0.7);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;line-height:1;padding:0;';
         header.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;">
@@ -3919,7 +3936,7 @@ async function renderKanban() {
                 ${canDeleteStage ? `<button onclick="event.stopPropagation();showDeleteStageModal('${status}')" style="${arrowBtnStyle}" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Удалить этап">&times;</button>` : ''}
             </div>
         `;
-        // Attach move handlers
+        // Attach move handlers (only present in edit mode)
         header.querySelectorAll('.kanban-move-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -4048,14 +4065,14 @@ async function renderKanban() {
         board.appendChild(col);
     });
 
-    // "+ Новый этап" column (admin only)
-    if (currentUser && currentUser.role === 'admin') {
+    // "+ Новый этап" column (admin only, edit mode only)
+    if (currentUser && currentUser.role === 'admin' && kanbanEditMode) {
         const addCol = document.createElement('div');
-        addCol.style.cssText = 'min-width:200px;max-width:200px;border-radius:12px;border:2px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;flex-shrink:0;';
-        addCol.onmouseenter = function() { this.style.borderColor='#3b82f6'; this.style.background='#eff6ff'; };
-        addCol.onmouseleave = function() { this.style.borderColor='#cbd5e1'; this.style.background=''; };
+        addCol.style.cssText = 'min-width:200px;max-width:200px;border-radius:12px;border:2px dashed #3b82f6;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s;flex-shrink:0;background:#eff6ff;animation:fadeIn 0.3s ease-out;';
+        addCol.onmouseenter = function() { this.style.background='#dbeafe'; this.style.borderColor='#2563eb'; };
+        addCol.onmouseleave = function() { this.style.background='#eff6ff'; this.style.borderColor='#3b82f6'; };
         addCol.onclick = () => showAddStageKanbanModal();
-        addCol.innerHTML = '<div style="text-align:center;color:#94a3b8;"><div style="font-size:28px;margin-bottom:6px;">+</div><div style="font-size:13px;font-weight:600;">Новый этап</div></div>';
+        addCol.innerHTML = '<div style="text-align:center;color:#3b82f6;"><div style="font-size:28px;margin-bottom:6px;">+</div><div style="font-size:13px;font-weight:600;">Новый этап</div></div>';
         board.appendChild(addCol);
     }
 
