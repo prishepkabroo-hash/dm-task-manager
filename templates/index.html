@@ -810,57 +810,62 @@
             background-color: var(--bg-main);
         }
 
-        /* MESSENGER */
+        /* MESSENGER — 2028 style */
         .messenger-container {
             display: flex;
-            height: calc(100vh - var(--header-height) - 40px);
+            height: calc(100vh - var(--header-height) - 24px);
             gap: 0;
-            background-color: #f0f2f5;
-            border-radius: 12px;
+            background: #0f172a;
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            border: 1px solid #e2e8f0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.05);
         }
 
         .conversation-list {
-            width: 340px;
-            border-right: 1px solid #e2e8f0;
+            width: 360px;
+            border-right: 1px solid rgba(255,255,255,0.06);
             overflow-y: auto;
-            background-color: white;
+            background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
             flex-shrink: 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
         }
+        .conversation-list::-webkit-scrollbar { width: 4px; }
+        .conversation-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
         .conversation-item {
-            padding: 14px 16px;
+            padding: 12px 14px;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
             display: flex;
             align-items: center;
             gap: 12px;
-            margin: 4px 8px;
-            border-radius: 12px;
+            margin: 2px 8px;
+            border-radius: 14px;
+            position: relative;
         }
 
         .conversation-item:hover {
-            background-color: #f1f5f9;
+            background: rgba(255,255,255,0.06);
         }
 
         .conversation-item.active {
-            background-color: #eff6ff;
-            box-shadow: inset 3px 0 0 #3b82f6;
+            background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15));
+            box-shadow: inset 0 0 0 1px rgba(139,92,246,0.3);
         }
 
         .conversation-avatar {
-            width: 44px;
-            height: 44px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
-            font-size: 15px;
+            font-weight: 700;
+            font-size: 16px;
             color: white;
             flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
         .conversation-meta {
@@ -874,23 +879,35 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            color: #e2e8f0;
         }
 
         .conversation-preview {
             font-size: 12px;
-            color: #94a3b8;
+            color: rgba(148,163,184,0.7);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            margin-top: 3px;
+        }
+
+        .conversation-time {
+            font-size: 10px;
+            color: rgba(148,163,184,0.5);
+            flex-shrink: 0;
+            align-self: flex-start;
             margin-top: 2px;
         }
 
         .conversation-item.active .conversation-name {
-            color: #1e40af;
+            color: #c4b5fd;
+        }
+        .conversation-item.active .conversation-preview {
+            color: rgba(196,181,253,0.6);
         }
 
         .conversation-unread {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
             color: white;
             border-radius: 10px;
             min-width: 20px;
@@ -898,36 +915,44 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             flex-shrink: 0;
-            padding: 0 5px;
+            padding: 0 6px;
+            box-shadow: 0 2px 8px rgba(139,92,246,0.4);
         }
 
         .chat-area {
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: linear-gradient(180deg, #f8fafc 0%, #f0f4f8 100%);
+            background: #1e293b;
             position: relative;
         }
 
         .chat-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
             font-weight: 600;
             font-size: 14px;
-            background: white;
+            background: rgba(15,23,42,0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 20px 24px;
+            padding: 16px 20px;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 2px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.08) transparent;
         }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
 
         .message-bubble {
             max-width: 65%;
@@ -936,31 +961,33 @@
             word-wrap: break-word;
             font-size: 14px;
             line-height: 1.5;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
         }
 
         .message-sent {
             align-self: flex-end;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
             color: white;
-            border-bottom-right-radius: 6px;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 2px 12px rgba(99,102,241,0.3);
         }
 
         .message-received {
             align-self: flex-start;
-            background-color: white;
-            color: #1e293b;
-            border-bottom-left-radius: 6px;
-            border: 1px solid #e8ecf1;
+            background: rgba(255,255,255,0.06);
+            color: #e2e8f0;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.04);
         }
 
         .chat-input-area {
             display: flex;
-            padding: 16px 20px;
-            border-top: 1px solid #e2e8f0;
+            padding: 12px 16px;
+            border-top: 1px solid rgba(255,255,255,0.06);
             gap: 8px;
-            background: white;
-            align-items: center;
+            background: rgba(15,23,42,0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            align-items: flex-end;
         }
 
         .chat-input-area input {
@@ -2768,34 +2795,48 @@
                     <div class="messenger-container">
                         <div class="conversation-list" id="conversationList"></div>
                         <div class="chat-area" id="chatArea">
-                            <div id="chatHeader" style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:14px;background:white;display:none;">
+                            <div id="chatHeader" style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:14px;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);display:none;">
                                 <div id="chatPartnerAvatar"></div>
                                 <div style="flex:1;">
-                                    <div id="chatPartnerName" style="font-weight:700;font-size:15px;color:#1e293b;"></div>
-                                    <div id="chatPartnerStatus" style="font-size:12px;color:#94a3b8;margin-top:1px;">В сети</div>
+                                    <div id="chatPartnerName" style="font-weight:700;font-size:15px;color:#e2e8f0;"></div>
+                                    <div id="chatPartnerStatus" style="font-size:12px;color:#8b5cf6;margin-top:1px;">В сети</div>
+                                </div>
+                                <div style="display:flex;gap:4px;">
+                                    <button onclick="searchInChat()" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.1)'" onmouseleave="this.style.background='rgba(255,255,255,0.06)'" title="Поиск">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                    </button>
                                 </div>
                             </div>
                             <div class="chat-messages" id="chatMessages">
                                 <div id="chatEmptyState" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;">
-                                    <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#eff6ff,#dbeafe);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
-                                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                                    <div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1));display:flex;align-items:center;justify-content:center;margin-bottom:24px;box-shadow:0 0 40px rgba(99,102,241,0.1);">
+                                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                                     </div>
-                                    <div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Мессенджер</div>
-                                    <div style="font-size:14px;color:#94a3b8;max-width:280px;line-height:1.5;">Выберите диалог слева или начните новый чат, чтобы отправить сообщение</div>
+                                    <div style="font-size:20px;font-weight:800;color:#e2e8f0;margin-bottom:8px;letter-spacing:-0.02em;">Мессенджер</div>
+                                    <div style="font-size:14px;color:rgba(148,163,184,0.6);max-width:300px;line-height:1.6;">Выберите диалог или начните новый чат</div>
                                 </div>
                             </div>
                             <div class="chat-input-area" id="chatInputArea" style="display:none;position:relative;">
-                                <div id="mentionDropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 -4px 16px rgba(0,0,0,0.12);max-height:200px;overflow-y:auto;z-index:100;"></div>
-                                <label style="cursor:pointer;display:flex;align-items:center;padding:8px;color:#94a3b8;transition:all 0.15s;border-radius:50%;width:40px;height:40px;justify-content:center;flex-shrink:0;" onmouseenter="this.style.color='#3b82f6';this.style.background='#eff6ff'" onmouseleave="this.style.color='#94a3b8';this.style.background='transparent'" title="Прикрепить файл">
+                                <div id="mentionDropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1e293b;border:1px solid rgba(255,255,255,0.08);border-radius:14px;box-shadow:0 -8px 24px rgba(0,0,0,0.3);max-height:200px;overflow-y:auto;z-index:100;"></div>
+                                <div id="replyPreview" style="display:none;position:absolute;bottom:100%;left:0;right:0;padding:10px 16px;background:rgba(30,41,59,0.95);border-top:1px solid rgba(255,255,255,0.06);border-left:3px solid #8b5cf6;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                                        <div>
+                                            <div id="replyName" style="font-size:11px;font-weight:700;color:#8b5cf6;"></div>
+                                            <div id="replyText" style="font-size:12px;color:#94a3b8;margin-top:2px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                                        </div>
+                                        <button onclick="cancelReply()" style="border:none;background:none;color:#64748b;cursor:pointer;font-size:16px;padding:4px;">✕</button>
+                                    </div>
+                                </div>
+                                <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:rgba(148,163,184,0.6);transition:all 0.2s;flex-shrink:0;" onmouseenter="this.style.color='#8b5cf6';this.style.background='rgba(139,92,246,0.1)'" onmouseleave="this.style.color='rgba(148,163,184,0.6)';this.style.background='transparent'" title="Прикрепить файл">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
                                     <input type="file" accept="image/*,video/*,.pdf,.doc,.docx" style="display:none;" onchange="handleMessengerUpload(this)">
                                 </label>
-                                <input type="text" id="messageInput" placeholder="Напишите сообщение..." oninput="handleMentionInput(event)" style="flex:1;padding:10px 16px;border:1px solid #e2e8f0;border-radius:24px;font-size:14px;outline:none;transition:border 0.2s;background:#f8fafc;" onfocus="this.style.borderColor='#3b82f6';this.style.background='white'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
-                                <button id="voiceRecordBtn" onclick="toggleVoiceRecord()" style="width:40px;height:40px;border-radius:50%;border:none;background:#f1f5f9;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" title="Голосовое сообщение" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">
+                                <input type="text" id="messageInput" placeholder="Написать сообщение..." oninput="handleMentionInput(event)" style="flex:1;padding:10px 16px;border:1px solid rgba(255,255,255,0.08);border-radius:22px;font-size:14px;outline:none;transition:all 0.2s;background:rgba(255,255,255,0.04);color:#e2e8f0;" onfocus="this.style.borderColor='rgba(139,92,246,0.4)';this.style.background='rgba(255,255,255,0.06)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)';this.style.background='rgba(255,255,255,0.04)'">
+                                <button id="voiceRecordBtn" onclick="toggleVoiceRecord()" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" onmouseenter="this.style.background='rgba(255,255,255,0.1)'" onmouseleave="this.style.background='rgba(255,255,255,0.06)'" title="Голосовое сообщение">
                                     🎤
                                 </button>
-                                <button id="messengerSendBtn" onclick="sendDirectMessage()" style="width:40px;height:40px;border-radius:50%;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.3);" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'" title="Отправить">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                <button id="messengerSendBtn" onclick="sendDirectMessage()" style="width:40px;height:40px;border-radius:50%;border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;box-shadow:0 4px 16px rgba(99,102,241,0.4);" onmouseenter="this.style.transform='scale(1.08)';this.style.boxShadow='0 6px 20px rgba(99,102,241,0.5)'" onmouseleave="this.style.transform='scale(1)';this.style.boxShadow='0 4px 16px rgba(99,102,241,0.4)'" title="Отправить">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                                 </button>
                             </div>
                         </div>
@@ -5242,56 +5283,72 @@ function showBrowserNotification(title, body) {
 }
 
 async function renderMessenger() {
-    // Request notification permission when messenger opens
     requestNotificationPermission();
 
     const conversationList = document.getElementById('conversationList');
     const conversations = await apiCall('/api/messenger/conversations') || [];
     const groups = await apiCall('/api/messenger/groups') || [];
 
-    // Search and new chat header
-    let html = `<div style="padding:16px;border-bottom:1px solid #f1f5f9;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-            <div style="font-size:18px;font-weight:700;color:#1e293b;flex:1;">Чаты</div>
-            <button onclick="showCreateGroupModal()" style="width:36px;height:36px;border-radius:50%;border:none;background:#f1f5f9;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.15s;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'" title="Создать групповой чат">👥</button>
+    // Header with search and new chat
+    let html = `<div style="padding:16px 16px 12px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <div style="font-size:20px;font-weight:800;color:#e2e8f0;flex:1;letter-spacing:-0.02em;">Чаты</div>
+            <button onclick="showCreateGroupModal()" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,0.06);color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;" onmouseenter="this.style.background='rgba(139,92,246,0.15)';this.style.color='#8b5cf6'" onmouseleave="this.style.background='rgba(255,255,255,0.06)';this.style.color='#94a3b8'" title="Создать группу">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
         </div>
-        <select id="newConvSelect" onchange="if(this.value) selectConversation(parseInt(this.value))" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:13px;background:white;color:#64748b;outline:none;cursor:pointer;transition:border 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
-            <option value="">+ Начать новый чат...</option>
+        <select id="newConvSelect" onchange="if(this.value) selectConversation(parseInt(this.value))" style="width:100%;padding:10px 14px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;font-size:13px;background:rgba(255,255,255,0.04);color:#94a3b8;outline:none;cursor:pointer;transition:all 0.2s;-webkit-appearance:none;" onfocus="this.style.borderColor='rgba(139,92,246,0.3)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+            <option value="">Новый диалог...</option>
             ${allUsers.filter(u => u.id !== currentUser.id).map(u => `<option value="${u.id}">${u.full_name}</option>`).join('')}
         </select>
     </div>`;
 
     // Group chats
     if (groups && groups.length) {
-        html += `<div style="font-size:11px;font-weight:700;color:#94a3b8;padding:16px 20px 6px;text-transform:uppercase;letter-spacing:0.5px;">Групповые чаты</div>`;
-        html += groups.map(group => `
-            <div class="conversation-item group-item" data-group-id="${group.id}">
-                <div style="width:44px;height:44px;border-radius:50%;background:${group.avatar_color || '#6366f1'};display:flex;align-items:center;justify-content:center;color:white;font-size:20px;flex-shrink:0;">👥</div>
+        html += `<div style="font-size:10px;font-weight:700;color:rgba(139,92,246,0.6);padding:14px 20px 6px;text-transform:uppercase;letter-spacing:1px;">Группы</div>`;
+        html += groups.map(group => {
+            const isActive = activeGroupId === group.id;
+            return `<div class="conversation-item group-item${isActive ? ' active' : ''}" data-group-id="${group.id}">
+                <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,${group.avatar_color || '#6366f1'},#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">👥</div>
                 <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;font-size:14px;color:#1e293b;">${group.name}</div>
+                    <div class="conversation-name">${group.name}</div>
                     <div class="conversation-preview">${group.last_message || 'Нет сообщений'}</div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     }
 
     // Direct conversations
     if (conversations && conversations.length) {
-        html += `<div style="font-size:11px;font-weight:700;color:#94a3b8;padding:16px 20px 6px;text-transform:uppercase;letter-spacing:0.5px;">Личные сообщения</div>`;
-        html += conversations.map(conv => `
-            <div class="conversation-item${selectedConversationUserId === conv.user_id ? ' active' : ''}" data-user-id="${conv.user_id}">
-                ${avatarHTML(conv.full_name, conv.avatar_color, 44, conv.avatar_url)}
+        html += `<div style="font-size:10px;font-weight:700;color:rgba(139,92,246,0.6);padding:14px 20px 6px;text-transform:uppercase;letter-spacing:1px;">Личные</div>`;
+        html += conversations.map(conv => {
+            const isActive = selectedConversationUserId === conv.user_id;
+            const timeStr = conv.last_message_time ? new Date(conv.last_message_time).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
+            const online = userOnlineStatus[conv.user_id] === 'online';
+            return `<div class="conversation-item${isActive ? ' active' : ''}" data-user-id="${conv.user_id}">
+                <div style="position:relative;">
+                    ${avatarHTML(conv.full_name, conv.avatar_color, 48, conv.avatar_url)}
+                    ${online ? '<div style="position:absolute;bottom:1px;right:1px;width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid #0f172a;"></div>' : ''}
+                </div>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span class="conversation-name">${conv.full_name}${onlineDotHtml(conv.user_id)}</span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <span class="conversation-name">${conv.full_name}</span>
+                        <span class="conversation-time">${timeStr}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <div class="conversation-preview">${conv.last_message || ''}</div>
                         ${conv.unread_count > 0 ? `<span class="conversation-unread">${conv.unread_count}</span>` : ''}
                     </div>
-                    <div class="conversation-preview">${conv.last_message || ''}</div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     } else if (!groups || groups.length === 0) {
-        html += '<div style="padding:40px 20px;text-align:center;color:#94a3b8;font-size:13px;"><div style="font-size:32px;margin-bottom:8px;">💬</div>Нет диалогов<br><span style="font-size:12px;">Выберите пользователя выше</span></div>';
+        html += `<div style="padding:60px 20px;text-align:center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <div style="color:rgba(148,163,184,0.6);font-size:13px;line-height:1.5;">Нет диалогов<br><span style="font-size:12px;">Выберите пользователя выше</span></div>
+        </div>`;
     }
 
     conversationList.innerHTML = html;
@@ -5305,11 +5362,42 @@ async function renderMessenger() {
     });
 }
 
+let replyToMessage = null;
+
+function setReply(msgId, senderName, text) {
+    replyToMessage = {id: msgId, name: senderName, text: text};
+    document.getElementById('replyPreview').style.display = 'block';
+    document.getElementById('replyName').textContent = senderName;
+    document.getElementById('replyText').textContent = text.replace(/\[img\].*?\[\/img\]/g,'Фото').replace(/\[voice\].*?\[\/voice\]/g,'Голосовое').replace(/\[file\].*?\[\/file\]/g,'Файл').substring(0,60);
+    document.getElementById('messageInput').focus();
+}
+
+function cancelReply() {
+    replyToMessage = null;
+    document.getElementById('replyPreview').style.display = 'none';
+}
+
+function searchInChat() {
+    const q = prompt('Поиск по сообщениям:');
+    if (!q) return;
+    const msgs = document.querySelectorAll('#chatMessages [data-msg]');
+    let found = false;
+    msgs.forEach(el => {
+        if (el.textContent.toLowerCase().includes(q.toLowerCase())) {
+            el.scrollIntoView({behavior:'smooth',block:'center'});
+            el.style.boxShadow = '0 0 0 2px #8b5cf6';
+            setTimeout(() => el.style.boxShadow = '', 2000);
+            if (!found) found = true;
+        }
+    });
+    if (!found) showToast('Ничего не найдено', 'info');
+}
+
 async function selectConversation(userId) {
     selectedConversationUserId = userId;
+    activeGroupId = null;
     const user = allUsers.find(u => u.id === userId);
 
-    // Update header with partner name and avatar
     const chatPartnerName = document.getElementById('chatPartnerName');
     const chatPartnerAvatar = document.getElementById('chatPartnerAvatar');
     const chatPartnerStatus = document.getElementById('chatPartnerStatus');
@@ -5317,26 +5405,32 @@ async function selectConversation(userId) {
     if (user) {
         const status = userOnlineStatus[userId] || 'offline';
         const statusLabel = status === 'online' ? 'В сети' : status === 'away' ? 'Отошёл' : 'Не в сети';
-        chatPartnerName.innerHTML = user.full_name + onlineDotHtml(userId);
-        chatPartnerAvatar.innerHTML = avatarHTML(user.full_name, user.avatar_color, 36, user.avatar_url);
+        const statusColor = status === 'online' ? '#22c55e' : status === 'away' ? '#f59e0b' : 'rgba(148,163,184,0.5)';
+        chatPartnerName.textContent = user.full_name;
+        chatPartnerAvatar.innerHTML = avatarHTML(user.full_name, user.avatar_color, 40, user.avatar_url);
         chatPartnerStatus.textContent = statusLabel;
+        chatPartnerStatus.style.color = statusColor;
     }
 
     document.getElementById('chatInputArea').style.display = 'flex';
     document.getElementById('chatHeader').style.display = 'flex';
     const emptyState = document.getElementById('chatEmptyState');
     if (emptyState) emptyState.style.display = 'none';
+    cancelReply();
+
+    // Highlight active in sidebar
+    document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
+    const activeEl = document.querySelector(`.conversation-item[data-user-id="${userId}"]`);
+    if (activeEl) activeEl.classList.add('active');
 
     const messages = await apiCall('/api/messenger/messages/' + userId) || [];
 
-    // Detect new messages and show notifications
     const prevCount = lastMessageCount[userId] || 0;
     if (messages.length > prevCount && prevCount > 0) {
         const newMessages = messages.slice(prevCount);
         newMessages.forEach(m => {
             if (m.sender_id !== currentUser.id) {
-                const preview = m.text.substring(0, 50) + (m.text.length > 50 ? '...' : '');
-                showBrowserNotification(user.full_name, preview);
+                showBrowserNotification(user.full_name, m.text.substring(0,50));
             }
         });
     }
@@ -5345,44 +5439,73 @@ async function selectConversation(userId) {
     const chatMessages = document.getElementById('chatMessages');
     if (messages && messages.length) {
         let prevSender = null;
-        chatMessages.innerHTML = messages.map((m, idx) => {
+        let prevDate = '';
+        let msgsHtml = '';
+        messages.forEach((m, idx) => {
             const isMine = m.sender_id === currentUser.id;
             const isGroupStart = m.sender_id !== prevSender;
             prevSender = m.sender_id;
-            const time = m.created_at ? new Date(m.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
+            const msgDate = m.created_at ? new Date(m.created_at) : new Date();
+            const dateStr = msgDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+            const time = msgDate.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
             const senderUser = !isMine ? allUsers.find(u => u.id === m.sender_id) : null;
-            const bubbleBg = isMine ? 'background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;' : 'background:white;color:#1e293b;border:1px solid #e8ecf1;';
-            const bubbleRadius = isMine ? 'border-radius:18px 18px 6px 18px;' : 'border-radius:18px 18px 18px 6px;';
+
+            // Date separator
+            if (dateStr !== prevDate) {
+                prevDate = dateStr;
+                msgsHtml += '<div style="text-align:center;margin:16px 0 8px;"><span style="display:inline-block;padding:4px 14px;border-radius:10px;background:rgba(255,255,255,0.06);font-size:11px;font-weight:600;color:rgba(148,163,184,0.5);">'+dateStr+'</span></div>';
+            }
+
+            const bubbleBg = isMine ? 'background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;' : 'background:rgba(255,255,255,0.07);color:#e2e8f0;';
+            const bubbleRadius = isMine ? 'border-radius:18px 18px 4px 18px;' : 'border-radius:18px 18px 18px 4px;';
             const align = isMine ? 'align-items:flex-end;' : 'align-items:flex-start;';
-            return '<div style="display:flex;flex-direction:column;'+align+(isGroupStart?'margin-top:12px;':'margin-top:2px;')+'">'
-                +(!isMine && isGroupStart && senderUser ? '<div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:3px;margin-left:4px;">'+senderUser.full_name+'</div>' : '')
-                +'<div style="max-width:65%;padding:10px 14px;'+bubbleBg+bubbleRadius+'font-size:14px;line-height:1.5;word-wrap:break-word;box-shadow:0 1px 2px rgba(0,0,0,0.06);">'
-                +renderMessageText(m.text)
-                +'<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:4px;">'
-                +'<span style="font-size:10px;opacity:0.6;">'+time+'</span>'
-                +(isMine ? '<span style="font-size:10px;color:'+(m.is_read ? (isMine ? 'rgba(255,255,255,0.9)' : '#3b82f6') : 'rgba(255,255,255,0.5)')+';">\u2713\u2713</span>' : '')
-                +'</div></div></div>';
-        }).join('');
+            const senderName = senderUser ? senderUser.full_name : (isMine ? currentUser.full_name : '');
+            const plainText = m.text.replace(/\[img\].*?\[\/img\]/g,'').replace(/\[voice\].*?\[\/voice\]/g,'').replace(/\[file\].*?\[\/file\]/g,'').trim();
+
+            msgsHtml += '<div data-msg="'+m.id+'" style="display:flex;flex-direction:column;'+align+(isGroupStart?'margin-top:10px;':'margin-top:2px;')+'position:relative;group" onmouseenter="this.querySelector(\'.msg-actions\').style.opacity=1" onmouseleave="this.querySelector(\'.msg-actions\').style.opacity=0">';
+
+            if (!isMine && isGroupStart && senderUser) {
+                msgsHtml += '<div style="font-size:11px;font-weight:600;color:#8b5cf6;margin-bottom:2px;margin-left:4px;">'+senderUser.full_name+'</div>';
+            }
+
+            msgsHtml += '<div style="max-width:65%;padding:10px 14px;'+bubbleBg+bubbleRadius+'font-size:14px;line-height:1.5;word-wrap:break-word;position:relative;">';
+            msgsHtml += renderMessageText(m.text);
+            msgsHtml += '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">';
+            msgsHtml += '<span style="font-size:10px;color:'+(isMine?'rgba(255,255,255,0.5)':'rgba(148,163,184,0.4)')+';">'+time+'</span>';
+            if (isMine) msgsHtml += '<span style="font-size:10px;color:'+(m.is_read?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.35)')+';">\u2713\u2713</span>';
+            msgsHtml += '</div></div>';
+
+            // Hover action buttons (reply)
+            const actPos = isMine ? 'left:-36px;' : 'right:-36px;';
+            msgsHtml += '<div class="msg-actions" style="position:absolute;top:50%;transform:translateY(-50%);'+actPos+'opacity:0;transition:opacity 0.15s;">';
+            msgsHtml += '<button onclick="setReply('+m.id+',\''+senderName.replace(/'/g,"\\'")+'\',\''+plainText.replace(/'/g,"\\'").substring(0,80)+'\')" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,0.08);color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s;" onmouseenter="this.style.background=\'rgba(139,92,246,0.2)\';this.style.color=\'#8b5cf6\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.color=\'#94a3b8\'" title="Ответить">↩</button>';
+            msgsHtml += '</div>';
+
+            msgsHtml += '</div>';
+        });
+        chatMessages.innerHTML = msgsHtml;
     } else {
-        chatMessages.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;">Нет сообщений. Напишите первое!</div>';
+        chatMessages.innerHTML = '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;"><div style="width:64px;height:64px;border-radius:50%;background:rgba(99,102,241,0.1);display:flex;align-items:center;justify-content:center;margin-bottom:12px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div><div style="color:rgba(148,163,184,0.5);font-size:14px;">Напишите первое сообщение</div></div>';
     }
 
-    // Setup typing indicator
-    setupTypingIndicator(userId);
+    // Auto scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    // Refresh badge after opening conversation
+    setupTypingIndicator(userId);
     refreshMessengerBadge();
 }
 
 function renderMessageText(text) {
+    // Reply block
+    text = text.replace(/\[reply:(.*?):(.*?)\]/, '<div style="padding:6px 10px;margin-bottom:6px;border-left:3px solid #8b5cf6;border-radius:0 8px 8px 0;background:rgba(139,92,246,0.1);font-size:12px;"><div style="font-weight:700;color:#8b5cf6;font-size:11px;">$1</div><div style="color:rgba(255,255,255,0.5);margin-top:1px;">$2</div></div>');
     // Image attachments
-    text = text.replace(/\[img\](.*?)\[\/img\]/g, '<img src="$1" style="max-width:200px;max-height:200px;border-radius:8px;cursor:pointer;margin-top:4px;" onclick="window.open(this.src)">');
+    text = text.replace(/\[img\](.*?)\[\/img\]/g, '<img src="$1" style="max-width:240px;max-height:240px;border-radius:12px;cursor:pointer;margin-top:4px;display:block;" onclick="window.open(this.src)" onerror="this.style.display=\'none\'">');
     // File attachments
-    text = text.replace(/\[file\](.*?)\[\/file\]/g, '<a href="$1" target="_blank" style="color:inherit;text-decoration:underline;">📎 Файл</a>');
+    text = text.replace(/\[file\](.*?)\[\/file\]/g, '<a href="$1" target="_blank" style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.06);margin-top:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Файл</a>');
     // Voice messages
-    text = text.replace(/\[voice\](.*?)\[\/voice\]/g, '<audio controls src="$1" style="max-width:250px;height:36px;"></audio>');
+    text = text.replace(/\[voice\](.*?)\[\/voice\]/g, '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg><audio controls src="$1" style="max-width:220px;height:32px;filter:invert(0.85);"></audio></div>');
     // Mentions
-    text = text.replace(/@(\w+)/g, '<span style="color:#3b82f6;font-weight:600;">@$1</span>');
+    text = text.replace(/@(\w+)/g, '<span style="color:#a78bfa;font-weight:600;">@$1</span>');
     return text;
 }
 
@@ -5390,11 +5513,9 @@ let typingInterval = null;
 let typingCheckInterval = null;
 
 function setupTypingIndicator(partnerId) {
-    // Clear previous
     if (typingInterval) clearInterval(typingInterval);
     if (typingCheckInterval) clearInterval(typingCheckInterval);
 
-    // Send typing status when user types
     const input = document.getElementById('messageInput');
     if (input) {
         let lastTypingNotify = 0;
@@ -5407,13 +5528,18 @@ function setupTypingIndicator(partnerId) {
         };
     }
 
-    // Check if partner is typing
     typingCheckInterval = setInterval(async () => {
         const resp = await apiCall('/api/messenger/typing/' + partnerId);
         const statusEl = document.getElementById('chatPartnerStatus');
-        if (statusEl) {
-            statusEl.textContent = (resp && resp.typing) ? 'печатает...' : 'В сети';
-            statusEl.style.color = (resp && resp.typing) ? '#3b82f6' : '#94a3b8';
+        if (statusEl && resp) {
+            if (resp.typing) {
+                statusEl.textContent = 'печатает...';
+                statusEl.style.color = '#8b5cf6';
+            } else {
+                const status = userOnlineStatus[partnerId] || 'offline';
+                statusEl.textContent = status === 'online' ? 'В сети' : status === 'away' ? 'Отошёл' : 'Не в сети';
+                statusEl.style.color = status === 'online' ? '#22c55e' : status === 'away' ? '#f59e0b' : 'rgba(148,163,184,0.5)';
+            }
         }
     }, 2000);
 }
@@ -7284,8 +7410,8 @@ function handleMentionInput(e) {
         const filtered = allUsers.filter(u => u.full_name.toLowerCase().includes(query) || u.username.toLowerCase().includes(query));
         if (filtered.length > 0) {
             mentionDropdown.innerHTML = filtered.slice(0, 5).map(u =>
-                `<div class="mention-item" onclick="insertMention('${u.full_name}', ${cursorPos - atMatch[0].length}, ${cursorPos})" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='white'">
-                    <div style="width:28px;height:28px;border-radius:50%;background:${u.avatar_color || '#666'};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;">${(u.full_name||'?')[0]}</div>
+                `<div class="mention-item" onclick="insertMention('${u.full_name}', ${cursorPos - atMatch[0].length}, ${cursorPos})" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;color:#e2e8f0;transition:background 0.15s;" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background='transparent'">
+                    <div style="width:30px;height:30px;border-radius:50%;background:${u.avatar_color || '#6366f1'};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;">${(u.full_name||'?')[0]}</div>
                     <span>${u.full_name}</span>
                 </div>`
             ).join('');
@@ -7357,20 +7483,30 @@ async function sendVoiceMessage(blob) {
     const formData = new FormData();
     formData.append('file', blob, 'voice_' + Date.now() + '.webm');
     try {
-        const resp = await fetch('/api/messenger/upload', {method:'POST', body: formData});
+        const resp = await fetch('/api/messenger/upload', {
+            method:'POST',
+            headers: {'Authorization': 'Bearer ' + localStorage.getItem('token')},
+            body: formData
+        });
         const data = await resp.json();
         if (data.ok && data.url) {
-            const partnerId = selectedConversationUserId;
-            if (partnerId) {
-                await apiCall('/api/messenger/messages/' + partnerId, {
-                    method: 'POST',
-                    body: JSON.stringify({text: '[voice]' + data.url + '[/voice]'})
+            const voiceMsg = '[voice]' + data.url + '[/voice]';
+            if (activeGroupId) {
+                await apiCall('/api/messenger/groups/' + activeGroupId + '/messages', {
+                    method: 'POST', body: JSON.stringify({text: voiceMsg})
                 });
-                selectConversation(partnerId);
+                openGroupChat(activeGroupId);
+            } else if (selectedConversationUserId) {
+                await apiCall('/api/messenger/messages/' + selectedConversationUserId, {
+                    method: 'POST', body: JSON.stringify({text: voiceMsg})
+                });
+                selectConversation(selectedConversationUserId);
             }
+        } else {
+            showToast(data.error || 'Ошибка загрузки голосового', 'error');
         }
     } catch(e) {
-        showToast('Ошибка отправки голосового', 'error');
+        showToast('Ошибка отправки голосового: ' + e.message, 'error');
     }
 }
 
@@ -7448,8 +7584,15 @@ async function openGroupChat(groupId) {
 
 async function sendDirectMessage() {
     const input = document.getElementById('messageInput');
-    const text = input.value.trim();
+    let text = input.value.trim();
     if (!text) return;
+
+    // Prepend reply context if replying
+    if (replyToMessage) {
+        text = '[reply:' + replyToMessage.name + ':' + replyToMessage.text.substring(0,40) + ']' + text;
+        cancelReply();
+    }
+
     input.value = '';
 
     if (activeGroupId) {

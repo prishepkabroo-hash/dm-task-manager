@@ -996,7 +996,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             for conv in conversations:
                 other_user_id = conv["user_id"]
                 user_info = conn.execute(
-                    "SELECT id, full_name, avatar_color FROM users WHERE id=?", (other_user_id,)
+                    "SELECT id, full_name, avatar_color, avatar_url FROM users WHERE id=?", (other_user_id,)
                 ).fetchone()
                 if user_info:
                     # Get last message
@@ -1016,6 +1016,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                         "user_id": user_info["id"],
                         "full_name": user_info["full_name"],
                         "avatar_color": user_info["avatar_color"],
+                        "avatar_url": user_info["avatar_url"] or "",
                         "last_message": last_msg["text"] if last_msg else None,
                         "last_message_time": last_msg["created_at"] if last_msg else None,
                         "unread_count": unread
