@@ -3859,13 +3859,14 @@ async function renderKanban() {
         const cfg = statusConfig[status];
         const count = allFiltered.filter(t => t.status === status).length;
         const isLast = idx === statuses.length - 1;
-        // Each tab matches column sizing: min-width:280px;max-width:320px;flex:1
+        // Each tab matches column sizing
+        const tabMaxW = kanbanEditMode ? 'max-width:320px;' : '';
         return `
             <div class="kanban-stage-tab" data-stage="${status}"
                  ondragover="event.preventDefault();this.style.background='${cfg.color}';this.style.color='white';"
                  ondragleave="this.style.background='';this.style.color='';"
                  ondrop="event.preventDefault();this.style.background='';this.style.color='';handleKanbanDrop(event,'${status}')"
-                 style="min-width:280px;max-width:320px;flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+                 style="min-width:280px;${tabMaxW}flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
                  onmouseenter="this.style.background='${cfg.color}12';this.style.color='${cfg.color}'"
                  onmouseleave="this.style.background='white';this.style.color='#64748b'">
                 <div style="width:10px;height:10px;border-radius:50%;background:${cfg.color};flex-shrink:0;"></div>
@@ -3909,7 +3910,8 @@ async function renderKanban() {
 
         const col = document.createElement('div');
         col.className = 'kanban-column';
-        col.style.cssText = `background:${cfg.bg}; border-radius:12px; min-width:280px; max-width:320px; flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden;`;
+        const colMaxW = kanbanEditMode ? 'max-width:320px;' : '';
+        col.style.cssText = `background:${cfg.bg}; border-radius:12px; min-width:280px; ${colMaxW} flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden;`;
         col.setAttribute('data-status', status);
         col.addEventListener('dragover', e => { e.preventDefault(); col.style.boxShadow = '0 0 0 2px ' + cfg.color + '44'; });
         col.addEventListener('dragleave', () => { col.style.boxShadow = 'none'; });
