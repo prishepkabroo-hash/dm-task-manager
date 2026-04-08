@@ -5755,7 +5755,7 @@ async function openCarPicker() {
         if (unlocked) {
             gridHtml += `
                 <div onclick="selectCarFromPicker('${name}')" style="cursor:pointer;padding:12px 8px;border-radius:14px;text-align:center;transition:all 0.2s;border:2px solid ${isActive ? '#3b82f6' : 'rgba(255,255,255,0.08)'};background:${isActive ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)'};" onmouseenter="if(!${isActive})this.style.background='rgba(255,255,255,0.1)';this.style.transform='scale(1.05)'" onmouseleave="if(!${isActive})this.style.background='rgba(255,255,255,0.04)';this.style.transform='scale(1)'">
-                    <img src="/static/levels/${file}?v=3" style="height:50px;width:auto;display:block;margin:0 auto 8px;" draggable="false">
+                    <img src="/static/levels/${file}?v=3" style="height:50px;width:auto;max-width:100%;object-fit:contain;display:block;margin:0 auto 8px;" draggable="false">
                     <div style="font-size:11px;font-weight:600;color:#fff;line-height:1.2;">${name}</div>
                     <div style="font-size:9px;opacity:0.4;margin-top:2px;">${km} км</div>
                     ${isActive ? '<div style="font-size:9px;color:#3b82f6;font-weight:700;margin-top:3px;">Выбрано</div>' : ''}
@@ -5764,7 +5764,7 @@ async function openCarPicker() {
             gridHtml += `
                 <div style="padding:12px 8px;border-radius:14px;text-align:center;border:2px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);position:relative;overflow:hidden;">
                     <div style="position:relative;height:50px;margin-bottom:8px;">
-                        <img src="/static/levels/${file}?v=3" style="height:50px;width:auto;display:block;margin:0 auto;filter:brightness(0.5) grayscale(1);opacity:0.55;" draggable="false">
+                        <img src="/static/levels/${file}?v=3" style="height:50px;width:auto;max-width:100%;object-fit:contain;display:block;margin:0 auto;filter:brightness(0.5) grayscale(1);opacity:0.55;" draggable="false">
                         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;">🔒</div>
                     </div>
                     <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.35);line-height:1.2;">${name}</div>
