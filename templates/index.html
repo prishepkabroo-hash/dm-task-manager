@@ -752,21 +752,7 @@
             background: linear-gradient(90deg, var(--blue) 0%, var(--blue) var(--fill), #e0e0e0 var(--fill));
         }
 
-        .funnel-bar.new {
-            background: linear-gradient(90deg, var(--status-new) 0%, var(--status-new) var(--fill), #e0e0e0 var(--fill));
-        }
-
-        .funnel-bar.in_progress {
-            background: linear-gradient(90deg, var(--status-in-progress) 0%, var(--status-in-progress) var(--fill), #e0e0e0 var(--fill));
-        }
-
-        .funnel-bar.review {
-            background: linear-gradient(90deg, var(--status-review) 0%, var(--status-review) var(--fill), #e0e0e0 var(--fill));
-        }
-
-        .funnel-bar.done {
-            background: linear-gradient(90deg, var(--status-done) 0%, var(--status-done) var(--fill), #e0e0e0 var(--fill));
-        }
+        /* Funnel bar colors now set via inline styles from dynamic stages */
 
         /* LIST VIEW */
         .list-controls {
@@ -4215,7 +4201,7 @@ async function renderFunnel() {
                 <div class="funnel-label">${getStageLabel(status)}</div>
                 <div class="funnel-stats">${count} задач</div>
             </div>
-            <div class="funnel-bar" style="--fill: ${pct}%;background:linear-gradient(90deg, ${stageColor} 0%, ${stageColor} var(--fill), #e0e0e0 var(--fill));height:40px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:14px;transition:all 0.3s;">${count}</div>
+            <div class="funnel-bar" style="--fill: ${pct}%;background:linear-gradient(90deg, ${stageColor} 0%, ${stageColor} var(--fill), #e0e0e0 var(--fill));">${count}</div>
         `;
         container.appendChild(item);
     });
