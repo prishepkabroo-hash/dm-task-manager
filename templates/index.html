@@ -4358,24 +4358,27 @@ function renderCalendar() {
 
     function sameDay(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
 
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
     function taskCard(t, compact) {
         const sc = statusColors[t.status] || getStageColor(t.status);
         const pc = priColors[t.priority] || '#f59e0b';
         const assignee = allUsers.find(function(u){ return u.id === t.assigned_to; });
         const dl = t.deadline ? new Date(t.deadline) : null;
         const timeStr = dl && t.deadline.includes('T') && !t.deadline.endsWith('T00:00') ? dl.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
+        const safeTitle = escHtml(t.title);
         if (compact) {
-            return '<div onclick="showTaskDetail('+t.id+')" style="padding:4px 8px;background:'+sc+'18;border-left:3px solid '+sc+';border-radius:4px;cursor:pointer;transition:all 0.15s;margin-bottom:2px;overflow:hidden;" onmouseenter="this.style.boxShadow=\'0 2px 6px rgba(0,0,0,0.1)\'" onmouseleave="this.style.boxShadow=\'none\'">'
-                +'<div style="font-size:11px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(timeStr?'<span style="color:'+sc+';margin-right:4px;">'+timeStr+'</span>':'')+t.title+'</div>'
+            return '<div onclick="event.stopPropagation();showTaskDetail('+t.id+')" style="padding:4px 8px;background:'+sc+'18;border-left:3px solid '+sc+';border-radius:4px;cursor:pointer;transition:all 0.15s;margin-bottom:2px;overflow:hidden;" onmouseenter="this.style.boxShadow=\'0 2px 6px rgba(0,0,0,0.1)\'" onmouseleave="this.style.boxShadow=\'none\'">'
+                +'<div style="font-size:11px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(timeStr?'<span style="color:'+sc+';margin-right:4px;">'+timeStr+'</span>':'')+safeTitle+'</div>'
                 +'</div>';
         }
-        return '<div onclick="showTaskDetail('+t.id+')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:white;border-radius:10px;border:1px solid #e8ecf1;cursor:pointer;transition:all 0.15s;border-left:4px solid '+sc+';" onmouseenter="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\';this.style.transform=\'translateY(-1px)\'" onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">'
+        return '<div onclick="event.stopPropagation();showTaskDetail('+t.id+')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:white;border-radius:10px;border:1px solid #e8ecf1;cursor:pointer;transition:all 0.15s;border-left:4px solid '+sc+';" onmouseenter="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\';this.style.transform=\'translateY(-1px)\'" onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">'
             +'<div style="flex:1;min-width:0;">'
-            +'<div style="font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.title+'</div>'
+            +'<div style="font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+safeTitle+'</div>'
             +'<div style="display:flex;gap:6px;align-items:center;margin-top:4px;">'
             +'<span style="background:'+sc+';color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">'+getStageLabel(t.status)+'</span>'
             +'<span style="width:6px;height:6px;border-radius:50%;background:'+pc+';"></span>'
-            +(assignee ? '<span style="font-size:11px;color:#64748b;">'+assignee.full_name+'</span>' : '')
+            +(assignee ? '<span style="font-size:11px;color:#64748b;">'+escHtml(assignee.full_name)+'</span>' : '')
             +'</div></div>'
             +(timeStr ? '<div style="font-size:14px;font-weight:700;color:#1e293b;white-space:nowrap;">'+timeStr+'</div>' : '')
             +'</div>';
