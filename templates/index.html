@@ -5368,8 +5368,11 @@ async function renderMessenger() {
 }
 
 let replyToMessage = null;
+let editingMessageId = null;
+const QUICK_EMOJIS = ['👍','❤️','😂','😮','😢','🔥'];
 
 function setReply(msgId, senderName, text) {
+    cancelEdit();
     replyToMessage = {id: msgId, name: senderName, text: text};
     document.getElementById('replyPreview').style.display = 'block';
     document.getElementById('replyName').textContent = senderName;
@@ -5379,7 +5382,123 @@ function setReply(msgId, senderName, text) {
 
 function cancelReply() {
     replyToMessage = null;
-    document.getElementById('replyPreview').style.display = 'none';
+    const el = document.getElementById('replyPreview');
+    if (el) el.style.display = 'none';
+}
+
+function startEdit(msgId, currentText) {
+    cancelReply();
+    editingMessageId = msgId;
+    const clean = currentText.replace(/\[reply:.*?\]/,'').replace(/\[fwd:.*?\]/,'');
+    const input = document.getElementById('messageInput');
+    input.value = clean;
+    input.focus();
+    const rp = document.getElementById('replyPreview');
+    rp.style.display = 'block';
+    rp.style.borderLeftColor = '#f59e0b';
+    document.getElementById('replyName').textContent = 'Редактирование';
+    document.getElementById('replyText').textContent = clean.substring(0,60);
+}
+
+function cancelEdit() {
+    editingMessageId = null;
+    const rp = document.getElementById('replyPreview');
+    if (rp) { rp.style.display = 'none'; rp.style.borderLeftColor = '#7c3aed'; }
+}
+
+async function deleteMessage(msgId, msgType) {
+    if (!confirm('Удалить сообщение?')) return;
+    const url = msgType === 'group'
+        ? '/api/messenger/groups/' + activeGroupId + '/messages/' + msgId
+        : '/api/messenger/messages/' + msgId;
+    await apiCall(url, {method:'DELETE'});
+    if (msgType === 'group') openGroupChat(activeGroupId);
+    else selectConversation(selectedConversationUserId);
+}
+
+async function toggleReaction(msgId, emoji, msgType) {
+    await apiCall('/api/messenger/reactions', {
+        method:'POST',
+        body: JSON.stringify({message_type: msgType || 'dm', message_id: msgId, emoji})
+    });
+    if (activeGroupId) openGroupChat(activeGroupId);
+    else if (selectedConversationUserId) selectConversation(selectedConversationUserId);
+}
+
+function showForwardModal(text, senderName) {
+    const users = allUsers.filter(u => u.id !== currentUser.id);
+    let html = '<div style="padding:20px;"><h3 style="margin:0 0 16px;font-size:16px;color:#1e293b;">Переслать сообщение</h3>';
+    html += '<div style="max-height:300px;overflow-y:auto;">';
+    users.forEach(u => {
+        html += '<div onclick="forwardTo('+u.id+',null)" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:10px;transition:background 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'transparent\'">';
+        html += avatarHTML(u.full_name, u.avatar_color, 36, u.avatar_url);
+        html += '<span style="font-size:14px;color:#1e293b;">'+u.full_name+'</span></div>';
+    });
+    html += '</div></div>';
+    showModal('Переслать', html);
+    window._fwdText = text;
+    window._fwdFrom = senderName;
+}
+
+async function forwardTo(userId, groupId) {
+    await apiCall('/api/messenger/forward', {
+        method:'POST',
+        body: JSON.stringify({text: window._fwdText, target_user_id: userId, target_group_id: groupId, forwarded_from: window._fwdFrom})
+    });
+    closeModal();
+    showToast('Сообщение переслано', 'success');
+}
+
+function showMsgContextMenu(e, msgId, isMine, text, senderName, msgType) {
+    e.preventDefault();
+    e.stopPropagation();
+    const old = document.getElementById('msgContextMenu');
+    if (old) old.remove();
+    const cleanText = text.replace(/\[reply:.*?\]/,'').replace(/\[fwd:.*?\]/,'').replace(/\[img\].*?\[\/img\]/g,'').replace(/\[voice\].*?\[\/voice\]/g,'').replace(/\[file\].*?\[\/file\]/g,'').trim();
+
+    let menu = document.createElement('div');
+    menu.id = 'msgContextMenu';
+    menu.style.cssText = 'position:fixed;z-index:9999;background:white;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid #e2e8f0;padding:6px;min-width:200px;';
+    menu.style.left = Math.min(e.clientX, window.innerWidth - 220) + 'px';
+    menu.style.top = Math.min(e.clientY, window.innerHeight - 350) + 'px';
+
+    const items = [
+        {icon:'↩', label:'Ответить', action:() => setReply(msgId, senderName, cleanText)},
+        ...(isMine ? [
+            {icon:'✏️', label:'Редактировать', action:() => startEdit(msgId, text)},
+            {icon:'🗑', label:'Удалить', action:() => deleteMessage(msgId, msgType), danger:true},
+        ] : []),
+        {icon:'➡️', label:'Переслать', action:() => showForwardModal(cleanText, senderName)},
+        {icon:'📋', label:'Копировать', action:() => { navigator.clipboard.writeText(cleanText); showToast('Скопировано','success'); }},
+    ];
+
+    // Quick reactions row
+    let reactRow = document.createElement('div');
+    reactRow.style.cssText = 'display:flex;gap:2px;padding:4px 6px 8px;border-bottom:1px solid #f1f5f9;margin-bottom:2px;';
+    QUICK_EMOJIS.forEach(em => {
+        const btn = document.createElement('button');
+        btn.textContent = em;
+        btn.style.cssText = 'width:36px;height:36px;border:none;background:transparent;border-radius:10px;cursor:pointer;font-size:18px;transition:all 0.15s;';
+        btn.onmouseenter = () => btn.style.background = '#f1f5f9';
+        btn.onmouseleave = () => btn.style.background = 'transparent';
+        btn.onclick = () => { menu.remove(); toggleReaction(msgId, em, msgType); };
+        reactRow.appendChild(btn);
+    });
+    menu.appendChild(reactRow);
+
+    items.forEach(item => {
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:8px;font-size:13px;color:'+(item.danger?'#ef4444':'#1e293b')+';transition:background 0.12s;';
+        row.onmouseenter = () => row.style.background = item.danger ? '#fef2f2' : '#f1f5f9';
+        row.onmouseleave = () => row.style.background = 'transparent';
+        row.innerHTML = '<span style="font-size:16px;">'+item.icon+'</span><span>'+item.label+'</span>';
+        row.onclick = () => { menu.remove(); item.action(); };
+        menu.appendChild(row);
+    });
+
+    document.body.appendChild(menu);
+    const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 10);
 }
 
 function searchInChat() {
@@ -5390,7 +5509,7 @@ function searchInChat() {
     msgs.forEach(el => {
         if (el.textContent.toLowerCase().includes(q.toLowerCase())) {
             el.scrollIntoView({behavior:'smooth',block:'center'});
-            el.style.boxShadow = '0 0 0 2px #8b5cf6';
+            el.style.boxShadow = '0 0 0 2px #7c3aed';
             setTimeout(() => el.style.boxShadow = '', 2000);
             if (!found) found = true;
         }
@@ -5443,6 +5562,10 @@ async function selectConversation(userId) {
 
     const chatMessages = document.getElementById('chatMessages');
     if (messages && messages.length) {
+        // Load reactions in batch
+        const msgIds = messages.map(m => m.id);
+        const reactionsData = await apiCall('/api/messenger/reactions/batch', {method:'POST', body: JSON.stringify({message_type:'dm', message_ids: msgIds})}) || {};
+
         let prevSender = null;
         let prevDate = '';
         let msgsHtml = '';
@@ -5454,6 +5577,10 @@ async function selectConversation(userId) {
             const dateStr = msgDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
             const time = msgDate.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
             const senderUser = !isMine ? allUsers.find(u => u.id === m.sender_id) : null;
+            const senderName = senderUser ? senderUser.full_name : (isMine ? currentUser.full_name : '');
+            const isDeleted = m.is_deleted || m.text === '[deleted]';
+            const isEdited = !!m.edited_at;
+            const isForwarded = m.text.startsWith('[fwd:');
 
             // Date separator
             if (dateStr !== prevDate) {
@@ -5461,30 +5588,49 @@ async function selectConversation(userId) {
                 msgsHtml += '<div style="text-align:center;margin:16px 0 8px;"><span style="display:inline-block;padding:4px 14px;border-radius:10px;background:rgba(0,0,0,0.04);font-size:11px;font-weight:600;color:#94a3b8;">'+dateStr+'</span></div>';
             }
 
+            const align = isMine ? 'align-items:flex-end;' : 'align-items:flex-start;';
+            const safeText = m.text.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+
+            if (isDeleted) {
+                msgsHtml += '<div data-msg="'+m.id+'" style="display:flex;flex-direction:column;'+align+(isGroupStart?'margin-top:10px;':'margin-top:2px;')+'">';
+                msgsHtml += '<div style="padding:8px 14px;border-radius:14px;font-size:13px;color:#94a3b8;font-style:italic;background:rgba(0,0,0,0.02);border:1px dashed #e2e8f0;">🚫 Сообщение удалено</div>';
+                msgsHtml += '</div>';
+                return;
+            }
+
             const bubbleBg = isMine ? 'background:linear-gradient(135deg,#7c3aed,#6366f1);color:white;' : 'background:#ffffff;color:#1e293b;box-shadow:0 1px 3px rgba(0,0,0,0.06);';
             const bubbleRadius = isMine ? 'border-radius:18px 18px 4px 18px;' : 'border-radius:18px 18px 18px 4px;';
-            const align = isMine ? 'align-items:flex-end;' : 'align-items:flex-start;';
-            const senderName = senderUser ? senderUser.full_name : (isMine ? currentUser.full_name : '');
-            const plainText = m.text.replace(/\[img\].*?\[\/img\]/g,'').replace(/\[voice\].*?\[\/voice\]/g,'').replace(/\[file\].*?\[\/file\]/g,'').trim();
 
-            msgsHtml += '<div data-msg="'+m.id+'" style="display:flex;flex-direction:column;'+align+(isGroupStart?'margin-top:10px;':'margin-top:2px;')+'position:relative;" onmouseenter="this.querySelector(\'.msg-actions\').style.opacity=1" onmouseleave="this.querySelector(\'.msg-actions\').style.opacity=0">';
+            msgsHtml += '<div data-msg="'+m.id+'" style="display:flex;flex-direction:column;'+align+(isGroupStart?'margin-top:10px;':'margin-top:2px;')+'position:relative;" oncontextmenu="showMsgContextMenu(event,'+m.id+','+isMine+',\''+safeText+'\',\''+senderName.replace(/'/g,"\\'")+'\',\'dm\')">';
 
             if (!isMine && isGroupStart && senderUser) {
                 msgsHtml += '<div style="font-size:11px;font-weight:600;color:#7c3aed;margin-bottom:2px;margin-left:4px;">'+senderUser.full_name+'</div>';
             }
 
-            msgsHtml += '<div style="max-width:65%;padding:10px 14px;'+bubbleBg+bubbleRadius+'font-size:14px;line-height:1.5;word-wrap:break-word;position:relative;">';
+            // Forwarded label
+            if (isForwarded) {
+                const fwdName = m.text.match(/\[fwd:(.*?)\]/)?.[1] || '';
+                msgsHtml += '<div style="font-size:10px;color:'+(isMine?'rgba(255,255,255,0.5)':'#94a3b8')+';margin-bottom:2px;margin-'+(isMine?'right':'left')+':4px;">↗ Переслано от '+fwdName+'</div>';
+            }
+
+            msgsHtml += '<div style="max-width:65%;padding:10px 14px;'+bubbleBg+bubbleRadius+'font-size:14px;line-height:1.5;word-wrap:break-word;position:relative;cursor:default;">';
             msgsHtml += renderMessageText(m.text);
             msgsHtml += '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">';
+            if (isEdited) msgsHtml += '<span style="font-size:9px;color:'+(isMine?'rgba(255,255,255,0.4)':'#b0b8c4')+';">ред.</span>';
             msgsHtml += '<span style="font-size:10px;color:'+(isMine?'rgba(255,255,255,0.5)':'#b0b8c4')+';">'+time+'</span>';
             if (isMine) msgsHtml += '<span style="font-size:10px;color:'+(m.is_read?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.35)')+';">\u2713\u2713</span>';
             msgsHtml += '</div></div>';
 
-            // Hover action buttons (reply)
-            const actPos = isMine ? 'left:-36px;' : 'right:-36px;';
-            msgsHtml += '<div class="msg-actions" style="position:absolute;top:50%;transform:translateY(-50%);'+actPos+'opacity:0;transition:opacity 0.15s;">';
-            msgsHtml += '<button onclick="setReply('+m.id+',\''+senderName.replace(/'/g,"\\'")+'\',\''+plainText.replace(/'/g,"\\'").substring(0,80)+'\')" style="width:28px;height:28px;border-radius:50%;border:none;background:#f1f5f9;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.15s;" onmouseenter="this.style.background=\'#ede9fe\';this.style.color=\'#7c3aed\'" onmouseleave="this.style.background=\'#f1f5f9\';this.style.color=\'#94a3b8\'" title="Ответить">↩</button>';
-            msgsHtml += '</div>';
+            // Reactions
+            const msgReactions = reactionsData[String(m.id)] || [];
+            if (msgReactions.length) {
+                msgsHtml += '<div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;'+(isMine?'justify-content:flex-end;':'')+'"">';
+                msgReactions.forEach(r => {
+                    const myReaction = r.user_ids && r.user_ids.split(',').includes(String(currentUser.id));
+                    msgsHtml += '<button onclick="toggleReaction('+m.id+',\''+r.emoji+'\',\'dm\')" style="padding:2px 8px;border-radius:12px;border:'+(myReaction?'1px solid #7c3aed':'1px solid #e2e8f0')+';background:'+(myReaction?'#ede9fe':'white')+';cursor:pointer;font-size:13px;display:flex;align-items:center;gap:3px;transition:all 0.15s;">'+r.emoji+'<span style="font-size:11px;color:#64748b;">'+r.count+'</span></button>';
+                });
+                msgsHtml += '</div>';
+            }
 
             msgsHtml += '</div>';
         });
@@ -5501,6 +5647,8 @@ async function selectConversation(userId) {
 }
 
 function renderMessageText(text) {
+    // Forward tag (remove, shown separately)
+    text = text.replace(/\[fwd:.*?\]/, '');
     // Reply block
     text = text.replace(/\[reply:(.*?):(.*?)\]/, '<div style="padding:6px 10px;margin-bottom:6px;border-left:3px solid #7c3aed;border-radius:0 8px 8px 0;background:rgba(124,58,237,0.08);font-size:12px;"><div style="font-weight:700;color:#7c3aed;font-size:11px;">$1</div><div style="color:#94a3b8;margin-top:1px;">$2</div></div>');
     // Image attachments
@@ -7591,6 +7739,19 @@ async function sendDirectMessage() {
     const input = document.getElementById('messageInput');
     let text = input.value.trim();
     if (!text) return;
+
+    // Edit mode
+    if (editingMessageId) {
+        const editUrl = activeGroupId
+            ? '/api/messenger/groups/' + activeGroupId + '/messages/' + editingMessageId + '/edit'
+            : '/api/messenger/messages/' + editingMessageId + '/edit';
+        await apiCall(editUrl, {method:'PUT', body: JSON.stringify({text})});
+        input.value = '';
+        cancelEdit();
+        if (activeGroupId) openGroupChat(activeGroupId);
+        else selectConversation(selectedConversationUserId);
+        return;
+    }
 
     // Prepend reply context if replying
     if (replyToMessage) {

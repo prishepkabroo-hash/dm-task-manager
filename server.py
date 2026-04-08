@@ -428,6 +428,67 @@ def init_db():
         # Migrate existing tasks from 'review' to 'in_progress'
         c.execute("UPDATE tasks SET status='in_progress' WHERE status='review'")
 
+    # Migrate: add is_deleted, edited_at to direct_messages
+    try:
+        c.execute("SELECT is_deleted FROM direct_messages LIMIT 1")
+    except:
+        try: c.execute("ALTER TABLE direct_messages ADD COLUMN is_deleted INTEGER DEFAULT 0")
+        except: pass
+    try:
+        c.execute("SELECT edited_at FROM direct_messages LIMIT 1")
+    except:
+        try: c.execute("ALTER TABLE direct_messages ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
+        except: pass
+    try:
+        c.execute("SELECT reply_to_id FROM direct_messages LIMIT 1")
+    except:
+        try: c.execute("ALTER TABLE direct_messages ADD COLUMN reply_to_id INTEGER DEFAULT NULL")
+        except: pass
+    try:
+        c.execute("SELECT forwarded_from FROM direct_messages LIMIT 1")
+    except:
+        try: c.execute("ALTER TABLE direct_messages ADD COLUMN forwarded_from TEXT DEFAULT NULL")
+        except: pass
+
+    # Migrate: add is_deleted, edited_at to group_messages
+    try:
+        c.execute("SELECT is_deleted FROM group_messages LIMIT 1")
+    except:
+        try: c.execute("ALTER TABLE group_messages ADD COLUMN is_deleted INTEGER DEFAULT 0")
+        except: pass
+    try:
+        c.execute("SELECT edited_at FROM group_messages LIMIT 1")
+    except:
+        try: c.execute("ALTER TABLE group_messages ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
+        except: pass
+    try:
+        c.execute("SELECT reply_to_id FROM group_messages LIMIT 1")
+    except:
+        try: c.execute("ALTER TABLE group_messages ADD COLUMN reply_to_id INTEGER DEFAULT NULL")
+        except: pass
+
+    # Migrate: create message_reactions table
+    c.execute("""CREATE TABLE IF NOT EXISTS message_reactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_type TEXT NOT NULL,
+        message_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        emoji TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(message_type, message_id, user_id, emoji)
+    )""")
+
+    # Migrate: create pinned_messages table
+    c.execute("""CREATE TABLE IF NOT EXISTS pinned_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_type TEXT NOT NULL,
+        message_id INTEGER NOT NULL,
+        chat_type TEXT NOT NULL,
+        chat_id TEXT NOT NULL,
+        pinned_by INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+
     # Seed admin
     if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
         c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (?,?,?,?,?,?,?)",
@@ -1983,6 +2044,68 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             typing_status[typing_key] = datetime.now().isoformat()
             return self._json({"ok": True})
 
+        # Toggle reaction on message
+        if path == "/api/messenger/reactions":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            msg_type = data.get("message_type", "dm")
+            msg_id = data.get("message_id")
+            emoji = data.get("emoji", "")
+            if not msg_id or not emoji: return self._json({"error": "Missing data"}, 400)
+            conn = get_db()
+            existing = conn.execute("SELECT id FROM message_reactions WHERE message_type=? AND message_id=? AND user_id=? AND emoji=?",
+                (msg_type, msg_id, u["id"], emoji)).fetchone()
+            if existing:
+                conn.execute("DELETE FROM message_reactions WHERE id=?", (existing["id"],))
+            else:
+                conn.execute("INSERT INTO message_reactions (message_type, message_id, user_id, emoji) VALUES (?,?,?,?)",
+                    (msg_type, msg_id, u["id"], emoji))
+            conn.commit()
+            # Return updated reactions for this message
+            reactions = conn.execute("SELECT emoji, COUNT(*) as cnt, GROUP_CONCAT(user_id) as user_ids FROM message_reactions WHERE message_type=? AND message_id=? GROUP BY emoji",
+                (msg_type, msg_id)).fetchall()
+            conn.close()
+            return self._json({"ok": True, "reactions": [{"emoji": r["emoji"], "count": r["cnt"], "user_ids": r["user_ids"]} for r in reactions]})
+
+        # Get reactions for messages
+        if path == "/api/messenger/reactions/batch":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            msg_type = data.get("message_type", "dm")
+            msg_ids = data.get("message_ids", [])
+            if not msg_ids: return self._json({})
+            conn = get_db()
+            placeholders = ",".join(["?" for _ in msg_ids])
+            reactions = conn.execute(f"SELECT message_id, emoji, COUNT(*) as cnt, GROUP_CONCAT(user_id) as user_ids FROM message_reactions WHERE message_type=? AND message_id IN ({placeholders}) GROUP BY message_id, emoji",
+                [msg_type] + msg_ids).fetchall()
+            conn.close()
+            result = {}
+            for r in reactions:
+                mid = str(r["message_id"])
+                if mid not in result: result[mid] = []
+                result[mid].append({"emoji": r["emoji"], "count": r["cnt"], "user_ids": r["user_ids"]})
+            return self._json(result)
+
+        # Forward message
+        if path == "/api/messenger/forward":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            text = data.get("text", "")
+            target_user_id = data.get("target_user_id")
+            target_group_id = data.get("target_group_id")
+            forwarded_from = data.get("forwarded_from", "")
+            if not text: return self._json({"error": "Empty"}, 400)
+            conn = get_db()
+            fwd_text = f"[fwd:{forwarded_from}]{text}"
+            if target_group_id:
+                conn.execute("INSERT INTO group_messages (group_id, sender_id, text) VALUES (?,?,?)",
+                    (target_group_id, u["id"], fwd_text))
+            elif target_user_id:
+                conn.execute("INSERT INTO direct_messages (sender_id, recipient_id, text, forwarded_from) VALUES (?,?,?,?)",
+                    (u["id"], target_user_id, fwd_text, forwarded_from))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
         self.send_response(404); self.end_headers()
 
     def do_PUT(self):
@@ -2141,6 +2264,39 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"ok": True})
 
+        # Edit direct message
+        if path.startswith("/api/messenger/messages/") and "/edit" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            msg_id = path.split("/")[4]
+            new_text = data.get("text", "").strip()
+            if not new_text: return self._json({"error": "Empty"}, 400)
+            conn = get_db()
+            msg = conn.execute("SELECT * FROM direct_messages WHERE id=?", (msg_id,)).fetchone()
+            if not msg or msg["sender_id"] != u["id"]:
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+            conn.execute("UPDATE direct_messages SET text=?, edited_at=CURRENT_TIMESTAMP WHERE id=?", (new_text, msg_id))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        # Edit group message
+        if path.startswith("/api/messenger/groups/") and "/messages/" in path and "/edit" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            parts_p = path.split("/")
+            msg_id = parts_p[5]
+            new_text = data.get("text", "").strip()
+            if not new_text: return self._json({"error": "Empty"}, 400)
+            conn = get_db()
+            msg = conn.execute("SELECT * FROM group_messages WHERE id=?", (msg_id,)).fetchone()
+            if not msg or msg["sender_id"] != u["id"]:
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+            conn.execute("UPDATE group_messages SET text=?, edited_at=CURRENT_TIMESTAMP WHERE id=?", (new_text, msg_id))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
         self.send_response(404); self.end_headers()
 
     def do_DELETE(self):
@@ -2217,6 +2373,35 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Delete the department
             conn.execute("DELETE FROM departments WHERE id=?", (dept_id,))
 
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        # Soft-delete direct message
+        if path.startswith("/api/messenger/messages/") and path.count("/") == 4:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            msg_id = path.split("/")[4]
+            conn = get_db()
+            msg = conn.execute("SELECT * FROM direct_messages WHERE id=?", (msg_id,)).fetchone()
+            if not msg or msg["sender_id"] != u["id"]:
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+            conn.execute("UPDATE direct_messages SET is_deleted=1, text='[deleted]' WHERE id=?", (msg_id,))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        # Soft-delete group message
+        if path.startswith("/api/messenger/groups/") and "/messages/" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            parts_p = path.split("/")
+            msg_id = parts_p[5]
+            conn = get_db()
+            msg = conn.execute("SELECT * FROM group_messages WHERE id=?", (msg_id,)).fetchone()
+            if not msg or msg["sender_id"] != u["id"]:
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+            conn.execute("UPDATE group_messages SET is_deleted=1, text='[deleted]' WHERE id=?", (msg_id,))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
