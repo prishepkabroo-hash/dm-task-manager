@@ -2807,8 +2807,11 @@
                                     <div id="chatPartnerStatus" style="font-size:12px;color:#22c55e;margin-top:1px;">В сети</div>
                                 </div>
                                 <div style="display:flex;gap:4px;">
+                                    <button onclick="markChatRead()" style="width:36px;height:36px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background='#dcfce7';this.style.color='#16a34a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'" title="Отметить прочитанным">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    </button>
                                     <button onclick="searchInChat()" style="width:36px;height:36px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseenter="this.style.background='#e2e8f0';this.style.color='#7c3aed'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'" title="Поиск">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                     </button>
                                 </div>
                             </div>
@@ -5280,11 +5283,42 @@ function requestNotificationPermission() {
 }
 
 function showBrowserNotification(title, body) {
+    // Browser notification
     if ('Notification' in window && Notification.permission === 'granted') {
         try {
-            new Notification(title, { body: body, icon: '/static/icon.png', tag: 'dm-message' });
-        } catch(e) { console.log('Notification error', e); }
+            new Notification(title, { body: body, icon: '/static/icon.png', tag: 'dm-message-' + Date.now() });
+        } catch(e) {}
     }
+    // In-app floating toast notification (bottom-right)
+    showMessageToast(title, body);
+}
+
+function showMessageToast(title, body) {
+    let container = document.getElementById('msgToastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'msgToastContainer';
+        container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.style.cssText = 'pointer-events:auto;background:white;border-radius:14px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,0.12),0 0 0 1px rgba(0,0,0,0.04);max-width:340px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;transform:translateX(120%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1),opacity 0.3s;opacity:0;';
+    toast.innerHTML = '<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6366f1);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>'
+        +'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13px;color:#1e293b;">'+title+'</div><div style="font-size:12px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+body+'</div></div>'
+        +'<button onclick="this.parentElement.remove()" style="border:none;background:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:2px;flex-shrink:0;">✕</button>';
+    toast.onclick = (e) => {
+        if (e.target.tagName !== 'BUTTON') {
+            navigate('messenger');
+            toast.remove();
+        }
+    };
+    container.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; toast.style.opacity = '1'; });
+    setTimeout(() => {
+        toast.style.transform = 'translateX(120%)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, 5000);
 }
 
 async function renderMessenger() {
@@ -5425,10 +5459,20 @@ async function toggleReaction(msgId, emoji, msgType) {
     else if (selectedConversationUserId) selectConversation(selectedConversationUserId);
 }
 
-function showForwardModal(text, senderName) {
+async function showForwardModal(text, senderName) {
     const users = allUsers.filter(u => u.id !== currentUser.id);
+    const groups = await apiCall('/api/messenger/groups') || [];
     let html = '<div style="padding:20px;"><h3 style="margin:0 0 16px;font-size:16px;color:#1e293b;">Переслать сообщение</h3>';
-    html += '<div style="max-height:300px;overflow-y:auto;">';
+    html += '<div style="max-height:340px;overflow-y:auto;">';
+    if (groups.length) {
+        html += '<div style="font-size:10px;font-weight:700;color:#7c3aed;padding:4px 0 8px;text-transform:uppercase;letter-spacing:1px;">Группы</div>';
+        groups.forEach(g => {
+            html += '<div onclick="forwardTo(null,'+g.id+')" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:10px;transition:background 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'transparent\'">';
+            html += '<div style="width:36px;height:36px;border-radius:50%;background:'+(g.avatar_color||'#6366f1')+';display:flex;align-items:center;justify-content:center;color:white;font-size:14px;">👥</div>';
+            html += '<span style="font-size:14px;color:#1e293b;">'+g.name+'</span></div>';
+        });
+    }
+    html += '<div style="font-size:10px;font-weight:700;color:#7c3aed;padding:8px 0;text-transform:uppercase;letter-spacing:1px;">Пользователи</div>';
     users.forEach(u => {
         html += '<div onclick="forwardTo('+u.id+',null)" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:10px;transition:background 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'transparent\'">';
         html += avatarHTML(u.full_name, u.avatar_color, 36, u.avatar_url);
@@ -5499,6 +5543,15 @@ function showMsgContextMenu(e, msgId, isMine, text, senderName, msgType) {
     document.body.appendChild(menu);
     const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close); } };
     setTimeout(() => document.addEventListener('click', close), 10);
+}
+
+async function markChatRead() {
+    if (selectedConversationUserId) {
+        await apiCall('/api/messenger/mark-read/' + selectedConversationUserId, {method:'POST', body:'{}'});
+        showToast('Все сообщения отмечены прочитанными', 'success');
+        refreshMessengerBadge();
+        selectConversation(selectedConversationUserId);
+    }
 }
 
 function searchInChat() {
@@ -5701,8 +5754,8 @@ async function refreshMessengerBadge() {
     const resp = await apiCall('/api/messenger/unread');
     const badge = document.getElementById('messengerBadge');
     if (badge) {
-        if (resp && resp.count > 0) {
-            badge.textContent = resp.count;
+        if (resp && resp.unread > 0) {
+            badge.textContent = resp.unread;
             badge.style.display = 'flex';
         } else {
             badge.style.display = 'none';
@@ -5763,17 +5816,26 @@ function setupMessengerInterval() {
     }, 5000);
 }
 
+let _lastUnreadCount = 0;
 function setupMessengerUnreadInterval() {
     if (messengerUnreadInterval) clearInterval(messengerUnreadInterval);
     messengerUnreadInterval = setInterval(async () => {
         const badge = document.getElementById('messengerBadge');
         const unread = await apiCall('/api/messenger/unread');
-        if (unread && unread.unread > 0) {
-            badge.textContent = unread.unread;
-            badge.style.display = 'flex';
-        } else {
-            badge.style.display = 'none';
+        const cnt = (unread && unread.unread) || 0;
+        if (badge) {
+            if (cnt > 0) {
+                badge.textContent = cnt;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
         }
+        // Show toast when new unread messages appear (and not on messenger page)
+        if (cnt > _lastUnreadCount && currentPage !== 'messenger') {
+            showMessageToast('Новое сообщение', 'У вас ' + cnt + ' непрочитанных сообщений');
+        }
+        _lastUnreadCount = cnt;
     }, 5000);
 }
 

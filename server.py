@@ -2044,6 +2044,16 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             typing_status[typing_key] = datetime.now().isoformat()
             return self._json({"ok": True})
 
+        # Mark all messages from a partner as read
+        if path.startswith("/api/messenger/mark-read/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            partner_id = path.split("/")[-1]
+            conn = get_db()
+            conn.execute("UPDATE direct_messages SET is_read=1 WHERE sender_id=? AND recipient_id=?", (partner_id, u["id"]))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
         # Toggle reaction on message
         if path == "/api/messenger/reactions":
             u = self._user()
@@ -2285,7 +2295,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             parts_p = path.split("/")
-            msg_id = parts_p[5]
+            msg_id = parts_p[6]
             new_text = data.get("text", "").strip()
             if not new_text: return self._json({"error": "Empty"}, 400)
             conn = get_db()
@@ -2395,7 +2405,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             parts_p = path.split("/")
-            msg_id = parts_p[5]
+            msg_id = parts_p[6]
             conn = get_db()
             msg = conn.execute("SELECT * FROM group_messages WHERE id=?", (msg_id,)).fetchone()
             if not msg or msg["sender_id"] != u["id"]:
