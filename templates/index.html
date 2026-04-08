@@ -2748,11 +2748,8 @@
                             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                                 <input type="text" id="listQtTitle" placeholder="Название задачи..." style="flex:2;min-width:200px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter')submitListQuickTask()">
                                 <select id="listQtDept" style="flex:1;min-width:120px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;"></select>
-                                <select id="listQtStatus" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
+                                <select id="listQtStatus" class="dynamic-status-select" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
                                     <option value="new">Новая</option>
-                                    <option value="in_progress">В работе</option>
-                                    <option value="review">Согласование</option>
-                                    <option value="done">Готово</option>
                                 </select>
                                 <input type="date" id="listQtDeadline" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
                                 <button onclick="submitListQuickTask()" style="padding:8px 16px;background:var(--blue);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Создать</button>
@@ -2928,6 +2925,7 @@
                     <div style="display:flex; gap:0; margin-bottom:24px; border-bottom: 2px solid var(--border-color);">
                         <button class="admin-tab active" data-admin-tab="users" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Пользователи</button>
                         <button class="admin-tab" data-admin-tab="departments" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Отделы</button>
+                        <button class="admin-tab" data-admin-tab="stages" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Этапы</button>
                         <button class="admin-tab" data-admin-tab="settings" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Настройки</button>
                         <button class="admin-tab" data-admin-tab="feedback" style="padding:12px 24px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px;">Обратная связь</button>
                     </div>
@@ -2974,6 +2972,18 @@
                                 <button onclick="hideDeptForm()" class="btn btn-secondary" style="padding:8px 20px; background:#e2e8f0; color:var(--text-primary); border:none; border-radius:8px; cursor:pointer;">Отмена</button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Stages Tab -->
+                    <div class="admin-tab-content" id="adminTabStages" style="display:none;">
+                        <div style="background:var(--bg-secondary); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); overflow:hidden;">
+                            <div style="padding:20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                                <div class="section-title" style="margin:0;">Этапы воронки</div>
+                                <button onclick="showAddStageForm()" class="btn btn-primary" style="padding:8px 16px; font-size:13px;">+ Добавить этап</button>
+                            </div>
+                            <div id="adminStagesList" style="padding:16px;"></div>
+                        </div>
+                        <div id="addStageFormContainer" style="display:none; margin-top:20px; background:var(--bg-secondary); border-radius:10px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.08);"></div>
                     </div>
 
                     <!-- Settings Tab -->
@@ -3035,11 +3045,8 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Статус</label>
-                        <select id="taskStatus" class="form-select">
+                        <select id="taskStatus" class="form-select dynamic-status-select">
                             <option value="new" selected>Новая</option>
-                            <option value="in_progress">В работе</option>
-                            <option value="review">Согласование</option>
-                            <option value="done">Готово</option>
                         </select>
                     </div>
                 </div>
@@ -3137,6 +3144,7 @@ let kanbanSelectMode = false;
 let kanbanSelectedIds = new Set();
 let userOnlineStatus = {};
 let lastMessageCount = {};
+let allStages = []; // Dynamic funnel stages from DB
 
 const token = localStorage.getItem('dm_token');
 
@@ -3190,7 +3198,7 @@ function deadlineInfo(deadline) {
 }
 
 function statusName(s) {
-    return {new:'Новая', in_progress:'В работе', review:'Согласование', done:'Готово', cancelled:'Отменена'}[s] || s;
+    return getStageLabel(s);
 }
 
 function priorityName(p) {
@@ -3460,7 +3468,7 @@ async function loadApp() {
         return;
     }
     currentUser = data;
-    await Promise.all([loadDepartments(), loadUsers()]);
+    await Promise.all([loadDepartments(), loadUsers(), loadStages()]);
     // Load tasks before showing UI so pages render instantly
     const tasksData = await apiCall('/api/tasks');
     if (tasksData) allTasks = tasksData;
@@ -3562,6 +3570,44 @@ function navigate(page) {
 // 4. DATA LOADING
 // =================================
 
+async function loadStages() {
+    const data = await apiCall('/api/stages');
+    if (data && data.length) allStages = data;
+    else allStages = [{key:'new',label:'Новые',color:'#3b82f6',icon:'📋'},{key:'in_progress',label:'В работе',color:'#f59e0b',icon:'⚡'},{key:'done',label:'Готово',color:'#22c55e',icon:'✅'}];
+    // Populate all dynamic status selects
+    document.querySelectorAll('.dynamic-status-select').forEach(sel => {
+        const curVal = sel.value;
+        sel.innerHTML = '';
+        allStages.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.key;
+            opt.textContent = s.label;
+            sel.appendChild(opt);
+        });
+        if (curVal) sel.value = curVal;
+    });
+}
+// Helper: get stage keys (excluding cancelled)
+function getStageKeys() { return allStages.map(s => s.key); }
+// Helper: get stage config object
+function getStageConfig() {
+    const cfg = {};
+    allStages.forEach(s => { cfg[s.key] = {label: s.label, color: s.color, icon: s.icon, bg: s.color + '18'}; });
+    return cfg;
+}
+// Helper: get stage label by key
+function getStageLabel(key) {
+    if (key === 'cancelled') return 'Отменена';
+    const s = allStages.find(s => s.key === key);
+    return s ? s.label : key;
+}
+// Helper: get stage color by key
+function getStageColor(key) {
+    if (key === 'cancelled') return '#94a3b8';
+    const s = allStages.find(s => s.key === key);
+    return s ? s.color : '#666';
+}
+
 async function loadDepartments() {
     const data = await apiCall('/api/departments');
     if (!data) return;
@@ -3647,23 +3693,18 @@ async function loadTasks() {
 
 async function loadStats() {
     const ft = getFilteredTasks();
-    const newCount = ft.filter(t => t.status === 'new').length;
-    const inProgressCount = ft.filter(t => t.status === 'in_progress').length;
-    const reviewCount = ft.filter(t => t.status === 'review').length;
-    const doneCount = ft.filter(t => t.status === 'done').length;
     const today = new Date().toISOString().split('T')[0];
     const overdueCount = ft.filter(t => t.deadline && t.deadline < today && !['done','cancelled'].includes(t.status)).length;
     const totalCount = ft.length;
 
     const grid = document.getElementById('statsGrid');
-    grid.innerHTML = `
-        <div class="stat-card" style="border-left: 4px solid var(--blue);"><div class="stat-label">Всего</div><div class="stat-value">${totalCount}</div></div>
-        <div class="stat-card new"><div class="stat-label">Новые</div><div class="stat-value">${newCount}</div></div>
-        <div class="stat-card in-progress"><div class="stat-label">В работе</div><div class="stat-value">${inProgressCount}</div></div>
-        <div class="stat-card review"><div class="stat-label">Согласование</div><div class="stat-value">${reviewCount}</div></div>
-        <div class="stat-card done"><div class="stat-label">Готово</div><div class="stat-value">${doneCount}</div></div>
-        <div class="stat-card overdue"><div class="stat-label">Просрочено</div><div class="stat-value">${overdueCount}</div></div>
-    `;
+    let cardsHtml = `<div class="stat-card" style="border-left: 4px solid var(--blue);"><div class="stat-label">Всего</div><div class="stat-value">${totalCount}</div></div>`;
+    allStages.forEach(s => {
+        const count = ft.filter(t => t.status === s.key).length;
+        cardsHtml += `<div class="stat-card" style="border-left: 4px solid ${s.color};"><div class="stat-label">${s.label}</div><div class="stat-value">${count}</div></div>`;
+    });
+    cardsHtml += `<div class="stat-card overdue"><div class="stat-label">Просрочено</div><div class="stat-value">${overdueCount}</div></div>`;
+    grid.innerHTML = cardsHtml;
 }
 
 async function loadNotifications() {
@@ -3814,13 +3855,8 @@ async function renderKanban() {
     const board = document.getElementById('kanbanBoard');
     board.innerHTML = '';
 
-    const statuses = ['new', 'in_progress', 'review', 'done'];
-    const statusConfig = {
-        new:         {label: 'Новые',        color: '#3b82f6', bg: '#eff6ff',  icon: '📋'},
-        in_progress: {label: 'В работе',     color: '#f59e0b', bg: '#fffbeb',  icon: '⚡'},
-        review:      {label: 'Согласование',  color: '#8b5cf6', bg: '#f5f3ff',  icon: '🔍'},
-        done:        {label: 'Готово',        color: '#22c55e', bg: '#f0fdf4',  icon: '✅'}
-    };
+    const statuses = getStageKeys();
+    const statusConfig = getStageConfig();
 
     // === Bitrix24-style stage tabs above kanban ===
     let stagesBar = document.getElementById('kanbanStagesBar');
@@ -4158,9 +4194,8 @@ async function renderFunnel() {
     const container = document.getElementById('funnelContainer');
     container.innerHTML = '';
     
-    const statuses = ['new', 'in_progress', 'review', 'done'];
-    const statusLabels = {new: 'Новые', in_progress: 'В работе', review: 'Согласование', done: 'Готово'};
-    
+    const statuses = getStageKeys();
+
     const filtered = getFilteredTasks();
     let maxCount = 0;
     statuses.forEach(status => {
@@ -4171,15 +4206,16 @@ async function renderFunnel() {
     statuses.forEach(status => {
         const count = filtered.filter(t => t.status === status).length;
         const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
-        
+        const stageColor = getStageColor(status);
+
         const item = document.createElement('div');
         item.style.cssText = 'margin-bottom: 20px;';
         item.innerHTML = `
             <div class="funnel-header">
-                <div class="funnel-label">${statusLabels[status]}</div>
+                <div class="funnel-label">${getStageLabel(status)}</div>
                 <div class="funnel-stats">${count} задач</div>
             </div>
-            <div class="funnel-bar ${status}" style="--fill: ${pct}%;">${count}</div>
+            <div class="funnel-bar" style="--fill: ${pct}%;background:linear-gradient(90deg, ${stageColor} 0%, ${stageColor} var(--fill), #e0e0e0 var(--fill));height:40px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:14px;transition:all 0.3s;">${count}</div>
         `;
         container.appendChild(item);
     });
@@ -4538,15 +4574,12 @@ async function showTaskDetail(taskId) {
     const assignee = allUsers.find(u => u.id === task.assigned_to);
     const deadline = deadlineInfo(task.deadline);
     const dept = allDepartments.find(d => d.id === task.department_id);
-    const statusCfg = {new:{l:'Новая',c:'#3b82f6'},in_progress:{l:'В работе',c:'#f59e0b'},review:{l:'Согласование',c:'#8b5cf6'},done:{l:'Готово',c:'#22c55e'},cancelled:{l:'Отменена',c:'#94a3b8'}};
     const priCfg = {high:{l:'Высокий',c:'#ef4444'},medium:{l:'Средний',c:'#f59e0b'},low:{l:'Низкий',c:'#22c55e'}};
-    const sc = statusCfg[task.status] || statusCfg.new;
+    const sc = {l: getStageLabel(task.status), c: getStageColor(task.status)};
     const pc = priCfg[task.priority] || priCfg.medium;
 
     // Header: title + close + status badge + edit btn + stage switcher
-    const allStatuses = ['new','in_progress','review','done','cancelled'];
-    const stageLabels = {new:'Новая',in_progress:'В работе',review:'Согласование',done:'Готово',cancelled:'Отменена'};
-    const stageColors = {new:'#3b82f6',in_progress:'#f59e0b',review:'#8b5cf6',done:'#22c55e',cancelled:'#94a3b8'};
+    const allStatuses = [...getStageKeys(), 'cancelled'];
     const currentIdx = allStatuses.indexOf(task.status);
 
     document.getElementById('detailHeader').innerHTML = `
@@ -4572,12 +4605,12 @@ async function showTaskDetail(taskId) {
     allStatuses.forEach(function(s, i) {
         var isActive = s === task.status;
         var isPast = i < currentIdx;
-        var color = stageColors[s];
+        var color = getStageColor(s);
         var bg = isActive ? color : (isPast ? color + '22' : 'transparent');
         var txtColor = isActive ? 'white' : (isPast ? color : '#94a3b8');
         var fw = isActive ? '700' : (isPast ? '600' : '500');
         var cur = isActive ? 'default' : 'pointer';
-        stageBarHtml += '<div onclick="detailChangeStage(\''+s+'\','+task.id+')" style="flex:1;text-align:center;padding:7px 4px;border-radius:8px;font-size:11px;font-weight:'+fw+';color:'+txtColor+';background:'+bg+';cursor:'+cur+';transition:all 0.2s;position:relative;white-space:nowrap;">'+stageLabels[s];
+        stageBarHtml += '<div onclick="detailChangeStage(\''+s+'\','+task.id+')" style="flex:1;text-align:center;padding:7px 4px;border-radius:8px;font-size:11px;font-weight:'+fw+';color:'+txtColor+';background:'+bg+';cursor:'+cur+';transition:all 0.2s;position:relative;white-space:nowrap;">'+getStageLabel(s);
         if (i < allStatuses.length - 1) {
             stageBarHtml += '<span style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:#cbd5e1;font-size:10px;z-index:1;">&#8250;</span>';
         }
@@ -4928,7 +4961,7 @@ async function loadDetailActivity(taskId) {
 
 function translateValue(val, action) {
     if (!val) return val;
-    const statusMap = {'new':'Новая','todo':'Новая','in_progress':'В работе','review':'На согласовании','done':'Готово','cancelled':'Отменена'};
+    const statusMap = {}; allStages.forEach(s => statusMap[s.key] = s.label); statusMap.cancelled = 'Отменена'; statusMap.todo = statusMap.new || 'Новая';
     const priorityMap = {'low':'Низкий','medium':'Средний','high':'Высокий','urgent':'Срочный'};
     if (action && (action.includes('status'))) return statusMap[val] || val;
     if (action && (action.includes('priority'))) return priorityMap[val] || val;
@@ -5601,6 +5634,7 @@ async function renderAdmin() {
             const target = tab.getAttribute('data-admin-tab');
             if (target === 'users') document.getElementById('adminTabUsers').style.display = 'block';
             else if (target === 'departments') document.getElementById('adminTabDepartments').style.display = 'block';
+            else if (target === 'stages') { document.getElementById('adminTabStages').style.display = 'block'; renderAdminStages(); }
             else if (target === 'settings') document.getElementById('adminTabSettings').style.display = 'block';
             else if (target === 'feedback') { document.getElementById('adminTabFeedback').style.display = 'block'; loadAdminFeedback(); }
         };
@@ -5630,6 +5664,129 @@ async function loadAdminFeedback() {
             <div style="font-size:14px;color:var(--text-primary);line-height:1.5;">${f.text || '<em style="color:var(--text-secondary);">Без комментария</em>'}</div>
         </div>`;
     }).join('');
+}
+
+// === Admin Stages Management ===
+async function renderAdminStages() {
+    const stages = await apiCall('/api/stages');
+    if (stages) allStages = stages;
+    const list = document.getElementById('adminStagesList');
+    if (!allStages.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">Нет этапов</div>'; return; }
+    list.innerHTML = allStages.map((s, idx) => `
+        <div style="padding:14px 16px;border:1px solid var(--border-color);border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid ${s.color};">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span style="font-size:20px;">${s.icon || '📋'}</span>
+                <div>
+                    <div style="font-weight:600;font-size:14px;">${s.label}</div>
+                    <div style="font-size:11px;color:var(--text-secondary);">key: ${s.key} • порядок: ${idx + 1}</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                ${idx > 0 ? `<button onclick="moveStage(${s.id},'up')" style="padding:4px 8px;border:1px solid var(--border-color);border-radius:6px;background:white;cursor:pointer;font-size:14px;" title="Вверх">↑</button>` : ''}
+                ${idx < allStages.length - 1 ? `<button onclick="moveStage(${s.id},'down')" style="padding:4px 8px;border:1px solid var(--border-color);border-radius:6px;background:white;cursor:pointer;font-size:14px;" title="Вниз">↓</button>` : ''}
+                <button onclick="editStageInline(${s.id})" style="padding:4px 10px;border:1px solid var(--border-color);border-radius:6px;background:white;cursor:pointer;font-size:12px;color:var(--blue);">Изм.</button>
+                ${allStages.length > 2 ? `<button onclick="deleteStage(${s.id},'${s.key}','${s.label.replace(/'/g,"\\'")}')" style="padding:4px 10px;border:1px solid var(--border-color);border-radius:6px;background:white;cursor:pointer;font-size:12px;color:var(--danger);">Удалить</button>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function showAddStageForm() {
+    const container = document.getElementById('addStageFormContainer');
+    container.style.display = 'block';
+    const colors = ['#3b82f6','#f59e0b','#22c55e','#8b5cf6','#ef4444','#06b6d4','#ec4899','#f97316'];
+    const icons = ['📋','⚡','✅','🔍','🚀','⏳','📝','🎯','💬','🔧'];
+    container.innerHTML = `
+        <div style="font-size:16px;font-weight:700;margin-bottom:16px;">Новый этап</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div>
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Название</label>
+                <input id="newStageLabel" type="text" placeholder="Например: На проверке" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Ключ (англ, необязательно)</label>
+                <input id="newStageKey" type="text" placeholder="auto" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
+            </div>
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">Цвет</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${colors.map(c => `<div onclick="document.getElementById('newStageColor').value='${c}';document.querySelectorAll('.stage-color-opt').forEach(el=>el.style.outline='none');this.style.outline='3px solid #333'" class="stage-color-opt" style="width:32px;height:32px;border-radius:8px;background:${c};cursor:pointer;transition:all 0.15s;"></div>`).join('')}
+            </div>
+            <input id="newStageColor" type="hidden" value="#3b82f6">
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">Иконка</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${icons.map(ic => `<div onclick="document.getElementById('newStageIcon').value='${ic}';document.querySelectorAll('.stage-icon-opt').forEach(el=>el.style.outline='none');this.style.outline='3px solid #333'" class="stage-icon-opt" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.15s;">${ic}</div>`).join('')}
+            </div>
+            <input id="newStageIcon" type="hidden" value="📋">
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button onclick="saveNewStage()" class="btn btn-primary" style="padding:8px 20px;font-size:13px;">Добавить</button>
+            <button onclick="document.getElementById('addStageFormContainer').style.display='none'" style="padding:8px 20px;border:1px solid var(--border-color);border-radius:8px;background:white;cursor:pointer;font-size:13px;">Отмена</button>
+        </div>
+    `;
+}
+
+async function saveNewStage() {
+    const label = document.getElementById('newStageLabel').value.trim();
+    if (!label) { showToast('Введите название', 'error'); return; }
+    const key = document.getElementById('newStageKey').value.trim();
+    const color = document.getElementById('newStageColor').value;
+    const icon = document.getElementById('newStageIcon').value;
+    const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify({label, key: key || undefined, color, icon})});
+    if (result && result.ok) {
+        showToast('Этап добавлен', 'success');
+        document.getElementById('addStageFormContainer').style.display = 'none';
+        await loadStages();
+        renderAdminStages();
+    } else {
+        showToast(result?.error || 'Ошибка', 'error');
+    }
+}
+
+async function deleteStage(id, key, label) {
+    const otherStages = allStages.filter(s => s.id !== id);
+    if (!otherStages.length) return;
+    const moveToKey = otherStages[0].key;
+    if (!confirm(`Удалить этап «${label}»? Задачи будут перемещены в «${otherStages[0].label}».`)) return;
+    const result = await apiCall('/api/stages/delete', {method:'POST', body: JSON.stringify({id, move_to_key: moveToKey})});
+    if (result && result.ok) {
+        showToast('Этап удалён', 'success');
+        await loadStages();
+        renderAdminStages();
+    } else {
+        showToast(result?.error || 'Ошибка', 'error');
+    }
+}
+
+async function moveStage(id, direction) {
+    const idx = allStages.findIndex(s => s.id === id);
+    if (idx < 0) return;
+    const newOrder = allStages.map(s => s.id);
+    if (direction === 'up' && idx > 0) { [newOrder[idx], newOrder[idx-1]] = [newOrder[idx-1], newOrder[idx]]; }
+    else if (direction === 'down' && idx < newOrder.length - 1) { [newOrder[idx], newOrder[idx+1]] = [newOrder[idx+1], newOrder[idx]]; }
+    const result = await apiCall('/api/stages/reorder', {method:'POST', body: JSON.stringify({order: newOrder})});
+    if (result && result.ok) {
+        await loadStages();
+        renderAdminStages();
+    }
+}
+
+async function editStageInline(id) {
+    const stage = allStages.find(s => s.id === id);
+    if (!stage) return;
+    const newLabel = prompt('Название этапа:', stage.label);
+    if (!newLabel || newLabel === stage.label) return;
+    const result = await apiCall('/api/stages/update', {method:'POST', body: JSON.stringify({id, label: newLabel})});
+    if (result && result.ok) {
+        showToast('Обновлено', 'success');
+        await loadStages();
+        renderAdminStages();
+    } else {
+        showToast(result?.error || 'Ошибка', 'error');
+    }
 }
 
 async function renderAdminDepts() {
@@ -6111,13 +6268,12 @@ function openCardEditor(event, taskId, field) {
         modalHTML += '</div>';
     } else if (field === 'status') {
         modalHTML = '<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;">Выбрать статус</div>';
-        const statuses = ['new', 'in_progress', 'review', 'done', 'cancelled'];
-        const statusLabels = {new:'Новая', in_progress:'В работе', review:'Согласование', done:'Готово', cancelled:'Отменена'};
-        const statusColors = {new:'#3b82f6', in_progress:'#f59e0b', review:'#8b5cf6', done:'#22c55e', cancelled:'#94a3b8'};
+        const statuses = [...getStageKeys(), 'cancelled'];
         modalHTML += '<div style="display:flex;flex-direction:column;gap:8px;">';
         statuses.forEach(s => {
-            const color = statusColors[s];
-            modalHTML += '<div onclick="saveCardField(' + taskId + ',\'status\',\'' + s + '\');overlay.remove();" style="padding:10px;border-radius:8px;cursor:pointer;transition:all 0.2s;' + (task.status === s ? 'background:' + color + ';color:white;' : 'background:' + color + '12;color:' + color + ';') + '" onmouseenter="this.style.opacity=\'0.8\'" onmouseleave="this.style.opacity=\'1\'">' + statusLabels[s] + '</div>';
+            const color = getStageColor(s);
+            const label = getStageLabel(s);
+            modalHTML += '<div onclick="saveCardField(' + taskId + ',\'status\',\'' + s + '\');overlay.remove();" style="padding:10px;border-radius:8px;cursor:pointer;transition:all 0.2s;' + (task.status === s ? 'background:' + color + ';color:white;' : 'background:' + color + '12;color:' + color + ';') + '" onmouseenter="this.style.opacity=\'0.8\'" onmouseleave="this.style.opacity=\'1\'">' + label + '</div>';
         });
         modalHTML += '</div>';
     } else if (field === 'priority') {

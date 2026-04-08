@@ -396,6 +396,31 @@ def init_db():
         ]:
             c.execute("INSERT INTO departments (name, head_name, color) VALUES (?,?,?)", (name, head, color))
 
+    # Migrate: create funnel_stages table
+    try:
+        c.execute("SELECT 1 FROM funnel_stages LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("""
+            CREATE TABLE funnel_stages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT UNIQUE NOT NULL,
+                label TEXT NOT NULL,
+                color TEXT DEFAULT '#3b82f6',
+                icon TEXT DEFAULT '',
+                sort_order INTEGER DEFAULT 0
+            )
+        """)
+        # Default stages: Новый → В работе → Готово
+        for sort_order, (key, label, color, icon) in enumerate([
+            ('new', 'Новые', '#3b82f6', '📋'),
+            ('in_progress', 'В работе', '#f59e0b', '⚡'),
+            ('done', 'Готово', '#22c55e', '✅'),
+        ]):
+            c.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order) VALUES (?,?,?,?,?)",
+                       (key, label, color, icon, sort_order))
+        # Migrate existing tasks from 'review' to 'in_progress'
+        c.execute("UPDATE tasks SET status='in_progress' WHERE status='review'")
+
     # Seed admin
     if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
         c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (?,?,?,?,?,?,?)",
@@ -704,6 +729,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 dept = dict(d) if d else None
             conn.close()
             return self._json({**dict(row), "department": dept})
+
+        if path == "/api/stages":
+            conn = get_db()
+            rows = conn.execute("SELECT * FROM funnel_stages ORDER BY sort_order").fetchall()
+            conn.close()
+            return self._json([dict(r) for r in rows])
 
         if path == "/api/departments":
             conn = get_db()
@@ -1622,6 +1653,91 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"ok": True, "car_override": car_level})
 
+        # === Stage management (admin only) ===
+        if path == "/api/stages/add":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            if u.get('role') != 'admin': return self._json({"error": "Только для админов"}, 403)
+            label = data.get('label', '').strip()
+            if not label: return self._json({"error": "Название обязательно"}, 400)
+            key = data.get('key', '').strip()
+            if not key:
+                # Auto-generate key from label
+                key = label.lower().replace(' ', '_')
+                key = ''.join(c for c in key if c.isalnum() or c == '_')
+                if not key: key = 'stage_' + str(int(__import__('time').time()))
+            color = data.get('color', '#3b82f6')
+            icon = data.get('icon', '📋')
+            conn = get_db()
+            # Check uniqueness
+            existing = conn.execute("SELECT id FROM funnel_stages WHERE key=?", (key,)).fetchone()
+            if existing:
+                conn.close()
+                return self._json({"error": "Этап с таким ключом уже есть"}, 400)
+            max_order = conn.execute("SELECT MAX(sort_order) FROM funnel_stages").fetchone()[0] or 0
+            conn.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order) VALUES (?,?,?,?,?)",
+                         (key, label, color, icon, max_order + 1))
+            conn.commit()
+            new_stage = conn.execute("SELECT * FROM funnel_stages WHERE key=?", (key,)).fetchone()
+            conn.close()
+            return self._json({"ok": True, "stage": dict(new_stage)})
+
+        if path == "/api/stages/delete":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            if u.get('role') != 'admin': return self._json({"error": "Только для админов"}, 403)
+            stage_id = data.get('id')
+            move_to = data.get('move_to_key', 'new')
+            if not stage_id: return self._json({"error": "id обязателен"}, 400)
+            conn = get_db()
+            stage = conn.execute("SELECT * FROM funnel_stages WHERE id=?", (stage_id,)).fetchone()
+            if not stage:
+                conn.close()
+                return self._json({"error": "Этап не найден"}, 404)
+            # Don't allow deleting if only 2 stages remain
+            count = conn.execute("SELECT COUNT(*) FROM funnel_stages").fetchone()[0]
+            if count <= 2:
+                conn.close()
+                return self._json({"error": "Нельзя удалить: минимум 2 этапа"}, 400)
+            # Move tasks from deleted stage to move_to
+            conn.execute("UPDATE tasks SET status=? WHERE status=?", (move_to, stage['key']))
+            conn.execute("DELETE FROM funnel_stages WHERE id=?", (stage_id,))
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/stages/update":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            if u.get('role') != 'admin': return self._json({"error": "Только для админов"}, 403)
+            stage_id = data.get('id')
+            if not stage_id: return self._json({"error": "id обязателен"}, 400)
+            conn = get_db()
+            stage = conn.execute("SELECT * FROM funnel_stages WHERE id=?", (stage_id,)).fetchone()
+            if not stage:
+                conn.close()
+                return self._json({"error": "Этап не найден"}, 404)
+            label = data.get('label', stage['label']).strip()
+            color = data.get('color', stage['color'])
+            icon = data.get('icon', stage['icon'])
+            conn.execute("UPDATE funnel_stages SET label=?, color=?, icon=? WHERE id=?", (label, color, icon, stage_id))
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True})
+
+        if path == "/api/stages/reorder":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            if u.get('role') != 'admin': return self._json({"error": "Только для админов"}, 403)
+            order = data.get('order', [])  # list of stage IDs in new order
+            if not order: return self._json({"error": "order обязателен"}, 400)
+            conn = get_db()
+            for idx, sid in enumerate(order):
+                conn.execute("UPDATE funnel_stages SET sort_order=? WHERE id=?", (idx, sid))
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True})
+
         if path == "/api/gamification/check":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
@@ -1894,7 +2010,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
 
                 # Log all field changes with old/new values
-                status_names = {"new":"Новая","todo":"Новая","in_progress":"В работе","review":"Согласование","done":"Готово","cancelled":"Отменена"}
+                # Build status names from DB stages
+                _stages = conn.execute("SELECT key, label FROM funnel_stages").fetchall()
+                status_names = {s['key']: s['label'] for s in _stages}
+                status_names.update({"cancelled": "Отменена", "todo": "Новая"})  # fallbacks
                 priority_names = {"low":"Низкий","medium":"Средний","high":"Высокий","urgent":"Срочный"}
                 if old_task:
                     for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline"]:
