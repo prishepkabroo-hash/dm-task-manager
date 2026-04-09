@@ -3476,102 +3476,103 @@ function dpFocus(el) {
 }
 // Calendar popup
 let activeCalendarPopup = null;
+let activeCalendarDp = null;
 function toggleCalendarPopup(btn) {
-    // Close any existing popup
-    if (activeCalendarPopup) { activeCalendarPopup.remove(); activeCalendarPopup = null; return; }
+    if (activeCalendarPopup) { closeCalendarPopup(); return; }
     const dp = btn.closest('.date-picker-custom');
     dp.style.position = 'relative';
-    // Get current date from fields
+    activeCalendarDp = dp;
     const curDay = parseInt(dp.querySelector('.dp-day').value) || new Date().getDate();
     const curMonth = parseInt(dp.querySelector('.dp-month').value) || (new Date().getMonth() + 1);
     const curYear = parseInt(dp.querySelector('.dp-year').value) || new Date().getFullYear();
-    renderCalendarPopup(dp, curYear, curMonth, curDay);
+    renderCalendarPopup(curYear, curMonth, curDay);
 }
-function renderCalendarPopup(dp, year, month, selectedDay) {
+function closeCalendarPopup() {
+    if (activeCalendarPopup) { activeCalendarPopup.remove(); activeCalendarPopup = null; }
+    document.removeEventListener('mousedown', calOutsideClick);
+}
+function renderCalendarPopup(year, month, selectedDay) {
+    const dp = activeCalendarDp;
+    if (!dp) return;
+    // Remove old popup but keep reference alive
     if (activeCalendarPopup) activeCalendarPopup.remove();
     const cal = document.createElement('div');
     cal.className = 'dp-calendar';
+    // Stop all clicks inside calendar from bubbling
+    cal.addEventListener('mousedown', function(e) { e.stopPropagation(); });
     activeCalendarPopup = cal;
     const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const weekDays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-    // Header
     let html = '<div class="dp-calendar-header">';
-    html += '<button onclick="calNav(this,-1,\'y\')" title="Пред. год">&laquo;</button>';
-    html += '<button onclick="calNav(this,-1,\'m\')" title="Пред. месяц">&lsaquo;</button>';
+    html += '<button onclick="calNav(-1,\'y\')" title="Пред. год">&laquo;</button>';
+    html += '<button onclick="calNav(-1,\'m\')" title="Пред. месяц">&lsaquo;</button>';
     html += '<span>' + monthNames[month-1] + ' ' + year + '</span>';
-    html += '<button onclick="calNav(this,1,\'m\')" title="След. месяц">&rsaquo;</button>';
-    html += '<button onclick="calNav(this,1,\'y\')" title="След. год">&raquo;</button>';
+    html += '<button onclick="calNav(1,\'m\')" title="След. месяц">&rsaquo;</button>';
+    html += '<button onclick="calNav(1,\'y\')" title="След. год">&raquo;</button>';
     html += '</div>';
-    // Weekday headers
     html += '<div class="dp-calendar-grid">';
     weekDays.forEach(w => html += '<div class="dp-weekday">' + w + '</div>');
-    // Days
     const firstDay = new Date(year, month-1, 1).getDay();
-    const startDay = firstDay === 0 ? 6 : firstDay - 1; // Monday=0
+    const startDay = firstDay === 0 ? 6 : firstDay - 1;
     const daysInMonth = new Date(year, month, 0).getDate();
     const daysInPrev = new Date(year, month-1, 0).getDate();
     const today = new Date();
     const todayStr = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
-    // Previous month days
     for (let i = startDay - 1; i >= 0; i--) {
         const d = daysInPrev - i;
-        html += '<button class="dp-day-cell other-month" onclick="calPick(this,' + (month===1?year-1:year) + ',' + (month===1?12:month-1) + ',' + d + ')">' + d + '</button>';
+        const py = month===1 ? year-1 : year;
+        const pm = month===1 ? 12 : month-1;
+        html += '<button class="dp-day-cell other-month" onclick="calPick('+py+','+pm+','+d+')">' + d + '</button>';
     }
-    // Current month days
     for (let d = 1; d <= daysInMonth; d++) {
         const isToday = year+'-'+month+'-'+d === todayStr;
         const isSel = d === selectedDay;
         let cls = 'dp-day-cell';
         if (isToday) cls += ' today';
         if (isSel) cls += ' selected';
-        html += '<button class="' + cls + '" onclick="calPick(this,' + year + ',' + month + ',' + d + ')">' + d + '</button>';
+        html += '<button class="' + cls + '" onclick="calPick('+year+','+month+','+d+')">' + d + '</button>';
     }
-    // Next month days
     const totalCells = startDay + daysInMonth;
     const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
     for (let d = 1; d <= remaining; d++) {
-        html += '<button class="dp-day-cell other-month" onclick="calPick(this,' + (month===12?year+1:year) + ',' + (month===12?1:month+1) + ',' + d + ')">' + d + '</button>';
+        const ny = month===12 ? year+1 : year;
+        const nm = month===12 ? 1 : month+1;
+        html += '<button class="dp-day-cell other-month" onclick="calPick('+ny+','+nm+','+d+')">' + d + '</button>';
     }
     html += '</div>';
-    // Today button
-    html += '<div style="text-align:center;margin-top:8px;"><button onclick="calPickToday(this)" style="padding:4px 12px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:11px;color:#3b82f6;font-weight:600;transition:all 0.15s;" onmouseenter="this.style.background=\'#eff6ff\'" onmouseleave="this.style.background=\'white\'">Сегодня</button></div>';
+    html += '<div style="text-align:center;margin-top:8px;"><button onclick="calPickToday()" style="padding:4px 12px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:11px;color:#3b82f6;font-weight:600;">Сегодня</button></div>';
     cal.innerHTML = html;
     cal.dataset.year = year;
     cal.dataset.month = month;
     cal.dataset.selDay = selectedDay;
     dp.appendChild(cal);
-    // Close on outside click
-    setTimeout(() => document.addEventListener('click', calOutsideClick), 0);
+    document.removeEventListener('mousedown', calOutsideClick);
+    setTimeout(() => document.addEventListener('mousedown', calOutsideClick), 10);
 }
 function calOutsideClick(e) {
-    if (activeCalendarPopup && !activeCalendarPopup.contains(e.target) && !e.target.classList.contains('dp-cal-btn')) {
-        activeCalendarPopup.remove();
-        activeCalendarPopup = null;
-        document.removeEventListener('click', calOutsideClick);
+    if (activeCalendarPopup && !activeCalendarPopup.contains(e.target) && !e.target.closest('.dp-cal-btn')) {
+        closeCalendarPopup();
     }
 }
-function calNav(btn, dir, unit) {
-    const cal = btn.closest('.dp-calendar');
-    const dp = cal.parentElement;
-    let y = parseInt(cal.dataset.year);
-    let m = parseInt(cal.dataset.month);
-    const selDay = parseInt(cal.dataset.selDay) || 0;
+function calNav(dir, unit) {
+    if (!activeCalendarPopup) return;
+    let y = parseInt(activeCalendarPopup.dataset.year);
+    let m = parseInt(activeCalendarPopup.dataset.month);
+    const selDay = parseInt(activeCalendarPopup.dataset.selDay) || 0;
     if (unit === 'm') { m += dir; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } }
     if (unit === 'y') { y += dir; }
-    renderCalendarPopup(dp, y, m, selDay);
+    renderCalendarPopup(y, m, selDay);
 }
-function calPick(btn, year, month, day) {
-    const dp = btn.closest('.date-picker-custom');
-    dp.querySelector('.dp-day').value = String(day).padStart(2, '0');
-    dp.querySelector('.dp-month').value = String(month).padStart(2, '0');
-    dp.querySelector('.dp-year').value = String(year);
-    if (activeCalendarPopup) { activeCalendarPopup.remove(); activeCalendarPopup = null; }
-    document.removeEventListener('click', calOutsideClick);
+function calPick(year, month, day) {
+    if (!activeCalendarDp) return;
+    activeCalendarDp.querySelector('.dp-day').value = String(day).padStart(2, '0');
+    activeCalendarDp.querySelector('.dp-month').value = String(month).padStart(2, '0');
+    activeCalendarDp.querySelector('.dp-year').value = String(year);
+    closeCalendarPopup();
 }
-function calPickToday(btn) {
-    const dp = btn.closest('.date-picker-custom');
+function calPickToday() {
     const t = new Date();
-    calPick(btn, t.getFullYear(), t.getMonth() + 1, t.getDate());
+    calPick(t.getFullYear(), t.getMonth() + 1, t.getDate());
 }
 
 async function refreshOnlineStatus() {
