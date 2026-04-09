@@ -2373,11 +2373,14 @@
             border-right: 10px solid white;
             left: -10px;
         }
-        .time-picker-custom { display:inline-flex; align-items:center; gap:2px; }
-        .time-picker-custom input { width:36px; padding:6px 4px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; text-align:center; outline:none; -moz-appearance:textfield; }
+        .time-picker-custom, .date-picker-custom { display:inline-flex; align-items:center; gap:2px; }
+        .time-picker-custom input, .date-picker-custom input { width:36px; padding:6px 4px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; text-align:center; outline:none; -moz-appearance:textfield; }
+        .date-picker-custom input.dp-year { width:52px; }
         .time-picker-custom input::-webkit-outer-spin-button,
-        .time-picker-custom input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
-        .time-picker-custom span { font-weight:600; color:#64748b; }
+        .time-picker-custom input::-webkit-inner-spin-button,
+        .date-picker-custom input::-webkit-outer-spin-button,
+        .date-picker-custom input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+        .time-picker-custom span, .date-picker-custom span { font-weight:600; color:#64748b; }
         .online-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-left:4px; vertical-align:middle; border:2px solid white; }
         .online-dot.online { background:#22c55e; }
         .online-dot.away { background:#f59e0b; }
@@ -2783,7 +2786,7 @@
                                 <select id="listQtStatus" class="dynamic-status-select" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
                                     <option value="new">Новая</option>
                                 </select>
-                                <input type="date" id="listQtDeadline" onfocus="setDefaultDate(this)" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
+                                <div class="date-picker-custom" id="listQtDeadline"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
                                 <button onclick="submitListQuickTask()" style="padding:8px 16px;background:var(--blue);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Создать</button>
                             </div>
                         </div>
@@ -3134,7 +3137,7 @@
                     <div class="form-group">
                         <label class="form-label">Дедлайн</label>
                         <div style="display:flex;gap:8px;">
-                            <input type="date" id="taskDeadlineDate" onfocus="setDefaultDate(this)" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Дата">
+                            <div class="date-picker-custom" id="taskDeadlineDate"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
                             <div class="time-picker-custom" id="taskDeadlineTime">
                               <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
                               <span>:</span>
@@ -3361,15 +3364,17 @@ function tpKey(el, type, e) {
             const prev = tp.querySelector('.tp-hours');
             if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
         } else if (type === 'h') {
-            // Hours empty -> find date input: check siblings of time-picker, then parent, then grandparent
-            let dateInput = null;
+            // Hours empty -> find year field in date-picker, or native date input
+            let target = null;
             let node = tp;
-            for (let i = 0; i < 3 && !dateInput; i++) {
+            for (let i = 0; i < 3 && !target; i++) {
                 const parent = node.parentElement;
-                if (parent) dateInput = parent.querySelector('input[type="date"], input[type="datetime-local"]');
+                if (parent) {
+                    target = parent.querySelector('.date-picker-custom .dp-year') || parent.querySelector('input[type="date"]') || parent.querySelector('input[type="datetime-local"]');
+                }
                 node = parent;
             }
-            if (dateInput) dateInput.focus();
+            if (target) { target.focus(); if (target.value) target.setSelectionRange(target.value.length, target.value.length); }
         }
     }
     if (e.key === 'Enter' && type === 'h') {
@@ -3383,6 +3388,81 @@ function tpBlur(el) {
 }
 function setDefaultDate(el) {
     if (!el.value) { const d = new Date(); el.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+}
+// Custom date picker: DD.MM.YYYY
+function dpInput(el, type) {
+    el.value = el.value.replace(/\D/g, '');
+    const maxLen = type === 'y' ? 4 : 2;
+    if (el.value.length > maxLen) el.value = el.value.slice(0, maxLen);
+    if (type === 'd' && el.value !== '' && parseInt(el.value) > 31) el.value = '31';
+    if (type === 'mo' && el.value !== '' && parseInt(el.value) > 12) el.value = '12';
+    if (type === 'd' && el.value.length === 2) {
+        const next = el.closest('.date-picker-custom').querySelector('.dp-month');
+        if (next) { next.focus(); next.select(); }
+    }
+    if (type === 'mo' && el.value.length === 2) {
+        const next = el.closest('.date-picker-custom').querySelector('.dp-year');
+        if (next) { next.focus(); next.select(); }
+    }
+    if (type === 'y' && el.value.length === 4) {
+        // Advance to hours if time picker exists nearby
+        const tp = el.closest('.date-picker-custom').parentElement.querySelector('.time-picker-custom .tp-hours');
+        if (tp) { tp.focus(); tp.select(); } else { el.blur(); }
+    }
+}
+function dpKey(el, type, e) {
+    if ((e.key === 'Backspace' || e.key === 'Delete') && el.value === '') {
+        e.preventDefault();
+        const dp = el.closest('.date-picker-custom');
+        if (type === 'y') {
+            const prev = dp.querySelector('.dp-month');
+            if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
+        } else if (type === 'mo') {
+            const prev = dp.querySelector('.dp-day');
+            if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
+        }
+    }
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (type === 'd') { const n = el.closest('.date-picker-custom').querySelector('.dp-month'); if (n) { n.focus(); n.select(); } }
+        if (type === 'mo') { const n = el.closest('.date-picker-custom').querySelector('.dp-year'); if (n) { n.focus(); n.select(); } }
+        if (type === 'y') { const tp = el.closest('.date-picker-custom').parentElement.querySelector('.time-picker-custom .tp-hours'); if (tp) { tp.focus(); tp.select(); } }
+    }
+}
+function dpBlur(el, type) {
+    if (el.value !== '' && type !== 'y' && el.value.length === 1) el.value = el.value.padStart(2, '0');
+    if (el.value !== '' && type === 'y' && el.value.length < 4) {
+        const y = new Date().getFullYear();
+        el.value = String(y);
+    }
+    // Auto-fill year with current year on first focus of day
+    const dp = el.closest('.date-picker-custom');
+    const yearEl = dp.querySelector('.dp-year');
+    if (yearEl && !yearEl.value) yearEl.value = new Date().getFullYear();
+}
+function getCustomDate(container) {
+    const d = container.querySelector('.dp-day');
+    const m = container.querySelector('.dp-month');
+    const y = container.querySelector('.dp-year');
+    if (!d || !m || !y || (!d.value && !m.value)) return '';
+    const dd = (d.value || '01').padStart(2, '0');
+    const mm = (m.value || '01').padStart(2, '0');
+    const yyyy = y.value || String(new Date().getFullYear());
+    return yyyy + '-' + mm + '-' + dd;
+}
+function setCustomDate(container, dateStr) {
+    if (!container) return;
+    const d = container.querySelector('.dp-day');
+    const m = container.querySelector('.dp-month');
+    const y = container.querySelector('.dp-year');
+    if (!dateStr || !d || !m || !y) return;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) { y.value = parts[0]; m.value = parts[1]; d.value = parts[2]; }
+}
+function dpFocus(el) {
+    const dp = el.closest('.date-picker-custom');
+    const yearEl = dp.querySelector('.dp-year');
+    if (yearEl && !yearEl.value) yearEl.value = new Date().getFullYear();
 }
 
 async function refreshOnlineStatus() {
@@ -4226,7 +4306,7 @@ async function renderKanban() {
                     ${allDepartments.map(d => '<option value="'+d.id+'"'+(currentUser.department_id==d.id?' selected':'')+'>'+d.name+'</option>').join('')}
                 </select>
                 <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
-                    <input type="date" class="qt-deadline-date" onfocus="setDefaultDate(this)" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;box-sizing:border-box;" placeholder="Дата">
+                    <div class="date-picker-custom qt-deadline-date"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" style="width:28px;" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" style="width:28px;" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" style="width:44px;" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
                     <div class="time-picker-custom qt-deadline-time" style="flex-shrink:0;">
                       <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" style="width:32px;" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
                       <span>:</span>
@@ -4354,7 +4434,7 @@ async function submitQuickTask(el, status) {
     if (!title) { titleInput.style.borderColor = '#ef4444'; return; }
     if (!department_id) { deptSelect.style.borderColor = '#ef4444'; return; }
 
-    const dateVal = dateInput.value;
+    const dateVal = getCustomDate(dateInput);
     const timeVal = timeContainer ? getCustomTime(timeContainer) : '';
     const deadline = dateVal ? (dateVal + (timeVal ? 'T' + timeVal : 'T09:00')) : null;
     const payload = {title, description:'', status, priority:'medium', department_id, deadline, assigned_to: currentUser.id};
@@ -4731,7 +4811,7 @@ async function submitListQuickTask() {
     const title = document.getElementById('listQtTitle').value.trim();
     const deptVal = document.getElementById('listQtDept').value;
     const status = document.getElementById('listQtStatus').value;
-    const deadline = document.getElementById('listQtDeadline').value;
+    const deadline = getCustomDate(document.getElementById('listQtDeadline'));
 
     if (!title) { document.getElementById('listQtTitle').style.borderColor='#ef4444'; return; }
     if (!deptVal) { document.getElementById('listQtDept').style.borderColor='#ef4444'; return; }
@@ -4786,7 +4866,7 @@ async function showTaskForm(taskId = null) {
         document.getElementById('taskDepartment').value = task.department_id || '';
         const dlDate = task.deadline ? task.deadline.split('T')[0] : '';
         const dlTime = task.deadline && task.deadline.includes('T') ? task.deadline.split('T')[1].slice(0, 5) : '09:00';
-        document.getElementById('taskDeadlineDate').value = dlDate;
+        setCustomDate(document.getElementById('taskDeadlineDate'), dlDate);
         setCustomTime(document.getElementById('taskDeadlineTime'), dlTime);
         document.getElementById('taskAssignee').value = task.assigned_to || '';
     } else {
@@ -4864,7 +4944,7 @@ async function saveTask() {
     const priority = document.getElementById('taskPriority').value;
     const deptVal = document.getElementById('taskDepartment').value;
     const department_id = deptVal ? parseInt(deptVal) : null;
-    const dateVal = document.getElementById('taskDeadlineDate').value;
+    const dateVal = getCustomDate(document.getElementById('taskDeadlineDate'));
     const timeVal = getCustomTime(document.getElementById('taskDeadlineTime'));
     const deadline = dateVal ? (dateVal + (timeVal ? 'T' + timeVal : 'T09:00')) : null;
     const assignVal = document.getElementById('taskAssignee').value;
@@ -7137,7 +7217,7 @@ function openDeadlineCalendar(event, taskId) {
         <div style="display:flex;gap:16px;margin-bottom:20px;">
             <div style="flex:1;">
                 <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">Дата</label>
-                <input type="date" id="dlCalendarDate" value="${dlDate.toISOString().split('T')[0]}" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;cursor:pointer;">
+                <div class="date-picker-custom" id="dlCalendarDate" style="justify-content:center;"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
             </div>
             <div style="flex:1;">
                 <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">Время</label>
@@ -7157,11 +7237,12 @@ function openDeadlineCalendar(event, taskId) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     setCustomTime(document.getElementById('dlCalendarTime'), dlTime);
-    document.getElementById('dlCalendarDate').focus();
+    setCustomDate(document.getElementById('dlCalendarDate'), dlDate.toISOString().split('T')[0]);
+    document.getElementById('dlCalendarDate').querySelector('.dp-day').focus();
 }
 
 async function saveDealineFromCalendar(taskId) {
-    const dateVal = document.getElementById('dlCalendarDate').value;
+    const dateVal = getCustomDate(document.getElementById('dlCalendarDate'));
     const timeVal = getCustomTime(document.getElementById('dlCalendarTime'));
     if (!dateVal) return;
     const deadlineStr = dateVal + (timeVal ? 'T' + timeVal : 'T09:00');
@@ -7225,7 +7306,7 @@ function openCardEditor(event, taskId, field) {
         modalHTML += '<div style="display:flex;flex-direction:column;gap:12px;">';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Дата</label>';
-        modalHTML += '<input type="date" id="ceDate" value="' + dlDate.toISOString().split('T')[0] + '" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">';
+        modalHTML += '<div class="date-picker-custom" id="ceDate"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,\'d\')" onkeydown="dpKey(this,\'d\',event)" onblur="dpBlur(this,\'d\')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,\'mo\')" onkeydown="dpKey(this,\'mo\',event)" onblur="dpBlur(this,\'mo\')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,\'y\')" onkeydown="dpKey(this,\'y\',event)" onblur="dpBlur(this,\'y\')"></div>';
         modalHTML += '</div>';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Время</label>';
@@ -7247,6 +7328,7 @@ function openCardEditor(event, taskId, field) {
     document.body.appendChild(overlay);
     if (field === 'deadline') {
         const dlTime = task.deadline && task.deadline.includes('T') ? task.deadline.split('T')[1].slice(0, 5) : '09:00';
+        setCustomDate(document.getElementById('ceDate'), dlDate.toISOString().split('T')[0]);
         setCustomTime(document.getElementById('ceTime'), dlTime);
     }
 }
@@ -7263,7 +7345,7 @@ async function saveCardField(taskId, field, value) {
 }
 
 async function saveDeadlineFromCardEditor(taskId) {
-    const dateVal = document.getElementById('ceDate').value;
+    const dateVal = getCustomDate(document.getElementById('ceDate'));
     const timeVal = getCustomTime(document.getElementById('ceTime'));
     if (!dateVal) return;
     const deadlineStr = dateVal + (timeVal ? 'T' + timeVal : 'T09:00');
