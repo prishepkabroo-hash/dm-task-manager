@@ -1193,6 +1193,21 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json([dict(m) for m in msgs])
 
+        if path.startswith("/api/messenger/groups/") and path.endswith("/members"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            gid = path.split("/")[4]
+            conn = get_db()
+            members = conn.execute("""
+                SELECT u.id, u.username, u.full_name, u.avatar_color
+                FROM users u
+                JOIN group_chat_members gcm ON u.id = gcm.user_id
+                WHERE gcm.group_id = ?
+                ORDER BY u.full_name ASC
+            """, (gid,)).fetchall()
+            conn.close()
+            return self._json([dict(m) for m in members])
+
         if path == "/api/analytics":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)

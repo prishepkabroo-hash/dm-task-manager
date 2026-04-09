@@ -3136,9 +3136,9 @@
                         <div style="display:flex;gap:8px;">
                             <input type="date" id="taskDeadlineDate" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Дата">
                             <div class="time-picker-custom" id="taskDeadlineTime">
-                              <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                              <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onblur="tpBlur(this)">
                               <span>:</span>
-                              <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
+                              <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,'m')" onblur="tpBlur(this)">
                             </div>
                         </div>
                     </div>
@@ -3340,6 +3340,29 @@ function setCustomTime(container, timeStr) {
     const parts = timeStr.split(':');
     container.querySelector('.tp-hours').value = parts[0] || '';
     container.querySelector('.tp-minutes').value = parts[1] || '';
+}
+
+function tpInput(el, type) {
+    // Remove non-digits
+    el.value = el.value.replace(/\D/g, '');
+    // Limit to 2 chars
+    if (el.value.length > 2) el.value = el.value.slice(0, 2);
+    // Clamp value
+    const max = type === 'h' ? 23 : 59;
+    if (el.value !== '' && parseInt(el.value) > max) el.value = String(max);
+    // Auto-advance: after 2 digits in hours, move to minutes
+    if (type === 'h' && el.value.length === 2) {
+        const next = el.closest('.time-picker-custom').querySelector('.tp-minutes');
+        if (next) { next.focus(); next.select(); }
+    }
+    // Auto-blur minutes after 2 digits
+    if (type === 'm' && el.value.length === 2) {
+        el.blur();
+    }
+}
+
+function tpBlur(el) {
+    if (el.value !== '' && el.value.length === 1) el.value = el.value.padStart(2, '0');
 }
 
 async function refreshOnlineStatus() {
@@ -4185,9 +4208,9 @@ async function renderKanban() {
                 <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
                     <input type="date" class="qt-deadline-date" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;box-sizing:border-box;" placeholder="Дата">
                     <div class="time-picker-custom qt-deadline-time" style="flex-shrink:0;">
-                      <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" style="width:32px;" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                      <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" style="width:32px;" oninput="tpInput(this,'h')" onblur="tpBlur(this)">
                       <span>:</span>
-                      <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" style="width:32px;" onchange="this.value=this.value.padStart(2,'0')">
+                      <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" style="width:32px;" oninput="tpInput(this,'m')" onblur="tpBlur(this)">
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;">
@@ -5741,7 +5764,7 @@ async function selectConversation(userId) {
             msgsHtml += '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">';
             if (isEdited) msgsHtml += '<span style="font-size:9px;color:'+(isMine?'rgba(255,255,255,0.4)':'#b0b8c4')+';">ред.</span>';
             msgsHtml += '<span style="font-size:10px;color:'+(isMine?'rgba(255,255,255,0.5)':'#b0b8c4')+';">'+time+'</span>';
-            if (isMine) msgsHtml += '<span style="font-size:10px;color:'+(m.is_read?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.35)')+';">\u2713\u2713</span>';
+            if (isMine) msgsHtml += m.is_read ? '<svg width="16" height="11" viewBox="0 0 16 11" fill="none" style="flex-shrink:0;"><path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.1 6.84 4.578 5.238a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102c-.18.155-.2.42-.046.6L5.87 7.87l.38.43c.2.2.5.2.7 0l.38-.43 4.6-5.6c.155-.18.134-.445-.046-.6z" fill="#53BDEB"/><path d="M14.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L9.1 6.84 8.578 6.238l-.7.8L8.87 8.17l.38.43c.2.2.5.2.7 0l.38-.43 4.6-5.6c.155-.18.134-.445-.046-.6z" fill="#53BDEB"/></svg>' : '<svg width="16" height="11" viewBox="0 0 16 11" fill="none" style="flex-shrink:0;"><path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.1 6.84 4.578 5.238a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102c-.18.155-.2.42-.046.6L5.87 7.87l.38.43c.2.2.5.2.7 0l.38-.43 4.6-5.6c.155-.18.134-.445-.046-.6z" fill="rgba(255,255,255,0.4)"/><path d="M14.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L9.1 6.84 8.578 6.238l-.7.8L8.87 8.17l.38.43c.2.2.5.2.7 0l.38-.43 4.6-5.6c.155-.18.134-.445-.046-.6z" fill="rgba(255,255,255,0.4)"/></svg>';
             msgsHtml += '</div></div>';
 
             // Reactions
@@ -6326,14 +6349,12 @@ async function loadAdminFeedback() {
         return;
     }
     list.innerHTML = data.map(f => {
-        const stars = '★'.repeat(f.rating || 0) + '☆'.repeat(5 - (f.rating || 0));
         const date = f.created_at ? new Date(f.created_at).toLocaleString('ru-RU') : '';
         return `<div style="padding:16px;border:1px solid var(--border-color);border-radius:10px;margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <div style="font-weight:600;font-size:14px;">${f.full_name} <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@${f.username}</span></div>
                 <div style="font-size:12px;color:var(--text-secondary);">${date}</div>
             </div>
-            <div style="color:#f59e0b;font-size:16px;margin-bottom:8px;">${stars}</div>
             <div style="font-size:14px;color:var(--text-primary);line-height:1.5;">${f.text || '<em style="color:var(--text-secondary);">Без комментария</em>'}</div>
         </div>`;
     }).join('');
@@ -6349,14 +6370,12 @@ async function renderFeedbackPage() {
         return;
     }
     list.innerHTML = data.map(f => {
-        const stars = '\u2605'.repeat(f.rating || 0) + '\u2606'.repeat(5 - (f.rating || 0));
         const date = f.created_at ? new Date(f.created_at).toLocaleString('ru-RU') : '';
         return '<div style="padding:16px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:12px;background:var(--bg-secondary);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
                 '<div style="font-weight:600;font-size:14px;">' + (f.full_name || '') + ' <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@' + (f.username || '') + '</span></div>' +
                 '<div style="font-size:12px;color:var(--text-secondary);">' + date + '</div>' +
             '</div>' +
-            '<div style="color:#f59e0b;font-size:18px;margin-bottom:8px;">' + stars + '</div>' +
             '<div style="font-size:14px;color:var(--text-primary);line-height:1.5;">' + (f.text || '<em style="color:var(--text-secondary);">Без комментария</em>') + '</div>' +
         '</div>';
     }).join('');
@@ -6888,10 +6907,7 @@ function showFeedbackModal() {
     modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
     modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
         <div style="font-size:18px;font-weight:700;margin-bottom:16px;">💬 Обратная связь</div>
-        <div style="margin-bottom:12px;font-size:13px;color:#64748b;">Как вам сервис?</div>
-        <div id="feedbackStars" style="display:flex;gap:8px;margin-bottom:16px;font-size:28px;cursor:pointer;">
-            ${[1,2,3,4,5].map(n => `<span onclick="setFeedbackRating(${n})" data-star="${n}" style="opacity:0.3;transition:opacity 0.15s;">⭐</span>`).join('')}
-        </div>
+        <div style="margin-bottom:12px;font-size:13px;color:#64748b;">Напишите ваш отзыв</div>
         <textarea id="feedbackText" placeholder="Расскажите, что можно улучшить..." style="width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;min-height:80px;box-sizing:border-box;outline:none;font-family:inherit;" rows="3"></textarea>
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button onclick="submitFeedback()" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">Отправить</button>
@@ -6901,12 +6917,6 @@ function showFeedbackModal() {
     document.body.appendChild(modal);
 }
 let feedbackRating = 0;
-function setFeedbackRating(n) {
-    feedbackRating = n;
-    document.querySelectorAll('#feedbackStars span').forEach(s => {
-        s.style.opacity = parseInt(s.dataset.star) <= n ? '1' : '0.3';
-    });
-}
 async function submitFeedback() {
     const text = document.getElementById('feedbackText').value.trim();
     if (!text) { showToast('Напишите отзыв', 'error'); return; }
@@ -7112,9 +7122,9 @@ function openDeadlineCalendar(event, taskId) {
             <div style="flex:1;">
                 <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">Время</label>
                 <div class="time-picker-custom" id="dlCalendarTime">
-                <input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,'0')" onkeydown="if(event.key==='Enter'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}">
+                <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onblur="tpBlur(this)">
                 <span>:</span>
-                <input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,'0')">
+                <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,'m')" onblur="tpBlur(this)">
               </div>
             </div>
         </div>
@@ -7199,7 +7209,7 @@ function openCardEditor(event, taskId, field) {
         modalHTML += '</div>';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Время</label>';
-        modalHTML += '<div class="time-picker-custom" id="ceTime"><input type="number" class="tp-hours" min="0" max="23" placeholder="ЧЧ" onchange="this.value=this.value.padStart(2,\'0\')" onkeydown="if(event.key===\'Enter\'){this.nextElementSibling.nextElementSibling.focus();event.preventDefault()}"><span>:</span><input type="number" class="tp-minutes" min="0" max="59" placeholder="ММ" onchange="this.value=this.value.padStart(2,\'0\')"></div>';
+        modalHTML += '<div class="time-picker-custom" id="ceTime"><input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,\'h\')" onblur="tpBlur(this)"><span>:</span><input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,\'m\')" onblur="tpBlur(this)"></div>';
         modalHTML += '</div>';
         modalHTML += '<button onclick="saveDeadlineFromCardEditor(' + taskId + ');overlay.remove();" style="width:100%;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseenter="this.style.background=\'#2563eb\'" onmouseleave="this.style.background=\'#3b82f6\'">Сохранить</button>';
         modalHTML += '</div>';
@@ -7855,6 +7865,84 @@ async function createGroupChat() {
     }
 }
 
+let mentionUsers = [];
+let mentionDropdown = null;
+let mentionStartPos = -1;
+
+function setupMentionAutocomplete(inputEl, users) {
+    mentionUsers = users || [];
+    inputEl.addEventListener('input', function(e) {
+        const val = this.value;
+        const pos = this.selectionStart;
+        // Find @ before cursor
+        const before = val.substring(0, pos);
+        const atIdx = before.lastIndexOf('@');
+        if (atIdx >= 0 && (atIdx === 0 || before[atIdx-1] === ' ')) {
+            const query = before.substring(atIdx + 1).toLowerCase();
+            mentionStartPos = atIdx;
+            const matches = mentionUsers.filter(u => u.full_name.toLowerCase().includes(query) || u.username.toLowerCase().includes(query));
+            if (matches.length > 0 && query.length >= 0) {
+                showMentionDropdown(inputEl, matches);
+            } else {
+                hideMentionDropdown();
+            }
+        } else {
+            hideMentionDropdown();
+        }
+    });
+    inputEl.addEventListener('keydown', function(e) {
+        if (mentionDropdown && mentionDropdown.style.display !== 'none') {
+            const items = mentionDropdown.querySelectorAll('.mention-item');
+            const active = mentionDropdown.querySelector('.mention-item.active');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!active && items.length) items[0].classList.add('active');
+                else if (active && active.nextElementSibling) { active.classList.remove('active'); active.nextElementSibling.classList.add('active'); }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (active && active.previousElementSibling) { active.classList.remove('active'); active.previousElementSibling.classList.add('active'); }
+            } else if (e.key === 'Enter' && active) {
+                e.preventDefault();
+                insertMention(inputEl, active.dataset.username);
+            } else if (e.key === 'Escape') {
+                hideMentionDropdown();
+            }
+        }
+    });
+}
+
+function showMentionDropdown(inputEl, users) {
+    if (!mentionDropdown) {
+        mentionDropdown = document.createElement('div');
+        mentionDropdown.id = 'mentionDropdown';
+        mentionDropdown.style.cssText = 'position:absolute;bottom:100%;left:0;right:0;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 -4px 20px rgba(0,0,0,0.12);max-height:200px;overflow-y:auto;z-index:100;margin-bottom:4px;';
+        inputEl.closest('div[style]').style.position = 'relative';
+        inputEl.closest('div[style]').appendChild(mentionDropdown);
+    }
+    mentionDropdown.style.display = 'block';
+    mentionDropdown.innerHTML = users.slice(0, 6).map(u =>
+        `<div class="mention-item" data-username="${u.username}" onclick="insertMention(document.getElementById('messageInput'),'${u.username}')" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.15s;" onmouseenter="this.style.background='#f1f5f9';this.classList.add('active');this.parentElement.querySelectorAll('.mention-item').forEach(x=>{if(x!==this)x.classList.remove('active')})" onmouseleave="this.style.background='';this.classList.remove('active')">
+            <div style="width:28px;height:28px;border-radius:50%;background:${u.avatar_color||'#6366f1'};display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${(u.full_name||u.username).charAt(0).toUpperCase()}</div>
+            <div><div style="font-size:13px;font-weight:600;">${u.full_name}</div><div style="font-size:11px;color:#94a3b8;">@${u.username}</div></div>
+        </div>`
+    ).join('');
+}
+
+function hideMentionDropdown() {
+    if (mentionDropdown) mentionDropdown.style.display = 'none';
+}
+
+function insertMention(inputEl, username) {
+    const val = inputEl.value;
+    const before = val.substring(0, mentionStartPos);
+    const after = val.substring(inputEl.selectionStart);
+    inputEl.value = before + '@' + username + ' ' + after;
+    inputEl.focus();
+    const newPos = mentionStartPos + username.length + 2;
+    inputEl.setSelectionRange(newPos, newPos);
+    hideMentionDropdown();
+}
+
 async function sendGroupMessage(groupId) {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
@@ -7881,6 +7969,9 @@ async function openGroupChat(groupId) {
             </div>
         `).join('');
     }
+    // Setup @mention autocomplete for group chat
+    const groupMembers = await apiCall('/api/messenger/groups/' + groupId + '/members') || [];
+    setupMentionAutocomplete(document.getElementById('messageInput'), groupMembers);
 }
 
 async function sendDirectMessage() {
