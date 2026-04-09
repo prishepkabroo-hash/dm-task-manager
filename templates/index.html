@@ -4455,8 +4455,10 @@ async function renderKanban() {
     selectBtn.textContent = kanbanSelectMode ? '✕ Отменить выбор' : '☑ Выбрать для удаления';
     toolbar.appendChild(selectBtn);
 
-    const canEditStages = hasPermission('manage_kanban') ||
-        (currentUser && currentUser.role === 'head' && kanbanDeptFilter && currentUser.department_id === kanbanDeptFilter);
+    // Воронки можно настраивать только в конкретном отделе, не во "Все отделы"
+    const canEditStages = kanbanDeptFilter && (hasPermission('manage_kanban') ||
+        (currentUser && currentUser.role === 'head' && currentUser.department_id === kanbanDeptFilter));
+    if (!kanbanDeptFilter && kanbanEditMode) { kanbanEditMode = false; }
     if (canEditStages) {
         const editBtn = document.createElement('button');
         editBtn.id = 'kanbanEditBtn';
@@ -4516,7 +4518,6 @@ async function renderKanban() {
                 else return;
                 const result = await apiCall('/api/stages/reorder', {method:'POST', body: JSON.stringify({order: newOrder})});
                 if (result && result.ok) {
-                    await loadStages();
                     renderKanban();
                 } else { showToast(result?.error || 'Ошибка', 'error'); }
             });
@@ -4630,8 +4631,8 @@ async function renderKanban() {
         board.appendChild(col);
     });
 
-    // "+ Новый этап" column (admin only, edit mode only)
-    if (hasPermission('manage_kanban') && kanbanEditMode) {
+    // "+ Новый этап" column (admin only, edit mode only, specific department only)
+    if (hasPermission('manage_kanban') && kanbanEditMode && kanbanDeptFilter) {
         const addCol = document.createElement('div');
         addCol.style.cssText = 'min-width:200px;max-width:200px;border-radius:12px;border:2px dashed #3b82f6;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s;flex-shrink:0;background:#eff6ff;animation:fadeIn 0.3s ease-out;';
         addCol.onmouseenter = function() { this.style.background='#dbeafe'; this.style.borderColor='#2563eb'; };
@@ -7131,10 +7132,9 @@ async function confirmDeleteStage(stageId, stageKey, hasTasks) {
     const result = await apiCall('/api/stages/delete', {method:'POST', body: JSON.stringify({id: stageId, move_to_key: moveToKey})});
     if (result && result.ok) {
         showToast('Этап удалён', 'success');
-        await loadStages();
         await loadTasks();
         renderKanban();
-        if (typeof renderAdminStages === 'function') renderAdminStages();
+        if (typeof renderAdminStages === 'function') { await loadStages(); renderAdminStages(); }
     } else {
         showToast(result?.error || 'Ошибка', 'error');
     }
@@ -7211,10 +7211,11 @@ function showAddStageKanbanModal() {
         const label = document.getElementById('kanbanNewStageLabel')?.value.trim();
         if (!label) { showToast('Введите название', 'error'); return; }
         overlay.remove();
-        const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify({label, color: selectedColor, icon: selectedIcon})});
+        const body = {label, color: selectedColor, icon: selectedIcon};
+        if (kanbanDeptFilter) body.department_id = kanbanDeptFilter;
+        const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify(body)});
         if (result && result.ok) {
             showToast('Этап «' + label + '» добавлен', 'success');
-            await loadStages();
             renderKanban();
         } else { showToast(result?.error || 'Ошибка', 'error'); }
     };

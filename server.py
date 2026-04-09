@@ -1954,10 +1954,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not label: return self._json({"error": "Название обязательно"}, 400)
             key = data.get('key', '').strip()
             if not key:
-                # Auto-generate key from label
-                key = label.lower().replace(' ', '_')
-                key = ''.join(c for c in key if c.isalnum() or c == '_')
-                if not key: key = 'stage_' + str(int(__import__('time').time()))
+                # Auto-generate unique key from label
+                import time
+                base_key = label.lower().replace(' ', '_')
+                # Keep alphanumeric (including cyrillic) and underscores
+                base_key = ''.join(c for c in base_key if c.isalnum() or c == '_')
+                if not base_key:
+                    base_key = 'stage'
+                key = base_key + '_' + str(int(time.time()))
             color = data.get('color', '#3b82f6')
             icon = data.get('icon', '📋')
             conn = get_db()
