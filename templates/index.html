@@ -2410,6 +2410,12 @@
         @keyframes trailFade { 0%{opacity:0.7;transform:scaleX(0.5)} 50%{opacity:1;transform:scaleX(1)} 100%{opacity:0.7;transform:scaleX(0.5)} }
         @keyframes glowPulse { 0%,100%{opacity:0.4;filter:blur(12px)} 50%{opacity:0.8;filter:blur(18px)} }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes typingBounce { 0%,60%,100% { transform:translateY(0); opacity:0.4; } 30% { transform:translateY(-6px); opacity:1; } }
+        .typing-dots span { animation:typingDots 1.4s infinite; opacity:0; }
+        .typing-dots span:nth-child(1) { animation-delay:0s; }
+        .typing-dots span:nth-child(2) { animation-delay:0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay:0.4s; }
+        @keyframes typingDots { 0%,100% { opacity:0; } 30%,70% { opacity:1; } }
         @keyframes slideUp { from{opacity:0;transform:translateY(30px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes exhaustPuff { 0%{opacity:0.6;transform:translateX(0) scale(1)} 100%{opacity:0;transform:translateX(-25px) scale(2)} }
         @keyframes starSparkle { 0%,100%{opacity:0;transform:scale(0.5)} 50%{opacity:1;transform:scale(1)} }
@@ -6049,11 +6055,29 @@ function setupTypingIndicator(partnerId) {
     typingCheckInterval = setInterval(async () => {
         const resp = await apiCall('/api/messenger/typing/' + partnerId);
         const statusEl = document.getElementById('chatPartnerStatus');
-        if (statusEl && resp) {
-            if (resp.typing) {
-                statusEl.textContent = 'печатает...';
-                statusEl.style.color = '#8b5cf6';
-            } else {
+        const chatMessages = document.getElementById('chatMessages');
+        let typingBubble = document.getElementById('typingBubble');
+        if (resp && resp.typing) {
+            // Header status
+            if (statusEl) {
+                statusEl.innerHTML = '<span style="color:#8b5cf6;font-weight:600;">печатает<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span></span>';
+            }
+            // Bubble in chat
+            if (chatMessages && !typingBubble) {
+                const partner = allUsers.find(u => u.id === partnerId);
+                const name = partner ? partner.full_name : '';
+                typingBubble = document.createElement('div');
+                typingBubble.id = 'typingBubble';
+                typingBubble.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;margin-top:8px;margin-bottom:4px;animation:fadeIn 0.3s;';
+                typingBubble.innerHTML = '<div style="font-size:11px;font-weight:600;color:#8b5cf6;margin-bottom:2px;padding-left:4px;">' + name + '</div><div style="display:inline-flex;align-items:center;gap:4px;padding:10px 16px;background:#f1f5f9;border-radius:18px 18px 18px 4px;"><div class="typing-dot" style="width:7px;height:7px;border-radius:50%;background:#8b5cf6;animation:typingBounce 1.4s infinite;"></div><div class="typing-dot" style="width:7px;height:7px;border-radius:50%;background:#8b5cf6;animation:typingBounce 1.4s infinite 0.2s;"></div><div class="typing-dot" style="width:7px;height:7px;border-radius:50%;background:#8b5cf6;animation:typingBounce 1.4s infinite 0.4s;"></div></div>';
+                chatMessages.appendChild(typingBubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } else {
+            // Remove typing bubble
+            if (typingBubble) { typingBubble.remove(); }
+            // Restore normal status
+            if (statusEl) {
                 const status = userOnlineStatus[partnerId] || 'offline';
                 statusEl.textContent = status === 'online' ? 'В сети' : status === 'away' ? 'Отошёл' : 'Не в сети';
                 statusEl.style.color = status === 'online' ? '#22c55e' : status === 'away' ? '#f59e0b' : 'rgba(148,163,184,0.5)';
@@ -8169,18 +8193,76 @@ async function sendGroupMessage(groupId) {
 
 async function openGroupChat(groupId) {
     activeGroupId = groupId;
+    selectedConversationUserId = null;
+
+    // Show header, input, hide empty state
+    const chatPartnerName = document.getElementById('chatPartnerName');
+    const chatPartnerAvatar = document.getElementById('chatPartnerAvatar');
+    const chatPartnerStatus = document.getElementById('chatPartnerStatus');
+
+    // Fetch group info
+    const groups = await apiCall('/api/messenger/groups') || [];
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+        chatPartnerName.textContent = group.name;
+        chatPartnerAvatar.innerHTML = '<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,' + (group.avatar_color || '#6366f1') + ',#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:16px;font-weight:700;">👥</div>';
+        chatPartnerStatus.textContent = (group.member_count || '') + ' участников';
+        chatPartnerStatus.style.color = '#94a3b8';
+    }
+
+    document.getElementById('chatInputArea').style.display = 'flex';
+    document.getElementById('chatHeader').style.display = 'flex';
+    const emptyState = document.getElementById('chatEmptyState');
+    if (emptyState) emptyState.style.display = 'none';
+    cancelReply();
+
+    // Highlight active in sidebar
+    document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
+    const activeEl = document.querySelector('.conversation-item[data-group-id="' + groupId + '"]');
+    if (activeEl) activeEl.classList.add('active');
+
+    // Render messages
     const messages = await apiCall('/api/messenger/groups/' + groupId + '/messages') || [];
     const chatMessages = document.getElementById('chatMessages');
     if (messages && messages.length) {
-        chatMessages.innerHTML = messages.map(m => `
-            <div style="margin-bottom: 12px; text-align: ${m.sender_id === currentUser.id ? 'right' : 'left'};">
-                <div style="font-size:12px;color:#94a3b8;margin-bottom:2px;">${m.sender_name}</div>
-                <div style="display: inline-block; background: ${m.sender_id === currentUser.id ? 'var(--blue)' : 'var(--bg-main)'}; color: ${m.sender_id === currentUser.id ? 'white' : 'black'}; padding: 8px 12px; border-radius: 8px; max-width: 70%; word-wrap: break-word;">
-                    ${renderMessageText(m.text)}
-                </div>
-            </div>
-        `).join('');
+        let prevSender = null;
+        let prevDate = '';
+        let msgsHtml = '';
+        messages.forEach(m => {
+            const isMine = m.sender_id === currentUser.id;
+            const msgDate = parseUTCDate(m.created_at);
+            const dateStr = msgDate.toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
+            const time = msgDate.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+
+            if (dateStr !== prevDate) {
+                msgsHtml += '<div style="text-align:center;margin:16px 0 8px;"><span style="background:#f1f5f9;padding:4px 12px;border-radius:10px;font-size:11px;color:#94a3b8;font-weight:600;">' + dateStr + '</span></div>';
+                prevDate = dateStr;
+            }
+
+            const isGroupStart = m.sender_id !== prevSender;
+            prevSender = m.sender_id;
+            const senderUser = !isMine ? allUsers.find(u => u.id === m.sender_id) : null;
+
+            const align = isMine ? 'align-items:flex-end;' : 'align-items:flex-start;';
+            const bubbleBg = isMine ? 'background:linear-gradient(135deg,#7c3aed,#6366f1);color:white;' : 'background:#ffffff;color:#1e293b;box-shadow:0 1px 3px rgba(0,0,0,0.06);';
+            const bubbleRadius = isMine ? 'border-radius:18px 18px 4px 18px;' : 'border-radius:18px 18px 18px 4px;';
+
+            msgsHtml += '<div style="display:flex;flex-direction:column;' + align + 'margin-bottom:4px;' + (isGroupStart ? 'margin-top:12px;' : '') + '">';
+            if (!isMine && isGroupStart && senderUser) {
+                msgsHtml += '<div style="font-size:11px;font-weight:600;color:' + (senderUser.avatar_color || '#6366f1') + ';margin-bottom:2px;padding-left:4px;">' + (senderUser.full_name || m.sender_name) + '</div>';
+            }
+            msgsHtml += '<div style="max-width:65%;padding:10px 14px;' + bubbleBg + bubbleRadius + 'font-size:14px;line-height:1.5;word-wrap:break-word;">';
+            msgsHtml += renderMessageText(m.text);
+            msgsHtml += '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">';
+            msgsHtml += '<span style="font-size:10px;color:' + (isMine ? 'rgba(255,255,255,0.5)' : '#94a3b8') + ';">' + time + '</span>';
+            msgsHtml += '</div></div></div>';
+        });
+        chatMessages.innerHTML = msgsHtml;
+    } else {
+        chatMessages.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;">Нет сообщений. Начните общение!</div>';
     }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
     // Setup @mention autocomplete for group chat
     const groupMembers = await apiCall('/api/messenger/groups/' + groupId + '/members') || [];
     setupMentionAutocomplete(document.getElementById('messageInput'), groupMembers);
