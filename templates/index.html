@@ -4487,8 +4487,8 @@ async function renderKanban() {
 
         const col = document.createElement('div');
         col.className = 'kanban-column';
-        const colSizing = kanbanEditMode ? 'min-width:280px;max-width:320px;' : 'min-width:0;';
-        col.style.cssText = `background:${cfg.bg}; border-radius:12px; ${colSizing} flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden;`;
+        const colSizing = kanbanEditMode ? 'min-width:280px;max-width:320px;' : 'min-width:200px;';
+        col.style.cssText = `background:${cfg.bg}; border-radius:12px; ${colSizing} flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden; min-height:300px;`;
         col.setAttribute('data-status', status);
         col.addEventListener('dragover', e => { e.preventDefault(); col.style.boxShadow = '0 0 0 2px ' + cfg.color + '44'; });
         col.addEventListener('dragleave', () => { col.style.boxShadow = 'none'; });
@@ -4663,7 +4663,9 @@ async function renderKanban() {
             syncStagesBar.onscroll = function() { board.scrollLeft = syncStagesBar.scrollLeft; };
         }
     } else {
-        board.style.cssText = 'display:flex;gap:16px;padding:4px 0 12px 0;';
+        // If many stages, enable horizontal scroll; otherwise stretch to fill
+        const needsScroll = statuses.length > 5;
+        board.style.cssText = 'display:flex;gap:16px;padding:4px 0 12px 0;' + (needsScroll ? 'overflow-x:auto;' : '');
     }
 }
 
@@ -5195,10 +5197,11 @@ async function showTaskForm(taskId = null) {
     } else {
         titleSpan.textContent = 'Новая задача';
         form.reset();
-        // Default: assign to self, set own department
+        // Default: assign to self, set department from current filter or user profile
         document.getElementById('taskAssignee').value = currentUser.id;
-        if (currentUser.department_id) {
-            document.getElementById('taskDepartment').value = currentUser.department_id;
+        const defaultDept = kanbanDeptFilter || selectedDepartment || currentUser.department_id;
+        if (defaultDept) {
+            document.getElementById('taskDepartment').value = defaultDept;
         }
     }
 
