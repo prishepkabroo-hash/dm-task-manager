@@ -1426,88 +1426,132 @@
             white-space: nowrap;
         }
 
-        /* COMMAND PALETTE MENU */
+        /* MAIN MENU / SHOWCASE */
         .cmd-overlay {
             display: none;
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
+            inset: 0;
             z-index: 500;
-            align-items: flex-start;
-            justify-content: center;
-            padding-top: 15vh;
+            background: #0b0f1a;
+            overflow-y: auto;
+            animation: menuFadeIn 0.3s ease;
         }
-        .cmd-overlay.active { display: flex; }
+        .cmd-overlay.active { display: block; }
+        @keyframes menuFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .cmd-palette {
-            width: 100%;
-            max-width: 480px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        .showcase-hero {
+            position: relative;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 40%, #312e81 100%);
+            padding: 60px 40px 50px;
+            text-align: center;
             overflow: hidden;
-            animation: cmdSlideIn 0.15s ease-out;
         }
-        @keyframes cmdSlideIn {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        .showcase-hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(59,130,246,0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(139,92,246,0.1) 0%, transparent 50%);
+        }
+        .showcase-hero * { position: relative; }
+
+        .showcase-close {
+            position: absolute; top: 20px; right: 24px;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.7); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; transition: all 0.2s; z-index: 2;
+        }
+        .showcase-close:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        .showcase-search-wrap {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 320px; max-width: calc(100% - 120px);
+        }
+        .showcase-search {
+            width: 100%; padding: 10px 16px 10px 40px;
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px; color: #fff; font-size: 14px; outline: none;
+            transition: all 0.2s;
+        }
+        .showcase-search:focus { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); }
+        .showcase-search::placeholder { color: rgba(255,255,255,0.35); }
+        .showcase-search-icon {
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            color: rgba(255,255,255,0.35); pointer-events: none;
         }
 
-        .cmd-search {
-            width: 100%;
-            padding: 16px 20px;
-            border: none;
-            font-size: 15px;
-            outline: none;
-            background: none;
-            color: #1e293b;
-            border-bottom: 1px solid #f1f5f9;
+        .showcase-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px; max-width: 960px; margin: 0 auto; padding: 0 24px;
         }
-        .cmd-search::placeholder { color: #94a3b8; }
+        .showcase-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; padding: 24px;
+            transition: all 0.3s; cursor: default;
+        }
+        .showcase-card:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.15);
+            transform: translateY(-2px);
+        }
+        .showcase-card-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 14px; font-size: 22px;
+        }
+        .showcase-card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 700; color: #fff; }
+        .showcase-card p { margin: 0; font-size: 13px; color: rgba(255,255,255,0.5); line-height: 1.5; }
 
-        .cmd-list { padding: 8px; max-height: 340px; overflow-y: auto; }
+        .showcase-actions {
+            display: flex; gap: 12px; flex-wrap: wrap;
+            justify-content: center; max-width: 960px;
+            margin: 0 auto; padding: 0 24px;
+        }
+        .showcase-action-btn {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 24px; border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: #fff; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; text-decoration: none;
+        }
+        .showcase-action-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
 
+        /* Search results overlay inside showcase */
+        .cmd-search-results {
+            position: absolute; top: 56px; left: 0; right: 0;
+            background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; max-height: 320px; overflow-y: auto;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4); z-index: 10;
+        }
         .cmd-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.1s;
-            color: #475569;
-            font-size: 14px;
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 14px; border-radius: 10px;
+            cursor: pointer; transition: background 0.1s;
+            color: rgba(255,255,255,0.7); font-size: 14px;
         }
-        .cmd-item:hover, .cmd-item.focused { background: #f1f5f9; color: #1e293b; }
-
+        .cmd-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
         .cmd-item-icon {
-            width: 36px; height: 36px;
-            border-radius: 10px;
-            background: #f1f5f9;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            color: #64748b;
+            width: 36px; height: 36px; border-radius: 10px;
+            background: rgba(255,255,255,0.06);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; color: rgba(255,255,255,0.5);
         }
-
         .cmd-item-right {
-            margin-left: auto;
-            font-size: 11px;
-            color: #94a3b8;
-            background: #f1f5f9;
-            padding: 2px 8px;
-            border-radius: 4px;
+            margin-left: auto; font-size: 11px;
+            color: rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.06);
+            padding: 2px 8px; border-radius: 4px;
         }
-
         .cmd-section {
-            padding: 6px 14px 4px;
-            font-size: 10px;
-            font-weight: 700;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            padding: 10px 14px 4px; font-size: 10px; font-weight: 700;
+            color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1px;
         }
 
         @keyframes shimmer {
@@ -2442,78 +2486,110 @@
     </div>
 
     <!-- COMMAND PALETTE MENU -->
-    <div class="cmd-overlay" id="cmdOverlay" onclick="if(event.target===this)closeCmdMenu()">
-        <div class="cmd-palette" style="max-width:520px;">
-            <!-- Main view: app hub -->
-            <div id="cmdMainView">
-                <div style="padding:20px 24px 12px;display:flex;align-items:center;gap:12px;">
-                    <img src="/static/helmet-white.png" alt="DM" style="width:36px;height:36px;border-radius:10px;background:#1e293b;padding:4px;">
-                    <div style="flex:1;">
-                        <div style="font-size:16px;font-weight:700;color:#1e293b;">Dudarev Motorsport</div>
-                        <div style="font-size:12px;color:#94a3b8;">Task Manager v2.0</div>
+    <div class="cmd-overlay" id="cmdOverlay">
+        <!-- HERO -->
+        <div class="showcase-hero">
+            <button class="showcase-close" onclick="closeCmdMenu()">&times;</button>
+
+            <!-- Search bar -->
+            <div class="showcase-search-wrap">
+                <div class="showcase-search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+                <input class="showcase-search" id="cmdSearch" placeholder="Поиск действий... (Ctrl+K)" autocomplete="off" oninput="cmdSearchHandler(this.value)" onfocus="cmdSearchHandler(this.value)">
+                <div class="cmd-search-results" id="cmdList" style="display:none;"></div>
+            </div>
+
+            <img src="/static/helmet-white.png" alt="DM" style="width:72px;height:72px;margin-bottom:16px;filter:drop-shadow(0 8px 24px rgba(59,130,246,0.3));">
+            <h1 style="margin:0;font-size:32px;font-weight:800;color:#fff;letter-spacing:-0.5px;">Dudarev Motorsport</h1>
+            <div style="font-size:16px;color:rgba(255,255,255,0.5);font-weight:500;margin-top:6px;letter-spacing:2px;text-transform:uppercase;">Task Manager</div>
+            <p style="max-width:520px;margin:16px auto 0;font-size:14px;color:rgba(255,255,255,0.45);line-height:1.7;">
+                Система управления задачами с геймификацией для команды Dudarev Motorsport. Канбан-доски, мессенджер, рейтинг, достижения и многое другое.
+            </p>
+            <div id="showcaseStats" style="display:flex;justify-content:center;gap:32px;margin-top:24px;"></div>
+        </div>
+
+        <!-- FEATURES GRID -->
+        <div style="padding:40px 0 24px;">
+            <div style="text-align:center;margin-bottom:28px;">
+                <div style="font-size:12px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Функционал</div>
+                <div style="font-size:22px;font-weight:800;color:#fff;">Что умеет задачник</div>
+            </div>
+            <div class="showcase-grid">
+                <div class="showcase-card">
+                    <div class="showcase-card-icon" style="background:rgba(59,130,246,0.12);color:#3b82f6;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="8" y2="18"/><line x1="12" y1="6" x2="12" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>
                     </div>
-                    <button onclick="cmdShowSearch()" style="padding:6px 12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;color:#64748b;font-size:13px;transition:all 0.2s;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        Поиск
-                        <span style="font-size:10px;color:#94a3b8;background:#fff;padding:2px 6px;border-radius:4px;border:1px solid #e2e8f0;">Ctrl+K</span>
-                    </button>
+                    <h3>Канбан-доска</h3>
+                    <p>Перетаскивайте задачи между колонками. Настраиваемые этапы для каждого отдела. Быстрое создание задач прямо из колонки.</p>
                 </div>
-                <div style="padding:8px 16px;">
-                    <div style="background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-radius:12px;padding:14px 16px;margin-bottom:8px;">
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">Возможности системы</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;color:#475569;line-height:1.7;">
-                            <span>&#x2022; Канбан-доска задач</span>
-                            <span>&#x2022; Мессенджер с @</span>
-                            <span>&#x2022; Геймификация (км)</span>
-                            <span>&#x2022; Календарь дедлайнов</span>
-                            <span>&#x2022; Воронка по отделам</span>
-                            <span>&#x2022; Достижения и рейтинг</span>
-                        </div>
+                <div class="showcase-card">
+                    <div class="showcase-card-icon" style="background:rgba(139,92,246,0.12);color:#8b5cf6;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                     </div>
+                    <h3>Мессенджер</h3>
+                    <p>Личные и групповые чаты. @упоминания участников. Статусы: доставлено/прочитано. Индикатор печати в реальном времени.</p>
                 </div>
-                <div style="padding:0 16px 8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    <div onclick="closeCmdMenu();restartOnboarding()" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor='#3b82f6';this.style.background='#eff6ff'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
-                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Обучение</span>
-                        </div>
-                        <div style="font-size:11px;color:#64748b;">Быстрое или подробное</div>
+                <div class="showcase-card">
+                    <div class="showcase-card-icon" style="background:rgba(245,158,11,0.12);color:#f59e0b;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     </div>
-                    <div onclick="closeCmdMenu();navigate('feedback')" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor='#8b5cf6';this.style.background='#faf5ff'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Обратная связь</span>
-                        </div>
-                        <div style="font-size:11px;color:#64748b;">Идеи и предложения</div>
-                    </div>
-                    <a href="https://t.me/LukianCH" target="_blank" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;text-decoration:none;transition:all 0.2s;display:block;" onmouseenter="this.style.borderColor='#22c55e';this.style.background='#f0fdf4'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#22c55e"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.146-.28.292-.576.292l.214-3.053 5.56-5.023c.242-.213-.054-.328-.373-.115l-6.869 4.32-2.96-.924c-.644-.213-.658-.644.136-.954l11.566-4.461c.538-.197 1.006.128.832.941z"/></svg>
-                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Тех. поддержка</span>
-                        </div>
-                        <div style="font-size:11px;color:#64748b;">Telegram: @LukianCH</div>
-                    </a>
-                    <div onclick="cmdShowSearch()" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor='#f59e0b';this.style.background='#fffbeb'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Все действия</span>
-                        </div>
-                        <div style="font-size:11px;color:#64748b;">Навигация и команды</div>
-                    </div>
+                    <h3>Геймификация</h3>
+                    <p>9 уровней от Босоногого до Чемпиона. Зарабатывайте километры за задачи. Коллекция машинок и скинов.</p>
                 </div>
-                <div style="padding:8px 16px 16px;border-top:1px solid #f1f5f9;margin-top:4px;">
-                    <div style="font-size:11px;color:#94a3b8;text-align:center;">Dudarev Motorsport Task Manager &mdash; управление задачами с геймификацией</div>
+                <div class="showcase-card">
+                    <div class="showcase-card-icon" style="background:rgba(34,197,94,0.12);color:#22c55e;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </div>
+                    <h3>Календарь</h3>
+                    <p>Все дедлайны на одном экране. Виды: месяц, неделя, день. Создание задач прямо из календаря по клику на дату.</p>
+                </div>
+                <div class="showcase-card">
+                    <div class="showcase-card-icon" style="background:rgba(236,72,153,0.12);color:#ec4899;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    </div>
+                    <h3>Отделы и роли</h3>
+                    <p>Система прав: админ, руководитель, сотрудник. У каждого отдела свои этапы, задачи и команда.</p>
+                </div>
+                <div class="showcase-card">
+                    <div class="showcase-card-icon" style="background:rgba(14,165,233,0.12);color:#0ea5e9;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                    </div>
+                    <h3>Достижения</h3>
+                    <p>7 уникальных наград: Первая задача, Стабильность, Скоростной, Марафонец, Сотня, Звезда отдела, Ранняя пташка.</p>
                 </div>
             </div>
-            <!-- Search view: actions list -->
-            <div id="cmdSearchView" style="display:none;">
-                <div style="padding:4px 4px 0;">
-                    <div style="display:flex;align-items:center;gap:8px;padding:4px 8px;">
-                        <button onclick="document.getElementById('cmdMainView').style.display='';document.getElementById('cmdSearchView').style.display='none'" style="padding:4px 8px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:12px;color:#64748b;">← Назад</button>
-                        <input class="cmd-search" id="cmdSearch" placeholder="Поиск действий..." autocomplete="off" style="flex:1;">
-                    </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div style="padding:16px 0 40px;">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="font-size:12px;font-weight:700;color:#8b5cf6;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Действия</div>
+                <div style="font-size:22px;font-weight:800;color:#fff;">Быстрый доступ</div>
+            </div>
+            <div class="showcase-actions">
+                <div class="showcase-action-btn" onclick="closeCmdMenu();restartOnboarding()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                    Пройти обучение
                 </div>
-                <div class="cmd-list" id="cmdList"></div>
+                <div class="showcase-action-btn" onclick="closeCmdMenu();navigate('feedback')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                    Обратная связь
+                </div>
+                <a class="showcase-action-btn" href="https://t.me/LukianCH" target="_blank" style="text-decoration:none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#22c55e"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.146-.28.292-.576.292l.214-3.053 5.56-5.023c.242-.213-.054-.328-.373-.115l-6.869 4.32-2.96-.924c-.644-.213-.658-.644.136-.954l11.566-4.461c.538-.197 1.006.128.832.941z"/></svg>
+                    Тех. поддержка
+                </a>
+                <div class="showcase-action-btn" onclick="closeCmdMenu();showTaskForm()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Создать задачу
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div style="text-align:center;padding:20px 24px 32px;border-top:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:rgba(255,255,255,0.25);line-height:1.8;">
+                Dudarev Motorsport Task Manager v2.0<br>
+                Разработано с использованием AI &mdash; Claude &times; Lukian
             </div>
         </div>
     </div>
@@ -7387,10 +7463,19 @@ const cmdActions = [
 function openCmdMenu() {
     var overlay = document.getElementById('cmdOverlay');
     overlay.classList.add('active');
-    // Reset to main view
-    document.getElementById('cmdMainView').style.display = '';
-    document.getElementById('cmdSearchView').style.display = 'none';
     document.getElementById('cmdSearch').value = '';
+    document.getElementById('cmdList').style.display = 'none';
+    // Fill stats
+    var statsEl = document.getElementById('showcaseStats');
+    if (statsEl) {
+        var totalTasks = allTasks ? allTasks.length : 0;
+        var totalUsers = allUsers ? allUsers.length : 0;
+        var totalDepts = allDepartments ? allDepartments.length : 0;
+        statsEl.innerHTML = '<div style="text-align:center;"><div style="font-size:28px;font-weight:800;color:#fff;">' + totalTasks + '</div><div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Задач</div></div>' +
+            '<div style="text-align:center;"><div style="font-size:28px;font-weight:800;color:#fff;">' + totalUsers + '</div><div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Участников</div></div>' +
+            '<div style="text-align:center;"><div style="font-size:28px;font-weight:800;color:#fff;">' + totalDepts + '</div><div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Отделов</div></div>';
+    }
+    overlay.scrollTop = 0;
 }
 
 function closeCmdMenu() {
@@ -7572,7 +7657,7 @@ async function saveDeadlineFromCardEditor(taskId) {
 
 function renderCmdList(query) {
     var list = document.getElementById('cmdList');
-    var q = query.toLowerCase();
+    var q = (query || '').toLowerCase();
     var html = '';
     var isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
 
@@ -7586,25 +7671,38 @@ function renderCmdList(query) {
         html += '<div class="cmd-item" onclick="cmdActions.find(function(a){return a.label===\'' + item.label.replace(/'/g,"\\'") + '\'}).action();closeCmdMenu()">' +
             '<div class="cmd-item-icon">' + item.icon + '</div>' +
             '<div><div style="font-weight:600;font-size:13px;">' + item.label + '</div>' +
-            '<div style="font-size:11px;color:#94a3b8;">' + item.desc + '</div></div>' +
+            '<div style="font-size:11px;color:rgba(255,255,255,0.35);">' + item.desc + '</div></div>' +
             (item.keys ? '<div class="cmd-item-right">' + item.keys + '</div>' : '') +
             '</div>';
     });
-    list.innerHTML = html || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Ничего не найдено</div>';
+    list.innerHTML = html || '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.35);font-size:13px;">Ничего не найдено</div>';
 }
 
-function cmdShowSearch() {
-    document.getElementById('cmdMainView').style.display = 'none';
-    document.getElementById('cmdSearchView').style.display = '';
-    var s = document.getElementById('cmdSearch');
-    s.value = '';
-    s.focus();
-    renderCmdList('');
+function cmdSearchHandler(val) {
+    var list = document.getElementById('cmdList');
+    if (val.length > 0) {
+        list.style.display = '';
+        renderCmdList(val);
+    } else {
+        list.style.display = 'none';
+    }
 }
 
-document.getElementById('cmdSearch')?.addEventListener('input', function(e) { renderCmdList(e.target.value); });
+// Hide search results when clicking outside
+document.addEventListener('click', function(e) {
+    var list = document.getElementById('cmdList');
+    var search = document.getElementById('cmdSearch');
+    if (list && search && !list.contains(e.target) && e.target !== search) {
+        list.style.display = 'none';
+    }
+});
+
 document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCmdMenu(); setTimeout(cmdShowSearch, 50); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        openCmdMenu();
+        setTimeout(function() { document.getElementById('cmdSearch').focus(); }, 100);
+    }
     if (e.key === 'Escape') closeCmdMenu();
 });
 
