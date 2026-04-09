@@ -4157,6 +4157,10 @@ function renderDepartmentItems() {
         div.title = dept.name + ': ' + taskCount + ' задач, ' + memberCount + ' чел.';
         div.addEventListener('click', () => {
             selectedDepartment = selectedDepartment === dept.id ? null : dept.id;
+            // Sync kanban filter with sidebar selection
+            if (currentPage === 'kanban') {
+                kanbanDeptFilter = selectedDepartment;
+            }
             renderDepartmentItems();
             renderCurrentPage();
         });
@@ -4350,19 +4354,58 @@ async function renderDashboard() {
 // 6. KANBAN BOARD
 // =================================
 
+// Build a mapping from department stage keys to global base keys
+// e.g. "new_dept1" → "new", "in_progress_dept2" → "in_progress"
+function buildDeptStageMap(deptStages) {
+    const map = {};
+    deptStages.forEach(s => {
+        // Strip _deptX suffix to find base key
+        const baseKey = s.key.replace(/_dept\d+$/, '');
+        map[s.key] = baseKey;
+    });
+    return map;
+}
+
 async function renderKanban() {
     const board = document.getElementById('kanbanBoard');
     board.innerHTML = '';
 
-    // Load department-specific stages if kanbanDeptFilter is set
+    // Store the dept-to-global stage mapping for filtering
+    window._kanbanStageMap = null;
+
     if (kanbanDeptFilter) {
         const stagesUrl = '/api/stages?department_id=' + kanbanDeptFilter;
-        const stagesData = await apiCall(stagesUrl);
-        if (stagesData && stagesData.length) allStages = stagesData;
+        const deptStages = await apiCall(stagesUrl);
+        if (deptStages && deptStages.length) {
+            allStages = deptStages;
+            window._kanbanStageMap = buildDeptStageMap(deptStages);
+        } else {
+            // Department has no custom stages — fall back to global
+            const stagesData = await apiCall('/api/stages');
+            if (stagesData && stagesData.length) allStages = stagesData;
+        }
     } else {
-        // Load global stages
-        const stagesData = await apiCall('/api/stages');
-        if (stagesData && stagesData.length) allStages = stagesData;
+        // "All departments" — load global stages, but also collect unique stages from all depts
+        const globalStages = await apiCall('/api/stages') || [];
+        const departments = await apiCall('/api/departments') || [];
+
+        // Start with global stages
+        const mergedMap = new Map(); // label → stage object
+        globalStages.forEach(s => mergedMap.set(s.label, {...s}));
+
+        // For each department, add stages with labels not yet in mergedMap
+        for (const dept of departments) {
+            const deptStages = await apiCall('/api/stages?department_id=' + dept.id) || [];
+            deptStages.forEach(ds => {
+                if (!mergedMap.has(ds.label)) {
+                    // Unique stage for this department — add it with its base key
+                    const baseKey = ds.key.replace(/_dept\d+$/, '');
+                    mergedMap.set(ds.label, {...ds, key: baseKey});
+                }
+            });
+        }
+
+        allStages = Array.from(mergedMap.values()).sort((a,b) => a.sort_order - b.sort_order);
     }
 
     const statuses = getStageKeys();
@@ -4397,7 +4440,8 @@ async function renderKanban() {
     stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;padding:0 0 8px 0;' + (kanbanEditMode ? 'overflow-x:auto;' : '');
     stagesBar.innerHTML = statuses.map((status, idx) => {
         const cfg = statusConfig[status];
-        const count = allFiltered.filter(t => t.status === status).length;
+        const baseKey = window._kanbanStageMap ? (window._kanbanStageMap[status] || status) : status;
+        const count = allFiltered.filter(t => t.status === status || t.status === baseKey).length;
         const isLast = idx === statuses.length - 1;
         // Each tab matches column sizing
         const tabSizing = kanbanEditMode ? 'min-width:280px;max-width:320px;' : 'min-width:0;';
@@ -4447,7 +4491,8 @@ async function renderKanban() {
 
     statuses.forEach((status, colIdx) => {
         const cfg = statusConfig[status];
-        const tasks = getFilteredTasks().filter(t => t.status === status);
+        const baseKey2 = window._kanbanStageMap ? (window._kanbanStageMap[status] || status) : status;
+        const tasks = getFilteredTasks().filter(t => t.status === status || t.status === baseKey2);
         const stageObj = allStages.find(s => s.key === status);
 
         const col = document.createElement('div');
@@ -4638,10 +4683,13 @@ async function handleKanbanDrop(e, newStatus) {
     const taskId = parseInt(e.dataTransfer.getData('text/plain') || e.target.closest('[data-task-id]')?.getAttribute('data-task-id'));
     if (!taskId) return;
 
+    // Map department stage key back to global key for storage
+    const actualStatus = window._kanbanStageMap ? (window._kanbanStageMap[newStatus] || newStatus) : newStatus;
+
     // Optimistic UI update — instantly move the card
     const task = allTasks.find(t => t.id === taskId);
     if (task) {
-        task.status = newStatus;
+        task.status = actualStatus;
 
         // Check if detail modal is open for this task
         const detailOpen = detailTaskId === taskId;
@@ -4657,7 +4705,7 @@ async function handleKanbanDrop(e, newStatus) {
     }
 
     // Send to server in background
-    apiCall('/api/tasks/' + taskId, {method: 'PUT', body: JSON.stringify({status: newStatus})}).then(resp => {
+    apiCall('/api/tasks/' + taskId, {method: 'PUT', body: JSON.stringify({status: actualStatus})}).then(resp => {
         if (!resp || resp.error) {
             // Revert on error
             loadTasks();
@@ -5361,7 +5409,7 @@ async function showTaskDetail(taskId) {
                     <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;">Соисполнители</div>
                     <div id="detailCoexecutorsDisplay" style="flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
                         ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${c.full_name}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
-                        <button onclick="document.getElementById('detailCoexecList').style.display=document.getElementById('detailCoexecList').style.display==='none'?'flex':'none'" style="border:none;background:none;color:#3b82f6;font-size:18px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.15s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'" title="Добавить соисполнителя">+</button>
+                        <button id="coexecToggleBtn" onclick="toggleCoexecList()" style="border:none;background:none;color:#3b82f6;font-size:18px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'" title="Добавить соисполнителя">+</button>
                     </div>
                 </div>
                 <div id="detailCoexecList" style="display:none;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #f1f5f9;">
@@ -5556,6 +5604,16 @@ async function detailToggleWatcher(userId) {
     }
 }
 
+function toggleCoexecList() {
+    const list = document.getElementById('detailCoexecList');
+    const btn = document.getElementById('coexecToggleBtn');
+    if (!list || !btn) return;
+    const isHidden = list.style.display === 'none';
+    list.style.display = isHidden ? 'flex' : 'none';
+    btn.textContent = isHidden ? '−' : '+';
+    btn.title = isHidden ? 'Скрыть список' : 'Добавить соисполнителя';
+}
+
 async function detailToggleCoexecutor(userId) {
     if (!detailTaskId) return;
     const coexecIds = Array.from(document.querySelectorAll('.detail-coexec-cb:checked')).map(cb => parseInt(cb.value));
@@ -5572,7 +5630,8 @@ async function detailToggleCoexecutor(userId) {
         const display = document.getElementById('detailCoexecutorsDisplay');
         if (display && task) {
             const chips = task.coexecutors.map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${c.full_name}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('');
-            display.innerHTML = chips + `<button onclick="document.getElementById('detailCoexecList').style.display=document.getElementById('detailCoexecList').style.display==='none'?'flex':'none'" style="border:none;background:none;color:#3b82f6;font-size:18px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.15s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'" title="Добавить соисполнителя">+</button>`;
+            const listOpen = document.getElementById('detailCoexecList')?.style.display !== 'none';
+            display.innerHTML = chips + `<button id="coexecToggleBtn" onclick="toggleCoexecList()" style="border:none;background:none;color:#3b82f6;font-size:18px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'" title="${listOpen ? 'Скрыть список' : 'Добавить соисполнителя'}">${listOpen ? '−' : '+'}</button>`;
         }
         showToast('Соисполнители сохранены', 'success');
     } else {
