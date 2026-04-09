@@ -7854,6 +7854,13 @@ function startPageTut(page, mode) {
 
 function skipTut() {
     document.getElementById('tutorialChoiceModal')?.remove();
+    document.getElementById('tutNavTooltip')?.remove();
+    // Clean pulse from any nav items
+    document.querySelectorAll('.tut-pulse').forEach(el => {
+        el.classList.remove('tut-pulse');
+        el.style.outline = '';
+        el.style.outlineOffset = '';
+    });
     cleanupOnboarding();
     _tutCleanupCard();
     if (_tutorialIsInitial) {
@@ -7915,29 +7922,43 @@ function _tutShowNavPrompt() {
     _tutCleanupCard();
     cleanupOnboarding();
 
-    // Create overlay with hole for nav
-    createOnboardingOverlay();
-    highlightElement(navEl);
+    // Light dim background (pointer-events:none so clicks pass through to nav)
+    const dim = document.createElement('div');
+    dim.className = 'onboarding-overlay';
+    dim.style.background = 'rgba(0,0,0,0.35)';
+    dim.style.pointerEvents = 'none';
+    document.body.appendChild(dim);
 
-    // Make nav item clickable through overlay
-    navEl.style.position = 'relative';
-    navEl.style.zIndex = '5003';
-    navEl.style.pointerEvents = 'auto';
+    // Pulsing border on the nav item to draw attention
+    navEl.style.outline = '3px solid #3b82f6';
+    navEl.style.outlineOffset = '2px';
+    navEl.style.borderRadius = '12px';
+    navEl.classList.add('tut-pulse');
 
-    // Tooltip next to nav item
+    // Add pulse animation if not already present
+    if (!document.getElementById('tutPulseStyle')) {
+        const st = document.createElement('style');
+        st.id = 'tutPulseStyle';
+        st.textContent = '@keyframes tutPulse{0%,100%{outline-color:#3b82f6;box-shadow:0 0 0 0 rgba(59,130,246,0.5);}50%{outline-color:#60a5fa;box-shadow:0 0 12px 4px rgba(59,130,246,0.3);}}.tut-pulse{animation:tutPulse 1.5s ease-in-out infinite;}';
+        document.head.appendChild(st);
+    }
+
+    // Tooltip — fixed position, next to sidebar
     const tooltip = document.createElement('div');
     tooltip.className = 'onboarding-tooltip';
-    tooltip.style.width = '320px';
-    tooltip.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:28px;">' + (_tutPageIcons[page]||'📌') + '</span><div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Раздел ' + (_tutPageIdx+1) + ' из ' + _tutPages.length + '</div><h3 style="margin:2px 0 0 0;">Откройте: ' + (_tutPageNames[page]||page) + '</h3></div></div><p>Нажмите на этот пункт меню, чтобы перейти в раздел.</p><button class="ob-btn ob-btn-skip" onclick="skipTut()" style="opacity:0.7;margin-top:4px;">Пропустить обучение</button>';
+    tooltip.id = 'tutNavTooltip';
+    tooltip.style.cssText = 'position:fixed;left:' + (navEl.getBoundingClientRect().right + 16) + 'px;top:' + (navEl.getBoundingClientRect().top + navEl.getBoundingClientRect().height/2 - 60) + 'px;width:300px;z-index:5002;';
+    tooltip.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:28px;">' + (_tutPageIcons[page]||'📌') + '</span><div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Раздел ' + (_tutPageIdx+1) + ' из ' + _tutPages.length + '</div><h3 style="margin:2px 0 0 0;">Нажмите: ' + (_tutPageNames[page]||page) + '</h3></div></div><p style="margin:0 0 8px;font-size:13px;color:#64748b;">Кликните по пункту меню слева, чтобы открыть этот раздел.</p><button class="ob-btn ob-btn-skip" onclick="skipTut()" style="opacity:0.7;">Пропустить обучение</button>';
     document.body.appendChild(tooltip);
-    positionTooltip(navEl, tooltip, 'right');
 
-    // Listen for click on nav item
+    // Listen for click on nav item (works because overlay has pointer-events:none)
     const handler = () => {
         navEl.removeEventListener('click', handler);
-        navEl.style.zIndex = '';
-        navEl.style.pointerEvents = '';
+        navEl.style.outline = '';
+        navEl.style.outlineOffset = '';
+        navEl.classList.remove('tut-pulse');
         cleanupOnboarding();
+        document.getElementById('tutNavTooltip')?.remove();
         // Navigate happens naturally from the click, wait for render
         setTimeout(() => {
             _tutPageSteps = getDetailedSteps(page);
