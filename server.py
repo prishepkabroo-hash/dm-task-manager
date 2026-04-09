@@ -13,6 +13,7 @@ import secrets
 import os
 import mimetypes
 import urllib.parse
+import re
 from datetime import datetime, timedelta, date
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dm_tasks.db")
@@ -455,6 +456,56 @@ def init_db():
             for s in global_stages:
                 c.execute("INSERT OR IGNORE INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (?,?,?,?,?,?)",
                     (s[0], s[1], s[2], s[3], s[4], dept[0]))
+
+    # Migrate: fix funnel_stages — rename dept-suffixed keys and fix UNIQUE constraint
+    # This fixes the bug where department stages had keys like 'new_dept1' but tasks used 'new'
+    try:
+        # Check if any dept-suffixed keys exist (e.g. new_dept1, in_progress_dept2)
+        bad_keys = c.execute("SELECT id, key, department_id FROM funnel_stages WHERE key LIKE '%\\_dept%' ESCAPE '\\'").fetchall()
+        if bad_keys:
+            for row in bad_keys:
+                # Strip the _deptN suffix: 'new_dept1' -> 'new', 'in_progress_dept2' -> 'in_progress'
+                clean_key = re.sub(r'_dept\d+$', '', row[1])
+                c.execute("UPDATE funnel_stages SET key=? WHERE id=?", (clean_key, row[0]))
+            conn.commit()
+
+        # Check if UNIQUE constraint is on (key) alone instead of (key, department_id)
+        # by trying to see the table schema
+        schema = c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='funnel_stages'").fetchone()
+        if schema and 'UNIQUE(key)' in schema[0].replace(' ', '') and 'UNIQUE(key,department_id)' not in schema[0].replace(' ', ''):
+            # Recreate table with correct UNIQUE constraint
+            c.execute("ALTER TABLE funnel_stages RENAME TO funnel_stages_old")
+            c.execute("""
+                CREATE TABLE funnel_stages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    key TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    color TEXT DEFAULT '#3b82f6',
+                    icon TEXT DEFAULT '',
+                    sort_order INTEGER DEFAULT 0,
+                    department_id INTEGER DEFAULT NULL,
+                    UNIQUE(key, department_id),
+                    FOREIGN KEY (department_id) REFERENCES departments(id)
+                )
+            """)
+            c.execute("""INSERT INTO funnel_stages (key, label, color, icon, sort_order, department_id)
+                         SELECT key, label, color, icon, sort_order, department_id FROM funnel_stages_old""")
+            c.execute("DROP TABLE funnel_stages_old")
+            conn.commit()
+
+        # Ensure every department has stages (fill missing ones from global)
+        depts = c.execute("SELECT id FROM departments").fetchall()
+        global_stages = c.execute("SELECT key, label, color, icon, sort_order FROM funnel_stages WHERE department_id IS NULL").fetchall()
+        for dept in depts:
+            existing = c.execute("SELECT key FROM funnel_stages WHERE department_id=?", (dept[0],)).fetchall()
+            existing_keys = {r[0] for r in existing}
+            for s in global_stages:
+                if s[0] not in existing_keys:
+                    c.execute("INSERT OR IGNORE INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (?,?,?,?,?,?)",
+                        (s[0], s[1], s[2], s[3], s[4], dept[0]))
+        conn.commit()
+    except Exception as e:
+        print(f"[Migration] funnel_stages fix: {e}")
 
     # Migrate: add is_deleted, edited_at to direct_messages
     try:
