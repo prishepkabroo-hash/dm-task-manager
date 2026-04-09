@@ -4023,13 +4023,19 @@ const titleMap = {
 };
 
 function navigate(page) {
+    // Auto-exit kanban edit mode when leaving kanban page
+    if (kanbanEditMode && currentPage === 'kanban' && page !== 'kanban') {
+        kanbanEditMode = false;
+        showToast('Изменения воронки сохранены', 'success');
+    }
+
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
-    
+
     document.querySelectorAll('.nav-item[data-page]').forEach(item => {
         item.classList.toggle('active', item.getAttribute('data-page') === page);
     });
-    
+
     document.getElementById('headerTitle').textContent = titleMap[page] || 'Дашборд';
     currentPage = page;
 
@@ -4763,6 +4769,10 @@ function toggleKanbanSelectMode() {
 }
 
 async function setKanbanDept(deptId) {
+    if (kanbanEditMode) {
+        kanbanEditMode = false;
+        showToast('Изменения воронки сохранены', 'success');
+    }
     kanbanDeptFilter = deptId;
     renderKanban();
 }
