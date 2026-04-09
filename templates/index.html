@@ -4023,12 +4023,18 @@ const titleMap = {
 };
 
 function navigate(page) {
-    // Auto-exit kanban edit mode when leaving kanban page
+    // Auto-exit kanban edit mode when leaving kanban page — show toast FIRST, then navigate
     if (kanbanEditMode && currentPage === 'kanban' && page !== 'kanban') {
         kanbanEditMode = false;
         showToast('Изменения воронки сохранены', 'success');
+        renderKanban(); // re-render without edit mode immediately
+        setTimeout(() => _doNavigate(page), 800);
+        return;
     }
+    _doNavigate(page);
+}
 
+function _doNavigate(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
 
@@ -4772,6 +4778,8 @@ async function setKanbanDept(deptId) {
     if (kanbanEditMode) {
         kanbanEditMode = false;
         showToast('Изменения воронки сохранены', 'success');
+        await renderKanban();
+        await new Promise(r => setTimeout(r, 800));
     }
     kanbanDeptFilter = deptId;
     renderKanban();
