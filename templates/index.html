@@ -4368,22 +4368,9 @@ async function renderKanban() {
             if (stagesData && stagesData.length) allStages = stagesData;
         }
     } else {
-        // "All departments" — global stages + unique department stages merged by key
+        // "All departments" — show only global (base) stages
         const globalStages = await apiCall('/api/stages') || [];
-        const mergedMap = new Map();
-        globalStages.forEach(s => mergedMap.set(s.key, {...s}));
-
-        // Collect unique stages from departments
-        const departments = await apiCall('/api/departments') || [];
-        for (const dept of departments) {
-            const deptStages = await apiCall('/api/stages?department_id=' + dept.id) || [];
-            deptStages.forEach(ds => {
-                if (!mergedMap.has(ds.key)) {
-                    mergedMap.set(ds.key, {...ds});
-                }
-            });
-        }
-        allStages = Array.from(mergedMap.values()).sort((a,b) => a.sort_order - b.sort_order);
+        allStages = globalStages.sort((a,b) => a.sort_order - b.sort_order);
     }
 
     const statuses = getStageKeys();
@@ -7216,7 +7203,7 @@ function showAddStageKanbanModal() {
         const result = await apiCall('/api/stages/add', {method:'POST', body: JSON.stringify(body)});
         if (result && result.ok) {
             showToast('Этап «' + label + '» добавлен', 'success');
-            renderKanban();
+            await renderKanban();
         } else { showToast(result?.error || 'Ошибка', 'error'); }
     };
     modal.querySelector('#addStageCancelBtn').onclick = () => overlay.remove();
