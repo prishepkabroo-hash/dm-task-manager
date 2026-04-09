@@ -351,28 +351,30 @@
 
         .header-right {
             display: flex;
-            gap: 12px;
+            gap: 6px;
             align-items: center;
             overflow: visible;
             flex-shrink: 0;
             padding-right: 4px;
+            position: relative;
         }
 
         .notification-badge {
             position: absolute;
-            top: 0px;
-            right: 0px;
+            top: -4px;
+            right: -4px;
             background-color: var(--danger);
             color: white;
             border-radius: 50%;
-            width: 18px;
-            height: 18px;
+            width: 17px;
+            height: 17px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
             pointer-events: none;
+            border: 2px solid var(--bg-secondary);
         }
 
         .notification-dropdown {
@@ -1796,28 +1798,46 @@
         }
 
         .btn-icon {
-            background: none;
-            border: none;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
             cursor: pointer;
             font-size: 16px;
-            color: var(--text-primary);
-            padding: 6px;
-            width: 36px;
-            height: 36px;
-            display: flex;
+            color: var(--text-secondary);
+            padding: 0;
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            transition: color 0.2s;
+            transition: all 0.2s ease;
             position: relative;
             flex-shrink: 0;
+            border-radius: 10px;
+            vertical-align: middle;
+            line-height: 1;
+        }
+
+        .btn-icon svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+            flex-shrink: 0;
+        }
+
+        .btn-icon * {
+            box-sizing: border-box;
         }
 
         .btn-icon:hover {
             color: var(--blue);
+            background: rgba(59,130,246,0.12);
+            border-color: rgba(59,130,246,0.25);
         }
 
         .btn-icon.listening {
             color: var(--danger);
+            background: rgba(239,68,68,0.12);
+            border-color: rgba(239,68,68,0.25);
             animation: pulse-btn 1s infinite;
         }
 
@@ -2867,14 +2887,14 @@
                 </div>
                 <div class="header-right">
                     <button class="btn-icon" id="helpBtn" title="Помощь и обучение" onclick="showTutorialMenu()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 16v-4"/>
-                            <path d="M12 8h.01"/>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
                         </svg>
                     </button>
                     <button class="btn-icon" id="voiceBtn" title="Голосовой ввод">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
                             <path d="M19 10v2a7 7 0 01-14 0v-2"/>
                             <line x1="12" y1="19" x2="12" y2="23"/>
@@ -2882,7 +2902,7 @@
                         </svg>
                     </button>
                     <button class="btn-icon" id="notificationBell" title="Уведомления">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
@@ -3948,11 +3968,11 @@ async function loadApp() {
     const tasksData = await apiCall('/api/tasks');
     if (tasksData) allTasks = tasksData;
 
-    // Set default department from user profile
+    // Set default department from user profile and re-render with task counts
     if (currentUser.department_id && !selectedDepartment) {
         selectedDepartment = currentUser.department_id;
-        renderDepartmentItems();
     }
+    renderDepartmentItems();
 
     document.getElementById('authPage').classList.remove('active');
     document.getElementById('mainContainer').style.display = 'flex';
@@ -4091,20 +4111,8 @@ async function loadDepartments() {
     if (!data) return;
     allDepartments = data;
     
-    // Render sidebar departments
-    const deptList = document.getElementById('departmentsList');
-    deptList.innerHTML = '';
-    data.forEach(dept => {
-        const div = document.createElement('div');
-        div.className = 'dept-item';
-        div.innerHTML = `<div class="dept-color" style="background-color: ${dept.color || '#999'};"></div><span>${dept.name}</span>`;
-        div.addEventListener('click', () => {
-            selectedDepartment = selectedDepartment === dept.id ? null : dept.id;
-            renderDepartmentItems();
-            renderCurrentPage();
-        });
-        deptList.appendChild(div);
-    });
+    // Render sidebar departments (use unified renderDepartmentItems)
+    renderDepartmentItems();
     
     // Populate task form department select
     const deptSelect = document.getElementById('taskDepartment');
@@ -4209,8 +4217,8 @@ async function loadNotifications() {
         list.innerHTML = data.items.map(notif => {
             const isUnread = !notif.is_read;
             const time = formatDateTime(notif.created_at);
-            const typeIcon = notif.type === 'assigned' ? '📋' : notif.type === 'comment' ? '💬' : notif.type === 'status_change' ? '🔄' : notif.type === 'deadline_soon' ? '⏰' : notif.type === 'overdue' ? '🔴' : notif.type === 'message' ? '✉️' : '🔔';
-            return `<div style="padding:12px 16px; border-bottom:1px solid var(--border-color); ${isUnread ? 'background:#f0f7ff;' : ''} transition: background 0.2s; cursor:default;" onmouseenter="this.style.background='var(--bg-main)'" onmouseleave="this.style.background='${isUnread ? '#f0f7ff' : 'transparent'}'">
+            const typeIcon = notif.type === 'assigned' ? '📋' : notif.type === 'comment' ? '💬' : notif.type === 'status_change' ? '🔄' : notif.type === 'deadline_soon' ? '⏰' : notif.type === 'overdue' ? '🔴' : notif.type === 'message' ? '✉️' : notif.type === 'watcher_added' ? '👁️' : notif.type === 'coexecutor_added' ? '👥' : '🔔';
+            return `<div onclick="${notif.task_id ? `document.getElementById('notificationDropdown').style.display='none';showTaskDetail(${notif.task_id})` : ''}" style="padding:12px 16px; border-bottom:1px solid var(--border-color); ${isUnread ? 'background:#f0f7ff;' : ''} transition: background 0.2s; cursor:${notif.task_id ? 'pointer' : 'default'};" onmouseenter="this.style.background='var(--bg-main)'" onmouseleave="this.style.background='${isUnread ? '#f0f7ff' : 'transparent'}'">
                 <div style="display:flex; gap:10px; align-items:flex-start;">
                     <span style="font-size:16px; flex-shrink:0; margin-top:2px;">${typeIcon}</span>
                     <div style="flex:1; min-width:0;">
@@ -5295,6 +5303,7 @@ async function showTaskDetail(taskId) {
                 </div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button onclick="detailStartChatFromTask()" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#8b5cf6;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:4px;" onmouseenter="this.style.background='#8b5cf6';this.style.color='white'" onmouseleave="this.style.background='white';this.style.color='#8b5cf6'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Написать</button>
                 <button onclick="closeTaskDetail();showTaskForm(${task.id})" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background='#3b82f6';this.style.color='white'" onmouseleave="this.style.background='white';this.style.color='#3b82f6'">Редактировать</button>
                 <button onclick="closeTaskDetail()" style="width:32px;height:32px;border:none;background:none;color:#94a3b8;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s;" onmouseenter="this.style.background='#f1f5f9';this.style.color='#1e293b'" onmouseleave="this.style.background='none';this.style.color='#94a3b8'">&times;</button>
             </div>
@@ -5344,6 +5353,21 @@ async function showTaskDetail(taskId) {
                         <option value="">Не назначен</option>
                         ${assigneeOptions}
                     </select>
+                </div>
+            </div>
+            <!-- Co-executors -->
+            <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;align-items:center;margin-bottom:6px;">
+                    <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;">Соисполнители</div>
+                    <div id="detailCoexecutorsDisplay" style="flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+                        ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${c.full_name}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
+                        <button onclick="document.getElementById('detailCoexecList').style.display=document.getElementById('detailCoexecList').style.display==='none'?'flex':'none'" style="border:none;background:none;color:#3b82f6;font-size:18px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.15s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'" title="Добавить соисполнителя">+</button>
+                    </div>
+                </div>
+                <div id="detailCoexecList" style="display:none;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #f1f5f9;">
+                    ${allUsers.filter(u => u.id !== task.assigned_to).map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;cursor:pointer;padding:4px 0;">
+                        <input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})"> ${u.full_name}
+                    </label>`).join('')}
                 </div>
             </div>
             <!-- Status -->
@@ -5530,6 +5554,80 @@ async function detailToggleWatcher(userId) {
     } else {
         showToast('Ошибка при сохранении', 'error');
     }
+}
+
+async function detailToggleCoexecutor(userId) {
+    if (!detailTaskId) return;
+    const coexecIds = Array.from(document.querySelectorAll('.detail-coexec-cb:checked')).map(cb => parseInt(cb.value));
+    const resp = await apiCall(`/api/tasks/${detailTaskId}/coexecutors`, {
+        method: 'POST',
+        body: JSON.stringify({coexecutor_ids: coexecIds})
+    });
+    if (resp && !resp.error) {
+        const task = allTasks.find(t => t.id === detailTaskId);
+        if (task) {
+            task.coexecutors = allUsers.filter(u => coexecIds.includes(u.id)).map(u => ({id:u.id,full_name:u.full_name,avatar_color:u.avatar_color}));
+        }
+        // Refresh the display
+        const display = document.getElementById('detailCoexecutorsDisplay');
+        if (display && task) {
+            const chips = task.coexecutors.map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${c.full_name}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('');
+            display.innerHTML = chips + `<button onclick="document.getElementById('detailCoexecList').style.display=document.getElementById('detailCoexecList').style.display==='none'?'flex':'none'" style="border:none;background:none;color:#3b82f6;font-size:18px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.15s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'" title="Добавить соисполнителя">+</button>`;
+        }
+        showToast('Соисполнители сохранены', 'success');
+    } else {
+        showToast('Ошибка при сохранении', 'error');
+    }
+}
+
+async function detailRemoveCoexecutor(userId) {
+    if (!detailTaskId) return;
+    // Uncheck the checkbox
+    const cb = document.querySelector(`.detail-coexec-cb[value="${userId}"]`);
+    if (cb) cb.checked = false;
+    await detailToggleCoexecutor(userId);
+}
+
+async function detailStartChatFromTask() {
+    if (!detailTaskId) return;
+    const task = allTasks.find(t => t.id === detailTaskId);
+    if (!task) return;
+    // Show user picker for chat
+    const users = allUsers.filter(u => u.id !== currentUser.id);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
+    overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+            <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px;">Написать по задаче</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:16px;">«${task.title}»</div>
+            <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+                ${users.map(u => `<div onclick="detailOpenChatWith(${u.id}, ${task.id});this.closest('div[style*=fixed]').remove();" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='transparent'">
+                    ${avatarHTML(u.full_name, u.avatar_color, 32, u.avatar_url)}
+                    <div><div style="font-size:13px;font-weight:600;color:#1e293b;">${u.full_name}</div><div style="font-size:11px;color:#94a3b8;">${u.role === 'admin' ? 'Админ' : (u.role === 'head' ? 'Руководитель' : 'Сотрудник')}</div></div>
+                </div>`).join('')}
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+}
+
+async function detailOpenChatWith(userId, taskId) {
+    const task = allTasks.find(t => t.id === taskId);
+    const prefix = task ? `[Задача #${taskId}: ${task.title}]\n` : '';
+    // Close task detail
+    closeTaskDetail();
+    // Navigate to messenger
+    navigate('messenger');
+    // Wait for messenger to render, then select the conversation
+    setTimeout(async () => {
+        await selectConversation(userId);
+        // Pre-fill message input with task reference
+        const input = document.getElementById('messageInput');
+        if (input) {
+            input.value = prefix;
+            input.focus();
+        }
+    }, 300);
 }
 
 async function detailAddComment() {
@@ -6187,6 +6285,8 @@ function renderMessageText(text) {
     text = text.replace(/\[file\](.*?)\[\/file\]/g, '<a href="$1" target="_blank" style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.06);margin-top:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Файл</a>');
     // Voice messages
     text = text.replace(/\[voice\](.*?)\[\/voice\]/g, '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg><audio controls src="$1" style="max-width:220px;height:32px;"></audio></div>');
+    // Task references [Задача #ID: title]
+    text = text.replace(/\[Задача #(\d+):\s*(.*?)\]/g, '<div onclick="closeTaskDetail();showTaskDetail($1)" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:rgba(59,130,246,0.12);color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;margin:2px 0;border:1px solid rgba(59,130,246,0.2);transition:all 0.15s;" onmouseenter="this.style.background=\'rgba(59,130,246,0.2)\'" onmouseleave="this.style.background=\'rgba(59,130,246,0.12)\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>#$1 $2</div>');
     // Mentions
     text = text.replace(/@(\w+)/g, '<span style="color:#7c3aed;font-weight:600;">@$1</span>');
     return text;

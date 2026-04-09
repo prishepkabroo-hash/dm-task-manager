@@ -88,6 +88,14 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id),
         UNIQUE(task_id, user_id)
     );
+    CREATE TABLE IF NOT EXISTS task_coexecutors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        UNIQUE(task_id, user_id)
+    );
     CREATE TABLE IF NOT EXISTS comments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task_id INTEGER NOT NULL,
@@ -920,24 +928,26 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 # Admin sees all tasks - no filter needed
                 pass
             elif user_role == "head":
-                # Head sees: tasks in their department + tasks they created + tasks assigned to them + tasks where they're a watcher
+                # Head sees: tasks in their department + tasks they created + tasks assigned to them + tasks where they're a watcher + tasks where they're a coexecutor
                 visibility = """(
                     t.department_id = ? OR
                     t.created_by = ? OR
                     t.assigned_to = ? OR
-                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?)
+                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?) OR
+                    EXISTS (SELECT 1 FROM task_coexecutors tc WHERE tc.task_id = t.id AND tc.user_id = ?)
                 )"""
                 conds.append(visibility)
-                params.extend([user_dept, u["id"], u["id"], u["id"]])
+                params.extend([user_dept, u["id"], u["id"], u["id"], u["id"]])
             else:  # member
-                # Member sees: tasks assigned to them + tasks they created + tasks where they're a watcher
+                # Member sees: tasks assigned to them + tasks they created + tasks where they're a watcher + tasks where they're a coexecutor
                 visibility = """(
                     t.assigned_to = ? OR
                     t.created_by = ? OR
-                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?)
+                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?) OR
+                    EXISTS (SELECT 1 FROM task_coexecutors tc WHERE tc.task_id = t.id AND tc.user_id = ?)
                 )"""
                 conds.append(visibility)
-                params.extend([u["id"], u["id"], u["id"]])
+                params.extend([u["id"], u["id"], u["id"], u["id"]])
 
             # Additional query params filter on top of visibility
             if "department_id" in qs: conds.append("t.department_id = ?"); params.append(qs["department_id"][0])
@@ -969,6 +979,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (t["id"],)
                 ).fetchall()
                 t["watchers"] = [dict(w) for w in watchers]
+                coexecs = conn.execute(
+                    "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=?", (t["id"],)
+                ).fetchall()
+                t["coexecutors"] = [dict(c) for c in coexecs]
             conn.close()
             return self._json(tasks)
 
@@ -1049,6 +1063,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (task_id,)
             ).fetchall()
             result["watchers"] = [dict(w) for w in watchers]
+            coexecs = conn.execute(
+                "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=?", (task_id,)
+            ).fetchall()
+            result["coexecutors"] = [dict(c) for c in coexecs]
             conn.close()
             return self._json(result)
 
@@ -1632,6 +1650,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
                 except: pass
 
+            # Add coexecutors
+            coexecutors = data.get("coexecutors", [])
+            for cid in coexecutors:
+                try: conn.execute("INSERT INTO task_coexecutors (task_id, user_id) VALUES (?,?)", (task_id, cid))
+                except: pass
+
             # Auto-add creator as watcher if assigned to someone else
             assigned_to = data.get("assigned_to")
             if assigned_to and assigned_to != u["id"]:
@@ -1735,15 +1759,48 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
                 except: pass
 
-            # Log added watchers
+            # Log added watchers + send notifications
             for wid in added_watchers:
                 user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (wid,)).fetchone()
                 log_activity(conn, int(task_id), u["id"], "watcher_added", f"Добавлен наблюдатель: {user_name['full_name']}", new_value=user_name['full_name'])
+                # Notify the added watcher
+                task_row = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
+                if task_row and wid != u["id"]:
+                    conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                        (wid, task_id, "watcher_added", f"Вы добавлены наблюдателем в задачу: {task_row['title']}"))
             # Log removed watchers
             for wid in removed_watchers:
                 user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (wid,)).fetchone()
                 log_activity(conn, int(task_id), u["id"], "watcher_removed", f"Убран наблюдатель: {user_name['full_name']}", old_value=user_name['full_name'])
 
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        if path.startswith("/api/tasks/") and "/coexecutors" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            task_id = path.split("/")[3]
+            coexecutor_ids = data.get("coexecutor_ids", [])
+            conn = get_db()
+            old_coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=?", (task_id,)).fetchall()
+            old_ids = set([c["user_id"] for c in old_coexecs])
+            new_ids = set(coexecutor_ids)
+            added = new_ids - old_ids
+            removed = old_ids - new_ids
+            conn.execute("DELETE FROM task_coexecutors WHERE task_id=?", (task_id,))
+            for cid in coexecutor_ids:
+                try: conn.execute("INSERT INTO task_coexecutors (task_id, user_id) VALUES (?,?)", (task_id, cid))
+                except: pass
+            for cid in added:
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (cid,)).fetchone()
+                log_activity(conn, int(task_id), u["id"], "coexecutor_added", f"Добавлен соисполнитель: {user_name['full_name']}", new_value=user_name['full_name'])
+                # Notify the added coexecutor
+                task_row = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                    (cid, task_id, "coexecutor_added", f"Вы добавлены соисполнителем в задачу: {task_row['title']}"))
+            for cid in removed:
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (cid,)).fetchone()
+                log_activity(conn, int(task_id), u["id"], "coexecutor_removed", f"Убран соисполнитель: {user_name['full_name']}", old_value=user_name['full_name'])
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2327,6 +2384,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
                     watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
                     notify_ids = set([w["user_id"] for w in watchers])
+                    coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=?", (task_id,)).fetchall()
+                    notify_ids.update([c["user_id"] for c in coexecs])
                     if old_task["assigned_to"]: notify_ids.add(old_task["assigned_to"])
                     if old_task["created_by"]: notify_ids.add(old_task["created_by"])
                     notify_ids.discard(u["id"])
