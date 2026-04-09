@@ -3357,24 +3357,21 @@ function tpInput(el, type) {
     if (type === 'm' && el.value.length === 2) el.blur();
 }
 function tpKey(el, type, e) {
-    if ((e.key === 'Backspace' || e.key === 'Delete') && el.value === '') {
+    if (e.key === 'Backspace' && el.value.length <= 1) {
         e.preventDefault();
+        el.value = '';
         const tp = el.closest('.time-picker-custom');
         if (type === 'm') {
             const prev = tp.querySelector('.tp-hours');
             if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
         } else if (type === 'h') {
-            // Hours empty -> find year field in date-picker, or native date input
-            let target = null;
-            let node = tp;
+            let target = null; let node = tp;
             for (let i = 0; i < 3 && !target; i++) {
-                const parent = node.parentElement;
-                if (parent) {
-                    target = parent.querySelector('.date-picker-custom .dp-year') || parent.querySelector('input[type="date"]') || parent.querySelector('input[type="datetime-local"]');
-                }
-                node = parent;
+                const p = node.parentElement;
+                if (p) target = p.querySelector('.date-picker-custom .dp-year');
+                node = p;
             }
-            if (target) { target.focus(); if (target.value) target.setSelectionRange(target.value.length, target.value.length); }
+            if (target) { target.focus(); target.setSelectionRange(target.value.length, target.value.length); }
         }
     }
     if (e.key === 'Enter' && type === 'h') {
@@ -3411,8 +3408,9 @@ function dpInput(el, type) {
     }
 }
 function dpKey(el, type, e) {
-    if ((e.key === 'Backspace' || e.key === 'Delete') && el.value === '') {
+    if (e.key === 'Backspace' && el.value.length <= 1) {
         e.preventDefault();
+        el.value = '';
         const dp = el.closest('.date-picker-custom');
         if (type === 'y') {
             const prev = dp.querySelector('.dp-month');
@@ -3421,6 +3419,7 @@ function dpKey(el, type, e) {
             const prev = dp.querySelector('.dp-day');
             if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
         }
+        // type === 'd' — начало цепочки, некуда идти
     }
     if (e.key === 'Enter') {
         e.preventDefault();
