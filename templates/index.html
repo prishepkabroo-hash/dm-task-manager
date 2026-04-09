@@ -2783,7 +2783,7 @@
                                 <select id="listQtStatus" class="dynamic-status-select" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
                                     <option value="new">Новая</option>
                                 </select>
-                                <input type="date" id="listQtDeadline" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
+                                <input type="date" id="listQtDeadline" onfocus="setDefaultDate(this)" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
                                 <button onclick="submitListQuickTask()" style="padding:8px 16px;background:var(--blue);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Создать</button>
                             </div>
                         </div>
@@ -3134,11 +3134,11 @@
                     <div class="form-group">
                         <label class="form-label">Дедлайн</label>
                         <div style="display:flex;gap:8px;">
-                            <input type="date" id="taskDeadlineDate" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Дата">
+                            <input type="date" id="taskDeadlineDate" onfocus="setDefaultDate(this)" style="flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;outline:none;font-size:13px;" placeholder="Дата">
                             <div class="time-picker-custom" id="taskDeadlineTime">
-                              <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onblur="tpBlur(this)">
+                              <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
                               <span>:</span>
-                              <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,'m')" onblur="tpBlur(this)">
+                              <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,'m')" onkeydown="tpKey(this,'m',event)" onblur="tpBlur(this)">
                             </div>
                         </div>
                     </div>
@@ -3343,26 +3343,33 @@ function setCustomTime(container, timeStr) {
 }
 
 function tpInput(el, type) {
-    // Remove non-digits
     el.value = el.value.replace(/\D/g, '');
-    // Limit to 2 chars
     if (el.value.length > 2) el.value = el.value.slice(0, 2);
-    // Clamp value
     const max = type === 'h' ? 23 : 59;
     if (el.value !== '' && parseInt(el.value) > max) el.value = String(max);
-    // Auto-advance: after 2 digits in hours, move to minutes
     if (type === 'h' && el.value.length === 2) {
         const next = el.closest('.time-picker-custom').querySelector('.tp-minutes');
         if (next) { next.focus(); next.select(); }
     }
-    // Auto-blur minutes after 2 digits
-    if (type === 'm' && el.value.length === 2) {
-        el.blur();
+    if (type === 'm' && el.value.length === 2) el.blur();
+}
+function tpKey(el, type, e) {
+    if (e.key === 'Backspace' && type === 'm' && el.value === '') {
+        e.preventDefault();
+        const prev = el.closest('.time-picker-custom').querySelector('.tp-hours');
+        if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
+    }
+    if (e.key === 'Enter' && type === 'h') {
+        e.preventDefault();
+        const next = el.closest('.time-picker-custom').querySelector('.tp-minutes');
+        if (next) { next.focus(); next.select(); }
     }
 }
-
 function tpBlur(el) {
     if (el.value !== '' && el.value.length === 1) el.value = el.value.padStart(2, '0');
+}
+function setDefaultDate(el) {
+    if (!el.value) { const d = new Date(); el.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 }
 
 async function refreshOnlineStatus() {
@@ -4206,11 +4213,11 @@ async function renderKanban() {
                     ${allDepartments.map(d => '<option value="'+d.id+'"'+(currentUser.department_id==d.id?' selected':'')+'>'+d.name+'</option>').join('')}
                 </select>
                 <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
-                    <input type="date" class="qt-deadline-date" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;box-sizing:border-box;" placeholder="Дата">
+                    <input type="date" class="qt-deadline-date" onfocus="setDefaultDate(this)" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font-size:12px;outline:none;cursor:pointer;color:#64748b;box-sizing:border-box;" placeholder="Дата">
                     <div class="time-picker-custom qt-deadline-time" style="flex-shrink:0;">
-                      <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" style="width:32px;" oninput="tpInput(this,'h')" onblur="tpBlur(this)">
+                      <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" style="width:32px;" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
                       <span>:</span>
-                      <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" style="width:32px;" oninput="tpInput(this,'m')" onblur="tpBlur(this)">
+                      <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" style="width:32px;" oninput="tpInput(this,'m')" onkeydown="tpKey(this,'m',event)" onblur="tpBlur(this)">
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;">
@@ -7122,9 +7129,9 @@ function openDeadlineCalendar(event, taskId) {
             <div style="flex:1;">
                 <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">Время</label>
                 <div class="time-picker-custom" id="dlCalendarTime">
-                <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onblur="tpBlur(this)">
+                <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
                 <span>:</span>
-                <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,'m')" onblur="tpBlur(this)">
+                <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,'m')" onkeydown="tpKey(this,'m',event)" onblur="tpBlur(this)">
               </div>
             </div>
         </div>
@@ -7209,7 +7216,7 @@ function openCardEditor(event, taskId, field) {
         modalHTML += '</div>';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Время</label>';
-        modalHTML += '<div class="time-picker-custom" id="ceTime"><input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,\'h\')" onblur="tpBlur(this)"><span>:</span><input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,\'m\')" onblur="tpBlur(this)"></div>';
+        modalHTML += '<div class="time-picker-custom" id="ceTime"><input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,\'h\')" onkeydown="tpKey(this,\'h\',event)" onblur="tpBlur(this)"><span>:</span><input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" oninput="tpInput(this,\'m\')" onkeydown="tpKey(this,\'m\',event)" onblur="tpBlur(this)"></div>';
         modalHTML += '</div>';
         modalHTML += '<button onclick="saveDeadlineFromCardEditor(' + taskId + ');overlay.remove();" style="width:100%;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseenter="this.style.background=\'#2563eb\'" onmouseleave="this.style.background=\'#3b82f6\'">Сохранить</button>';
         modalHTML += '</div>';
