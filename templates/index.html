@@ -8421,15 +8421,38 @@ function _tutShow() {
     var nextBg = isLastOverall ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'linear-gradient(135deg,#3b82f6,#2563eb)';
     var nextBtn = '<button onclick="_tutGoStep(1)" style="padding:10px 22px;background:' + nextBg + ';color:white;border:none;border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(59,130,246,0.25);transition:transform 0.15s;" onmouseenter="this.style.transform=\'scale(1.05)\'" onmouseleave="this.style.transform=\'scale(1)\'">' + nextLabel + '</button>';
 
-    // Position card near target or bottom-right
-    var cardPos = 'position:fixed;bottom:24px;right:24px;';
+    // Position card near target or bottom-center
+    var cardW = 440;
+    var cardH = 280;
+    var cardPos = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);';
     if (targetEl) {
         var rect = targetEl.getBoundingClientRect();
-        // Place card to the right of target if there's space, otherwise below
-        if (rect.right + 450 < window.innerWidth) {
-            cardPos = 'position:fixed;top:' + Math.max(20, rect.top - 20) + 'px;left:' + (rect.right + 20) + 'px;';
-        } else if (rect.bottom + 280 < window.innerHeight) {
-            cardPos = 'position:fixed;top:' + (rect.bottom + 16) + 'px;left:' + Math.max(20, rect.left) + 'px;';
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var pad = 20;
+        // Try right of target
+        if (rect.right + pad + cardW + pad < vw) {
+            var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
+            cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.right + pad) + 'px;';
+        }
+        // Try left of target
+        else if (rect.left - pad - cardW > 0) {
+            var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
+            cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.left - pad - cardW) + 'px;';
+        }
+        // Try below target
+        else if (rect.bottom + pad + cardH < vh) {
+            var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
+            cardPos = 'position:fixed;top:' + (rect.bottom + pad) + 'px;left:' + cLeft + 'px;';
+        }
+        // Try above target
+        else if (rect.top - pad - cardH > 0) {
+            var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
+            cardPos = 'position:fixed;top:' + (rect.top - pad - cardH) + 'px;left:' + cLeft + 'px;';
+        }
+        // Fallback: center of screen
+        else {
+            cardPos = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);';
         }
     }
 
@@ -8462,26 +8485,29 @@ function _tutCreateSpotlight(targetEl) {
     if (targetEl) {
         var rect = targetEl.getBoundingClientRect();
         var pad = 8;
-        // Use CSS clip-path to cut out the target area
         var top = rect.top - pad;
         var left = rect.left - pad;
-        var bottom = rect.bottom + pad;
-        var right = rect.right + pad;
+        var w = rect.width + pad * 2;
+        var h = rect.height + pad * 2;
         var radius = 12;
-        // Inset clip: darken everything except the target rect
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;pointer-events:auto;background:rgba(15,23,42,0.65);transition:all 0.3s;';
-        // Use a box-shadow trick for the spotlight
+        // Transparent overlay that blocks clicks on background
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;background:transparent;pointer-events:auto;transition:all 0.3s;';
+        // Highlight div with box-shadow to darken everything around target
         var highlight = document.createElement('div');
-        highlight.style.cssText = 'position:fixed;top:' + top + 'px;left:' + left + 'px;width:' + (right - left) + 'px;height:' + (bottom - top) + 'px;border-radius:' + radius + 'px;box-shadow:0 0 0 9999px rgba(15,23,42,0.65);z-index:5501;pointer-events:none;border:2px solid rgba(59,130,246,0.6);animation:pulse 2s infinite;';
-        overlay.style.background = 'transparent';
+        highlight.style.cssText = 'position:fixed;top:' + top + 'px;left:' + left + 'px;width:' + w + 'px;height:' + h + 'px;border-radius:' + radius + 'px;box-shadow:0 0 0 9999px rgba(15,23,42,0.65);z-index:5501;pointer-events:none;border:2px solid rgba(59,130,246,0.6);animation:pulse 2s infinite;';
         overlay.appendChild(highlight);
-        // Allow clicks on the highlighted element
-        overlay.addEventListener('click', function(e) { e.stopPropagation(); });
     } else {
         overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;background:rgba(15,23,42,0.65);pointer-events:auto;transition:all 0.3s;';
     }
     document.body.appendChild(overlay);
 }
+
+// ESC key to exit tutorial at any time
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('tutSpotlight')) {
+        skipTut();
+    }
+});
 
 function _tutGoStep(dir) {
     _tutStepIdx += dir;
