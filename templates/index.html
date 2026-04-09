@@ -4160,6 +4160,7 @@ function renderDepartmentItems() {
     // Hide section if user has no departments to show
     if (sectionTitle) sectionTitle.style.display = visibleDepts.length ? '' : 'none';
     deptList.style.display = visibleDepts.length ? '' : 'none';
+
     visibleDepts.forEach(dept => {
         const taskCount = allTasks ? allTasks.filter(t => t.department_id === dept.id).length : 0;
         const memberCount = allUsers ? allUsers.filter(u => u.department_id === dept.id).length : 0;
@@ -4171,9 +4172,7 @@ function renderDepartmentItems() {
         div.addEventListener('click', () => {
             selectedDepartment = selectedDepartment === dept.id ? null : dept.id;
             // Sync kanban filter with sidebar selection
-            if (currentPage === 'kanban') {
-                kanbanDeptFilter = selectedDepartment;
-            }
+            kanbanDeptFilter = selectedDepartment;
             renderDepartmentItems();
             renderCurrentPage();
         });
@@ -4268,11 +4267,10 @@ function setupNotificationInterval() {
 
 function getFilteredTasks() {
     let tasks = allTasks;
-    // Kanban department filter takes precedence over selectedDepartment
-    if (currentPage === 'kanban' && kanbanDeptFilter) {
-        tasks = tasks.filter(t => t.department_id === kanbanDeptFilter);
-    } else if (selectedDepartment) {
-        tasks = tasks.filter(t => t.department_id === selectedDepartment);
+    // On kanban page use kanbanDeptFilter, on other pages use selectedDepartment
+    const activeDept = currentPage === 'kanban' ? kanbanDeptFilter : selectedDepartment;
+    if (activeDept) {
+        tasks = tasks.filter(t => t.department_id === activeDept);
     }
     if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -4798,6 +4796,9 @@ async function setKanbanDept(deptId) {
         await new Promise(r => setTimeout(r, 800));
     }
     kanbanDeptFilter = deptId;
+    // Sync sidebar with kanban selection
+    selectedDepartment = deptId;
+    renderDepartmentItems();
     renderKanban();
 }
 
