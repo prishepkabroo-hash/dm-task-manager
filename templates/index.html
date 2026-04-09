@@ -7802,15 +7802,14 @@ function startAdminOnboarding() {
 }
 
 // =================================
-// NEW TUTORIAL SYSTEM
+// NEW TUTORIAL SYSTEM v3
 // =================================
 
 let _tutorialIsInitial = false;
-let _tutMode = 'detailed';
 let _tutPages = [];
 let _tutPageIdx = 0;
 let _tutStepIdx = 0;
-let _tutPageSteps = [];
+let _tutSteps = []; // all steps flattened for current tutorial
 
 const _tutPageNames = {
     dashboard: 'Дашборд', kanban: 'Канбан', list: 'Список', calendar: 'Календарь',
@@ -7821,48 +7820,73 @@ const _tutPageIcons = {
     messenger: '💬', leaderboard: '🏆', profile: '👤', admin: '⚙️'
 };
 
+// Build a flat array of all steps: [navigate-step, info, info, navigate-step, info, ...]
+function _tutBuildSteps(pages, mode) {
+    const all = [];
+    pages.forEach(page => {
+        // Check if nav is visible
+        const navEl = document.querySelector('.nav-item[data-page="' + page + '"]');
+        if (!navEl) return;
+        const par = navEl.closest('[style]');
+        if (navEl.style.display === 'none' || (navEl.offsetParent === null && navEl.style.position !== 'fixed')) return;
+
+        // First: a "navigate" step
+        all.push({ _type: 'nav', _page: page, icon: _tutPageIcons[page] || '📌', title: _tutPageNames[page] || page });
+
+        // Then: info steps for this page
+        const infoSteps = mode === 'detailed' ? getDetailedSteps(page) : getQuickStepsForPage(page);
+        infoSteps.forEach(s => { all.push(Object.assign({}, s, { _type: 'info', _page: page })); });
+    });
+    return all;
+}
+
 function showTutorialChoice(isInitial) {
     _tutorialIsInitial = !!isInitial;
     const m = document.createElement('div');
-    m.id = 'tutorialChoiceModal';
+    m.id = 'tutChoiceModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
-    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:460px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><div style="font-size:48px;margin-bottom:12px;">🎓</div><h2 style="margin:0 0 8px;font-size:24px;">Добро пожаловать!</h2><p style="margin:0 0 24px;color:#64748b;font-size:14px;">Выберите формат обучения:</p><div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"><button onclick="startTut(\'quick\')" style="padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">🚀 Быстрое обучение (~2 мин)</button><button onclick="startTut(\'detailed\')" style="padding:14px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">📚 Подробное обучение (~10 мин)</button></div>' + (isInitial ? '<button onclick="skipTut()" style="padding:8px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">⏭ Пропустить</button>' : '') + '</div>';
+    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:460px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+        '<div style="font-size:48px;margin-bottom:12px;">🎓</div>' +
+        '<h2 style="margin:0 0 8px;font-size:24px;">Добро пожаловать!</h2>' +
+        '<p style="margin:0 0 24px;color:#64748b;font-size:14px;">Выберите формат обучения:</p>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">' +
+        '<button onclick="startTut(\'quick\')" style="padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">🚀 Быстрое (~2 мин)</button>' +
+        '<button onclick="startTut(\'detailed\')" style="padding:14px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">📚 Подробное (~10 мин)</button>' +
+        '</div>' +
+        (isInitial ? '<button onclick="skipTut()" style="padding:8px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Пропустить</button>' : '') +
+        '</div>';
     document.body.appendChild(m);
 }
 
 function showTutorialMenu() {
     const pg = currentPage;
+    const name = _tutPageNames[pg] || pg;
     const m = document.createElement('div');
-    m.id = 'tutorialMenuModal';
+    m.id = 'tutChoiceModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
-    m.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;font-size:17px;">Обучение: ' + (_tutPageNames[pg]||pg) + '</h3><div style="display:flex;gap:10px;margin-bottom:12px;"><button onclick="document.getElementById(\'tutorialMenuModal\').remove();startPageTut(\'' + pg + '\',\'quick\')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">🚀 Быстрое</button><button onclick="document.getElementById(\'tutorialMenuModal\').remove();startPageTut(\'' + pg + '\',\'detailed\')" style="flex:1;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">📚 Подробное</button></div><button onclick="document.getElementById(\'tutorialMenuModal\').remove()" style="padding:6px 14px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Закрыть</button></div>';
+    m.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+        '<h3 style="margin:0 0 16px;font-size:17px;">Обучение: ' + name + '</h3>' +
+        '<div style="display:flex;gap:10px;margin-bottom:12px;">' +
+        '<button onclick="startPageTut(\'' + pg + '\',\'quick\')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">🚀 Быстрое</button>' +
+        '<button onclick="startPageTut(\'' + pg + '\',\'detailed\')" style="flex:1;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">📚 Подробное</button>' +
+        '</div>' +
+        '<button onclick="document.getElementById(\'tutChoiceModal\').remove()" style="padding:6px 14px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Закрыть</button>' +
+        '</div>';
     document.body.appendChild(m);
 }
 
 function startPageTut(page, mode) {
+    document.getElementById('tutChoiceModal')?.remove();
     _tutorialIsInitial = false;
-    _tutMode = mode;
-    _tutPages = [page];
-    _tutPageIdx = 0;
+    _tutSteps = _tutBuildSteps([page], mode);
     _tutStepIdx = 0;
-    // Already on this page, just show info steps
-    const steps = mode === 'detailed' ? getDetailedSteps(page) : getQuickStepsForPage(page);
-    _tutPageSteps = steps;
-    if (!steps.length) { tutDone(); return; }
-    showTutCard();
+    if (!_tutSteps.length) return;
+    _tutShow();
 }
 
 function skipTut() {
-    document.getElementById('tutorialChoiceModal')?.remove();
-    document.getElementById('tutNavTooltip')?.remove();
-    // Clean pulse from any nav items
-    document.querySelectorAll('.tut-pulse').forEach(el => {
-        el.classList.remove('tut-pulse');
-        el.style.outline = '';
-        el.style.outlineOffset = '';
-    });
-    cleanupOnboarding();
-    _tutCleanupCard();
+    document.getElementById('tutChoiceModal')?.remove();
+    _tutCleanup();
     if (_tutorialIsInitial) {
         apiCall('/api/onboarding_done', {method:'POST'});
         if (currentUser) currentUser.onboarding_done = 1;
@@ -7870,163 +7894,143 @@ function skipTut() {
 }
 
 function startTut(mode) {
-    document.getElementById('tutorialChoiceModal')?.remove();
-    _tutMode = mode;
+    document.getElementById('tutChoiceModal')?.remove();
     if (mode === 'quick') {
-        // Quick: use old onboarding system with selectors
+        // Quick: old onboarding with selectors pointing at nav items
         const steps = getQuickSteps();
-        startOnboarding(steps, () => { cleanupOnboarding(); tutDone(); });
+        startOnboarding(steps, function() { cleanupOnboarding(); _tutFinish(); });
     } else {
-        // Detailed: interactive — click nav → see page → read cards → click next nav
-        _tutPages = ['dashboard','kanban','list','calendar','messenger','leaderboard'];
-        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'head')) _tutPages.push('admin');
-        _tutPages.push('profile');
-        _tutPageIdx = 0;
+        // Detailed: auto-navigate + cards
+        var pages = ['dashboard','kanban','list','calendar','messenger','leaderboard'];
+        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'head')) pages.push('admin');
+        pages.push('profile');
+        _tutSteps = _tutBuildSteps(pages, 'detailed');
         _tutStepIdx = 0;
-        _tutPageSteps = [];
-        _tutShowNavPrompt();
+        if (!_tutSteps.length) { _tutFinish(); return; }
+        _tutShow();
     }
 }
 
-function tutDone() {
-    _tutCleanupCard();
-    cleanupOnboarding();
+function _tutFinish() {
+    _tutCleanup();
     if (_tutorialIsInitial) {
         apiCall('/api/onboarding_done', {method:'POST'});
         if (currentUser) currentUser.onboarding_done = 1;
     }
-    showTutDoneModal();
-}
-
-function showTutDoneModal() {
-    const m = document.createElement('div');
+    // Show completion modal
+    var m = document.createElement('div');
     m.id = 'tutDoneModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
-    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:420px;width:90%;text-align:center;"><div style="font-size:56px;margin-bottom:12px;">🎉</div><h2 style="margin:0 0 8px;font-size:22px;">Обучение завершено!</h2><p style="margin:0 0 20px;color:#64748b;font-size:14px;">Вы готовы к работе! Нажмите ❓ в шапке, чтобы пройти обучение повторно.</p><button onclick="document.getElementById(\'tutDoneModal\').remove()" style="padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;">Начать работу!</button></div>';
+    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:420px;width:90%;text-align:center;">' +
+        '<div style="font-size:56px;margin-bottom:12px;">🎉</div>' +
+        '<h2 style="margin:0 0 8px;font-size:22px;">Обучение завершено!</h2>' +
+        '<p style="margin:0 0 20px;color:#64748b;font-size:14px;">Вы готовы к работе! Нажмите ❓ в шапке для повторного обучения.</p>' +
+        '<button onclick="document.getElementById(\'tutDoneModal\').remove()" style="padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;">Начать работу!</button>' +
+        '</div>';
     document.body.appendChild(m);
 }
 
-// ---- Nav prompt: highlight a nav item, wait for user to click it ----
-function _tutShowNavPrompt() {
-    if (_tutPageIdx >= _tutPages.length) { tutDone(); return; }
-    const page = _tutPages[_tutPageIdx];
-    const navEl = document.querySelector('.nav-item[data-page="' + page + '"]');
-    if (!navEl || navEl.style.display === 'none') {
-        // Skip hidden nav items (e.g. leaderboard for some roles)
-        _tutPageIdx++;
-        _tutShowNavPrompt();
+function _tutCleanup() {
+    document.getElementById('tutCard')?.remove();
+}
+
+function _tutShow() {
+    // Remove old card
+    document.getElementById('tutCard')?.remove();
+
+    if (_tutStepIdx >= _tutSteps.length) {
+        _tutFinish();
         return;
     }
 
-    // Clean previous
-    _tutCleanupCard();
-    cleanupOnboarding();
+    var step = _tutSteps[_tutStepIdx];
+    var total = _tutSteps.length;
 
-    // Light dim background (pointer-events:none so clicks pass through to nav)
-    const dim = document.createElement('div');
-    dim.className = 'onboarding-overlay';
-    dim.style.background = 'rgba(0,0,0,0.35)';
-    dim.style.pointerEvents = 'none';
-    document.body.appendChild(dim);
-
-    // Pulsing border on the nav item to draw attention
-    navEl.style.outline = '3px solid #3b82f6';
-    navEl.style.outlineOffset = '2px';
-    navEl.style.borderRadius = '12px';
-    navEl.classList.add('tut-pulse');
-
-    // Add pulse animation if not already present
-    if (!document.getElementById('tutPulseStyle')) {
-        const st = document.createElement('style');
-        st.id = 'tutPulseStyle';
-        st.textContent = '@keyframes tutPulse{0%,100%{outline-color:#3b82f6;box-shadow:0 0 0 0 rgba(59,130,246,0.5);}50%{outline-color:#60a5fa;box-shadow:0 0 12px 4px rgba(59,130,246,0.3);}}.tut-pulse{animation:tutPulse 1.5s ease-in-out infinite;}';
-        document.head.appendChild(st);
-    }
-
-    // Tooltip — fixed position, next to sidebar
-    const tooltip = document.createElement('div');
-    tooltip.className = 'onboarding-tooltip';
-    tooltip.id = 'tutNavTooltip';
-    tooltip.style.cssText = 'position:fixed;left:' + (navEl.getBoundingClientRect().right + 16) + 'px;top:' + (navEl.getBoundingClientRect().top + navEl.getBoundingClientRect().height/2 - 60) + 'px;width:300px;z-index:5002;';
-    tooltip.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:28px;">' + (_tutPageIcons[page]||'📌') + '</span><div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Раздел ' + (_tutPageIdx+1) + ' из ' + _tutPages.length + '</div><h3 style="margin:2px 0 0 0;">Нажмите: ' + (_tutPageNames[page]||page) + '</h3></div></div><p style="margin:0 0 8px;font-size:13px;color:#64748b;">Кликните по пункту меню слева, чтобы открыть этот раздел.</p><button class="ob-btn ob-btn-skip" onclick="skipTut()" style="opacity:0.7;">Пропустить обучение</button>';
-    document.body.appendChild(tooltip);
-
-    // Listen for click on nav item (works because overlay has pointer-events:none)
-    const handler = () => {
-        navEl.removeEventListener('click', handler);
-        navEl.style.outline = '';
-        navEl.style.outlineOffset = '';
-        navEl.classList.remove('tut-pulse');
-        cleanupOnboarding();
-        document.getElementById('tutNavTooltip')?.remove();
-        // Navigate happens naturally from the click, wait for render
-        setTimeout(() => {
-            _tutPageSteps = getDetailedSteps(page);
-            _tutStepIdx = 0;
-            if (!_tutPageSteps.length) {
-                _tutPageIdx++;
-                _tutShowNavPrompt();
-            } else {
-                showTutCard();
-            }
-        }, 400);
-    };
-    navEl.addEventListener('click', handler);
-}
-
-// ---- Info cards: shown at bottom-right so user can see the page ----
-function _tutCleanupCard() {
-    document.getElementById('tutInfoCard')?.remove();
-    document.getElementById('tutInfoDim')?.remove();
-}
-
-function showTutCard() {
-    _tutCleanupCard();
-    if (_tutStepIdx >= _tutPageSteps.length) {
-        // This page done, go to next
-        _tutPageIdx++;
-        if (_tutPageIdx < _tutPages.length) {
-            _tutShowNavPrompt();
-        } else {
-            tutDone();
-        }
+    // If it's a navigate step, navigate and auto-advance after a short pause
+    if (step._type === 'nav') {
+        navigate(step._page);
+        // Show a brief "navigating" card, then auto-advance
+        var card = document.createElement('div');
+        card.id = 'tutCard';
+        card.style.cssText = 'position:fixed;bottom:24px;right:24px;width:380px;max-width:calc(100vw - 48px);background:white;border-radius:16px;padding:20px 24px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:5500;animation:tooltipAppear 0.3s ease;display:flex;align-items:center;gap:12px;';
+        card.innerHTML = '<span style="font-size:32px;">' + step.icon + '</span>' +
+            '<div><div style="font-size:13px;color:#3b82f6;font-weight:600;">Переход в раздел</div>' +
+            '<div style="font-size:18px;font-weight:700;color:#1e293b;">' + step.title + '</div></div>';
+        document.body.appendChild(card);
+        // Auto advance after 800ms to let page render
+        setTimeout(function() {
+            _tutStepIdx++;
+            _tutShow();
+        }, 800);
         return;
     }
-    const step = _tutPageSteps[_tutStepIdx];
-    const total = _tutPageSteps.length;
-    const page = _tutPages[_tutPageIdx];
 
-    // Light dimming so user can still see
-    const dim = document.createElement('div');
-    dim.id = 'tutInfoDim';
-    dim.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.15);z-index:5000;pointer-events:none;';
-    document.body.appendChild(dim);
+    // Info step — show card at bottom-right
+    var page = step._page;
+    var pageName = _tutPageNames[page] || page;
+    var pageIcon = _tutPageIcons[page] || '';
 
-    // Card at bottom-right
-    const card = document.createElement('div');
-    card.id = 'tutInfoCard';
-    card.style.cssText = 'position:fixed;bottom:24px;right:24px;width:420px;max-width:calc(100vw - 48px);background:white;border-radius:16px;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.25);z-index:5002;animation:tooltipAppear 0.3s ease;';
+    // Count info steps for this page (for dots)
+    var pageInfoSteps = _tutSteps.filter(function(s) { return s._page === page && s._type === 'info'; });
+    var myIdxInPage = pageInfoSteps.indexOf(step);
+    var pageTotal = pageInfoSteps.length;
 
-    // Progress dots
-    const dots = Array.from({length: total}, (_, i) =>
-        '<div style="width:8px;height:8px;border-radius:50%;background:' + (i === _tutStepIdx ? '#3b82f6' : i < _tutStepIdx ? '#93c5fd' : '#cbd5e1') + ';"></div>'
-    ).join('');
+    // Dots
+    var dots = pageInfoSteps.map(function(_, i) {
+        var color = i === myIdxInPage ? '#3b82f6' : (i < myIdxInPage ? '#93c5fd' : '#cbd5e1');
+        return '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';"></div>';
+    }).join('');
 
-    // Page badge
-    const badge = '<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#f0f9ff;border-radius:20px;font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:10px;">' + (_tutPageIcons[page]||'') + ' ' + (_tutPageNames[page]||page) + ' — ' + (_tutStepIdx+1) + '/' + total + '</div>';
+    // Badge
+    var badge = '<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#f0f9ff;border-radius:20px;font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:10px;">' +
+        pageIcon + ' ' + pageName + ' — ' + (myIdxInPage + 1) + '/' + pageTotal + '</div>';
 
-    card.innerHTML = badge + '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="font-size:28px;line-height:1;">' + (step.icon||'📌') + '</span><div><h3 style="margin:0 0 6px 0;font-size:17px;font-weight:700;color:#1e293b;">' + step.title + '</h3><p style="margin:0;font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">' + step.description + '</p></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;"><div style="display:flex;gap:5px;">' + dots + '</div><div style="display:flex;gap:8px;"><button onclick="skipTut()" style="padding:6px 14px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;">Пропустить</button>' + (_tutStepIdx > 0 ? '<button onclick="_tutPrev()" style="padding:6px 14px;background:#f1f5f9;border:none;border-radius:8px;color:#64748b;cursor:pointer;font-weight:600;">←</button>' : '') + '<button onclick="_tutNext()" style="padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">' + (_tutStepIdx === total - 1 ? (_tutPageIdx < _tutPages.length - 1 ? 'Дальше →' : 'Готово!') : 'Далее →') + '</button></div></div>';
+    // Buttons
+    var skipBtn = '<button onclick="skipTut()" style="padding:6px 14px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;">Пропустить</button>';
+    var prevBtn = myIdxInPage > 0 ? '<button onclick="_tutGoStep(-1)" style="padding:6px 14px;background:#f1f5f9;border:none;border-radius:8px;color:#64748b;cursor:pointer;font-weight:600;">←</button>' : '';
+
+    // Figure out next button text
+    var isLastOverall = _tutStepIdx >= _tutSteps.length - 1;
+    var nextStep = _tutSteps[_tutStepIdx + 1];
+    var isLastOnPage = !nextStep || nextStep._page !== page || nextStep._type === 'nav';
+    var nextLabel = isLastOverall ? 'Готово!' : (isLastOnPage ? 'Следующий раздел →' : 'Далее →');
+    var nextBtn = '<button onclick="_tutGoStep(1)" style="padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">' + nextLabel + '</button>';
+
+    var card = document.createElement('div');
+    card.id = 'tutCard';
+    card.style.cssText = 'position:fixed;bottom:24px;right:24px;width:420px;max-width:calc(100vw - 48px);background:white;border-radius:16px;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.25);z-index:5500;animation:tooltipAppear 0.3s ease;';
+
+    card.innerHTML = badge +
+        '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">' +
+            '<span style="font-size:28px;line-height:1;">' + (step.icon || '📌') + '</span>' +
+            '<div>' +
+                '<h3 style="margin:0 0 6px 0;font-size:17px;font-weight:700;color:#1e293b;">' + step.title + '</h3>' +
+                '<p style="margin:0;font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">' + step.description + '</p>' +
+            '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">' +
+            '<div style="display:flex;gap:5px;">' + dots + '</div>' +
+            '<div style="display:flex;gap:8px;">' + skipBtn + prevBtn + nextBtn + '</div>' +
+        '</div>';
 
     document.body.appendChild(card);
 }
 
-function _tutNext() {
-    _tutStepIdx++;
-    showTutCard();
+function _tutGoStep(dir) {
+    _tutStepIdx += dir;
+    if (_tutStepIdx < 0) _tutStepIdx = 0;
+    // When going backward and hitting a nav step, skip over it (we're already on the page)
+    if (dir < 0 && _tutSteps[_tutStepIdx] && _tutSteps[_tutStepIdx]._type === 'nav') {
+        _tutStepIdx += dir;
+        if (_tutStepIdx < 0) _tutStepIdx = 0;
+    }
+    _tutShow();
 }
-function _tutPrev() {
-    if (_tutStepIdx > 0) { _tutStepIdx--; showTutCard(); }
-}
+
+// Backward compat
+function tutDone() { _tutFinish(); }
+function showTutDoneModal() { _tutFinish(); }
+function showTutorialCompletedModal() { _tutFinish(); }
 
 // ---- Quick steps (old system, with selectors) ----
 function getQuickSteps() {
@@ -8043,7 +8047,7 @@ function getQuickSteps() {
 }
 
 function getQuickStepsForPage(page) {
-    const map = {
+    var map = {
         dashboard: [{ icon:'📊', title:'Дашборд', description:'Главная страница со статистикой, графиками и последними задачами.', type:'info' }],
         kanban: [{ icon:'📋', title:'Канбан', description:'Перетаскивайте задачи между колонками чтобы менять статус. Нажмите + для быстрого создания.', type:'info' }],
         list: [{ icon:'📝', title:'Список', description:'Таблица задач. Фильтруйте по статусу, приоритету, отделу.', type:'info' }],
@@ -8108,34 +8112,6 @@ function getDetailedSteps(page) {
     };
     return s[page] || [];
 }
-function showTutorialCompletedModal() { showTutDoneModal(); }
-
-// ---- Completion modal ----
-function _showTutCompletedLegacy() {
-    const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
-
-    modal.innerHTML = `
-        <div style="background:white;border-radius:20px;padding:48px;max-width:450px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <div style="font-size:64px;margin-bottom:16px;animation:bounce 0.6s ease-in-out infinite;">🎉</div>
-            <h2 style="margin:0 0 12px 0;font-size:24px;color:#1e293b;font-weight:700;">Обучение завершено!</h2>
-            <p style="margin:0 0 24px 0;color:#64748b;font-size:15px;line-height:1.6;">Вы готовы к работе! Помните — вы всегда можете пройти обучение повторно, нажав ❓ в любом разделе.</p>
-
-            <button onclick="this.parentElement.parentElement.remove()" style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'">
-                Начать работу
-            </button>
-        </div>
-        <style>
-            @keyframes bounce {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-10px); }
-            }
-        </style>
-    `;
-
-    document.body.appendChild(modal);
-}
-
 // =================================
 // VOICE INPUT (Web Speech API)
 // =================================
