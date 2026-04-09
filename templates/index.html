@@ -3358,12 +3358,17 @@ function tpKey(el, type, e) {
         e.preventDefault();
         const tp = el.closest('.time-picker-custom');
         if (type === 'm') {
-            // Minutes empty -> go to hours
             const prev = tp.querySelector('.tp-hours');
             if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
         } else if (type === 'h') {
-            // Hours empty -> go to date input (previous sibling of time-picker)
-            const dateInput = tp.parentElement.querySelector('input[type="date"], input[type="datetime-local"]');
+            // Hours empty -> find date input: check siblings of time-picker, then parent, then grandparent
+            let dateInput = null;
+            let node = tp;
+            for (let i = 0; i < 3 && !dateInput; i++) {
+                const parent = node.parentElement;
+                if (parent) dateInput = parent.querySelector('input[type="date"], input[type="datetime-local"]');
+                node = parent;
+            }
             if (dateInput) dateInput.focus();
         }
     }
