@@ -448,14 +448,13 @@ def init_db():
             c.execute("ALTER TABLE funnel_stages ADD FOREIGN KEY (department_id) REFERENCES departments(id)")
         except:
             pass
-        # Copy existing global stages to each department
+        # Copy existing global stages to each department (same keys, different department_id)
         depts = c.execute("SELECT id FROM departments").fetchall()
         global_stages = c.execute("SELECT key, label, color, icon, sort_order FROM funnel_stages WHERE department_id IS NULL").fetchall()
         for dept in depts:
             for s in global_stages:
-                dept_key = f"{s[0]}_dept{dept[0]}"
                 c.execute("INSERT OR IGNORE INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (?,?,?,?,?,?)",
-                    (dept_key, s[1], s[2], s[3], s[4], dept[0]))
+                    (s[0], s[1], s[2], s[3], s[4], dept[0]))
 
     # Migrate: add is_deleted, edited_at to direct_messages
     try:

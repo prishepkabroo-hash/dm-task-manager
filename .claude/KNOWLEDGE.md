@@ -15,12 +15,20 @@ git push
 ```
 После пуша Render автоматически подхватит и задеплоит (1-2 мин).
 
-**Порядок работы:**
+**ВАЖНО: ВСЕГДА ДЕЛАТЬ ПУШ ПОСЛЕ ИЗМЕНЕНИЙ!**
+Без `git push` изменения видны ТОЛЬКО на localhost. На Render ничего не обновится.
+
+**Порядок работы (ОБЯЗАТЕЛЬНЫЙ):**
 1. Внести изменения в код
 2. Проверить на localhost:8080
-3. `git add -A && git commit -m "..." && git push` — деплой на Render
+3. **ОБЯЗАТЕЛЬНО:** `git add -A && git commit -m "..." && git push` — деплой на Render
 4. Подождать 1-2 минуты
 5. Проверить на https://dm-task-manager.onrender.com/
+
+**Быстрая команда (копируй и вставляй):**
+```bash
+cd ~/Desktop/dm-task-manager && git add -A && git commit -m "update" && git push
+```
 
 ---
 
