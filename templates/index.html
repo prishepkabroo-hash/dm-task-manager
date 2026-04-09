@@ -7806,8 +7806,20 @@ function startAdminOnboarding() {
 // =================================
 
 let _tutorialIsInitial = false;
-let _tutorialPages = [];
-let _tutorialCurrentPageIdx = 0;
+let _tutMode = 'detailed';
+let _tutPages = [];
+let _tutPageIdx = 0;
+let _tutStepIdx = 0;
+let _tutPageSteps = [];
+
+const _tutPageNames = {
+    dashboard: 'Дашборд', kanban: 'Канбан', list: 'Список', calendar: 'Календарь',
+    messenger: 'Мессенджер', leaderboard: 'Геймификация', profile: 'Профиль', admin: 'Админ'
+};
+const _tutPageIcons = {
+    dashboard: '📊', kanban: '📋', list: '📝', calendar: '📅',
+    messenger: '💬', leaderboard: '🏆', profile: '👤', admin: '⚙️'
+};
 
 function showTutorialChoice(isInitial) {
     _tutorialIsInitial = !!isInitial;
@@ -7817,44 +7829,68 @@ function showTutorialChoice(isInitial) {
     m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:460px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><div style="font-size:48px;margin-bottom:12px;">🎓</div><h2 style="margin:0 0 8px;font-size:24px;">Добро пожаловать!</h2><p style="margin:0 0 24px;color:#64748b;font-size:14px;">Выберите формат обучения:</p><div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"><button onclick="startTut(\'quick\')" style="padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">🚀 Быстрое обучение (~2 мин)</button><button onclick="startTut(\'detailed\')" style="padding:14px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">📚 Подробное обучение (~10 мин)</button></div>' + (isInitial ? '<button onclick="skipTut()" style="padding:8px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">⏭ Пропустить</button>' : '') + '</div>';
     document.body.appendChild(m);
 }
+
 function showTutorialMenu() {
     const pg = currentPage;
     const m = document.createElement('div');
     m.id = 'tutorialMenuModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
-    m.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;font-size:17px;">Обучение по разделу</h3><div style="display:flex;gap:10px;margin-bottom:12px;"><button onclick="document.getElementById(\'tutorialMenuModal\').remove();_tutorialIsInitial=false;_tutorialPages=[\'' + pg + '\'];_tutorialCurrentPageIdx=0;runPageTutorial(\'quick\')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">🚀 Быстрое</button><button onclick="document.getElementById(\'tutorialMenuModal\').remove();_tutorialIsInitial=false;_tutorialPages=[\'' + pg + '\'];_tutorialCurrentPageIdx=0;runPageTutorial(\'detailed\')" style="flex:1;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">📚 Подробное</button></div><button onclick="document.getElementById(\'tutorialMenuModal\').remove()" style="padding:6px 14px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Закрыть</button></div>';
+    m.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;font-size:17px;">Обучение: ' + (_tutPageNames[pg]||pg) + '</h3><div style="display:flex;gap:10px;margin-bottom:12px;"><button onclick="document.getElementById(\'tutorialMenuModal\').remove();startPageTut(\'' + pg + '\',\'quick\')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">🚀 Быстрое</button><button onclick="document.getElementById(\'tutorialMenuModal\').remove();startPageTut(\'' + pg + '\',\'detailed\')" style="flex:1;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">📚 Подробное</button></div><button onclick="document.getElementById(\'tutorialMenuModal\').remove()" style="padding:6px 14px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Закрыть</button></div>';
     document.body.appendChild(m);
 }
+
+function startPageTut(page, mode) {
+    _tutorialIsInitial = false;
+    _tutMode = mode;
+    _tutPages = [page];
+    _tutPageIdx = 0;
+    _tutStepIdx = 0;
+    // Already on this page, just show info steps
+    const steps = mode === 'detailed' ? getDetailedSteps(page) : getQuickStepsForPage(page);
+    _tutPageSteps = steps;
+    if (!steps.length) { tutDone(); return; }
+    showTutCard();
+}
+
 function skipTut() {
     document.getElementById('tutorialChoiceModal')?.remove();
     cleanupOnboarding();
+    _tutCleanupCard();
     if (_tutorialIsInitial) {
         apiCall('/api/onboarding_done', {method:'POST'});
         if (currentUser) currentUser.onboarding_done = 1;
     }
 }
+
 function startTut(mode) {
     document.getElementById('tutorialChoiceModal')?.remove();
+    _tutMode = mode;
     if (mode === 'quick') {
-        _tutorialPages = [];
-        _tutorialCurrentPageIdx = 0;
+        // Quick: use old onboarding system with selectors
         const steps = getQuickSteps();
         startOnboarding(steps, () => { cleanupOnboarding(); tutDone(); });
     } else {
-        _tutorialPages = ['dashboard','kanban','list','calendar','messenger','leaderboard'];
-        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'head')) _tutorialPages.push('admin');
-        _tutorialPages.push('profile');
-        _tutorialCurrentPageIdx = 0;
-        runPageTutorial('detailed');
+        // Detailed: interactive — click nav → see page → read cards → click next nav
+        _tutPages = ['dashboard','kanban','list','calendar','messenger','leaderboard'];
+        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'head')) _tutPages.push('admin');
+        _tutPages.push('profile');
+        _tutPageIdx = 0;
+        _tutStepIdx = 0;
+        _tutPageSteps = [];
+        _tutShowNavPrompt();
     }
 }
+
 function tutDone() {
+    _tutCleanupCard();
+    cleanupOnboarding();
     if (_tutorialIsInitial) {
         apiCall('/api/onboarding_done', {method:'POST'});
         if (currentUser) currentUser.onboarding_done = 1;
     }
     showTutDoneModal();
 }
+
 function showTutDoneModal() {
     const m = document.createElement('div');
     m.id = 'tutDoneModal';
@@ -7862,25 +7898,116 @@ function showTutDoneModal() {
     m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:420px;width:90%;text-align:center;"><div style="font-size:56px;margin-bottom:12px;">🎉</div><h2 style="margin:0 0 8px;font-size:22px;">Обучение завершено!</h2><p style="margin:0 0 20px;color:#64748b;font-size:14px;">Вы готовы к работе! Нажмите ❓ в шапке, чтобы пройти обучение повторно.</p><button onclick="document.getElementById(\'tutDoneModal\').remove()" style="padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;">Начать работу!</button></div>';
     document.body.appendChild(m);
 }
-function runPageTutorial(mode) {
-    const page = _tutorialPages[_tutorialCurrentPageIdx];
-    if (!page) { tutDone(); return; }
-    // Navigate first, then show steps after render
-    navigate(page);
-    setTimeout(() => {
-        const steps = mode === 'detailed' ? getDetailedSteps(page) : getQuickStepsForPage(page);
-        if (!steps.length) { _tutorialCurrentPageIdx++; runPageTutorial(mode); return; }
-        startOnboarding(steps, () => {
-            cleanupOnboarding();
-            _tutorialCurrentPageIdx++;
-            if (_tutorialCurrentPageIdx < _tutorialPages.length) {
-                runPageTutorial(mode);
+
+// ---- Nav prompt: highlight a nav item, wait for user to click it ----
+function _tutShowNavPrompt() {
+    if (_tutPageIdx >= _tutPages.length) { tutDone(); return; }
+    const page = _tutPages[_tutPageIdx];
+    const navEl = document.querySelector('.nav-item[data-page="' + page + '"]');
+    if (!navEl || navEl.style.display === 'none') {
+        // Skip hidden nav items (e.g. leaderboard for some roles)
+        _tutPageIdx++;
+        _tutShowNavPrompt();
+        return;
+    }
+
+    // Clean previous
+    _tutCleanupCard();
+    cleanupOnboarding();
+
+    // Create overlay with hole for nav
+    createOnboardingOverlay();
+    highlightElement(navEl);
+
+    // Make nav item clickable through overlay
+    navEl.style.position = 'relative';
+    navEl.style.zIndex = '5003';
+    navEl.style.pointerEvents = 'auto';
+
+    // Tooltip next to nav item
+    const tooltip = document.createElement('div');
+    tooltip.className = 'onboarding-tooltip';
+    tooltip.style.width = '320px';
+    tooltip.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:28px;">' + (_tutPageIcons[page]||'📌') + '</span><div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Раздел ' + (_tutPageIdx+1) + ' из ' + _tutPages.length + '</div><h3 style="margin:2px 0 0 0;">Откройте: ' + (_tutPageNames[page]||page) + '</h3></div></div><p>Нажмите на этот пункт меню, чтобы перейти в раздел.</p><button class="ob-btn ob-btn-skip" onclick="skipTut()" style="opacity:0.7;margin-top:4px;">Пропустить обучение</button>';
+    document.body.appendChild(tooltip);
+    positionTooltip(navEl, tooltip, 'right');
+
+    // Listen for click on nav item
+    const handler = () => {
+        navEl.removeEventListener('click', handler);
+        navEl.style.zIndex = '';
+        navEl.style.pointerEvents = '';
+        cleanupOnboarding();
+        // Navigate happens naturally from the click, wait for render
+        setTimeout(() => {
+            _tutPageSteps = getDetailedSteps(page);
+            _tutStepIdx = 0;
+            if (!_tutPageSteps.length) {
+                _tutPageIdx++;
+                _tutShowNavPrompt();
             } else {
-                tutDone();
+                showTutCard();
             }
-        });
-    }, 400);
+        }, 400);
+    };
+    navEl.addEventListener('click', handler);
 }
+
+// ---- Info cards: shown at bottom-right so user can see the page ----
+function _tutCleanupCard() {
+    document.getElementById('tutInfoCard')?.remove();
+    document.getElementById('tutInfoDim')?.remove();
+}
+
+function showTutCard() {
+    _tutCleanupCard();
+    if (_tutStepIdx >= _tutPageSteps.length) {
+        // This page done, go to next
+        _tutPageIdx++;
+        if (_tutPageIdx < _tutPages.length) {
+            _tutShowNavPrompt();
+        } else {
+            tutDone();
+        }
+        return;
+    }
+    const step = _tutPageSteps[_tutStepIdx];
+    const total = _tutPageSteps.length;
+    const page = _tutPages[_tutPageIdx];
+
+    // Light dimming so user can still see
+    const dim = document.createElement('div');
+    dim.id = 'tutInfoDim';
+    dim.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.15);z-index:5000;pointer-events:none;';
+    document.body.appendChild(dim);
+
+    // Card at bottom-right
+    const card = document.createElement('div');
+    card.id = 'tutInfoCard';
+    card.style.cssText = 'position:fixed;bottom:24px;right:24px;width:420px;max-width:calc(100vw - 48px);background:white;border-radius:16px;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.25);z-index:5002;animation:tooltipAppear 0.3s ease;';
+
+    // Progress dots
+    const dots = Array.from({length: total}, (_, i) =>
+        '<div style="width:8px;height:8px;border-radius:50%;background:' + (i === _tutStepIdx ? '#3b82f6' : i < _tutStepIdx ? '#93c5fd' : '#cbd5e1') + ';"></div>'
+    ).join('');
+
+    // Page badge
+    const badge = '<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#f0f9ff;border-radius:20px;font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:10px;">' + (_tutPageIcons[page]||'') + ' ' + (_tutPageNames[page]||page) + ' — ' + (_tutStepIdx+1) + '/' + total + '</div>';
+
+    card.innerHTML = badge + '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="font-size:28px;line-height:1;">' + (step.icon||'📌') + '</span><div><h3 style="margin:0 0 6px 0;font-size:17px;font-weight:700;color:#1e293b;">' + step.title + '</h3><p style="margin:0;font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">' + step.description + '</p></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;"><div style="display:flex;gap:5px;">' + dots + '</div><div style="display:flex;gap:8px;"><button onclick="skipTut()" style="padding:6px 14px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;">Пропустить</button>' + (_tutStepIdx > 0 ? '<button onclick="_tutPrev()" style="padding:6px 14px;background:#f1f5f9;border:none;border-radius:8px;color:#64748b;cursor:pointer;font-weight:600;">←</button>' : '') + '<button onclick="_tutNext()" style="padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">' + (_tutStepIdx === total - 1 ? (_tutPageIdx < _tutPages.length - 1 ? 'Дальше →' : 'Готово!') : 'Далее →') + '</button></div></div>';
+
+    document.body.appendChild(card);
+}
+
+function _tutNext() {
+    _tutStepIdx++;
+    showTutCard();
+}
+function _tutPrev() {
+    if (_tutStepIdx > 0) { _tutStepIdx--; showTutCard(); }
+}
+
+// ---- Quick steps (old system, with selectors) ----
 function getQuickSteps() {
     return [
         { icon:'👋', title:'Добро пожаловать!', description:'Быстрый обзор Dudarev Motorsport — системы управления задачами с геймификацией.', type:'info' },
@@ -7893,6 +8020,7 @@ function getQuickSteps() {
         { icon:'🚀', title:'Готово!', description:'Нажмите ❓ в шапке чтобы пройти обучение по любому разделу.', type:'info' }
     ];
 }
+
 function getQuickStepsForPage(page) {
     const map = {
         dashboard: [{ icon:'📊', title:'Дашборд', description:'Главная страница со статистикой, графиками и последними задачами.', type:'info' }],
