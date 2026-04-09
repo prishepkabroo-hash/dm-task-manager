@@ -2381,6 +2381,20 @@
         .date-picker-custom input::-webkit-outer-spin-button,
         .date-picker-custom input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
         .time-picker-custom span, .date-picker-custom span { font-weight:600; color:#64748b; }
+        .dp-cal-btn { width:28px;height:28px;border:1px solid #cbd5e1;border-radius:6px;background:white;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#64748b;transition:all 0.15s;flex-shrink:0;margin-left:2px; }
+        .dp-cal-btn:hover { background:#f1f5f9;color:#3b82f6;border-color:#3b82f6; }
+        .dp-calendar { position:absolute;top:100%;left:0;z-index:999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.12);padding:12px;min-width:260px;margin-top:4px; }
+        .dp-calendar-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:8px; }
+        .dp-calendar-header button { width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:6px;color:#64748b;font-size:16px;display:flex;align-items:center;justify-content:center; }
+        .dp-calendar-header button:hover { background:#f1f5f9;color:#3b82f6; }
+        .dp-calendar-header span { font-weight:700;font-size:14px;color:#1e293b; }
+        .dp-calendar-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center; }
+        .dp-calendar-grid .dp-weekday { font-size:10px;font-weight:600;color:#94a3b8;padding:4px 0; }
+        .dp-calendar-grid .dp-day-cell { width:32px;height:32px;border:none;background:none;cursor:pointer;border-radius:8px;font-size:12px;color:#1e293b;display:flex;align-items:center;justify-content:center;margin:0 auto;transition:all 0.1s; }
+        .dp-calendar-grid .dp-day-cell:hover { background:#eff6ff;color:#3b82f6; }
+        .dp-calendar-grid .dp-day-cell.today { border:1px solid #3b82f6;font-weight:700; }
+        .dp-calendar-grid .dp-day-cell.selected { background:#3b82f6;color:white;font-weight:700; }
+        .dp-calendar-grid .dp-day-cell.other-month { color:#cbd5e1; }
         .online-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-left:4px; vertical-align:middle; border:2px solid white; }
         .online-dot.online { background:#22c55e; }
         .online-dot.away { background:#f59e0b; }
@@ -2786,7 +2800,7 @@
                                 <select id="listQtStatus" class="dynamic-status-select" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;">
                                     <option value="new">Новая</option>
                                 </select>
-                                <div class="date-picker-custom" id="listQtDeadline"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
+                                <div class="date-picker-custom" id="listQtDeadline"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"><button type="button" class="dp-cal-btn" onclick="toggleCalendarPopup(this)" tabindex="-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></div>
                                 <button onclick="submitListQuickTask()" style="padding:8px 16px;background:var(--blue);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Создать</button>
                             </div>
                         </div>
@@ -3137,7 +3151,7 @@
                     <div class="form-group">
                         <label class="form-label">Дедлайн</label>
                         <div style="display:flex;gap:8px;">
-                            <div class="date-picker-custom" id="taskDeadlineDate"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
+                            <div class="date-picker-custom" id="taskDeadlineDate"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"><button type="button" class="dp-cal-btn" onclick="toggleCalendarPopup(this)" tabindex="-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></div>
                             <div class="time-picker-custom" id="taskDeadlineTime">
                               <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
                               <span>:</span>
@@ -3459,6 +3473,105 @@ function dpFocus(el) {
     const dp = el.closest('.date-picker-custom');
     const yearEl = dp.querySelector('.dp-year');
     if (yearEl && !yearEl.value) yearEl.value = new Date().getFullYear();
+}
+// Calendar popup
+let activeCalendarPopup = null;
+function toggleCalendarPopup(btn) {
+    // Close any existing popup
+    if (activeCalendarPopup) { activeCalendarPopup.remove(); activeCalendarPopup = null; return; }
+    const dp = btn.closest('.date-picker-custom');
+    dp.style.position = 'relative';
+    // Get current date from fields
+    const curDay = parseInt(dp.querySelector('.dp-day').value) || new Date().getDate();
+    const curMonth = parseInt(dp.querySelector('.dp-month').value) || (new Date().getMonth() + 1);
+    const curYear = parseInt(dp.querySelector('.dp-year').value) || new Date().getFullYear();
+    renderCalendarPopup(dp, curYear, curMonth, curDay);
+}
+function renderCalendarPopup(dp, year, month, selectedDay) {
+    if (activeCalendarPopup) activeCalendarPopup.remove();
+    const cal = document.createElement('div');
+    cal.className = 'dp-calendar';
+    activeCalendarPopup = cal;
+    const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    const weekDays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    // Header
+    let html = '<div class="dp-calendar-header">';
+    html += '<button onclick="calNav(this,-1,\'y\')" title="Пред. год">&laquo;</button>';
+    html += '<button onclick="calNav(this,-1,\'m\')" title="Пред. месяц">&lsaquo;</button>';
+    html += '<span>' + monthNames[month-1] + ' ' + year + '</span>';
+    html += '<button onclick="calNav(this,1,\'m\')" title="След. месяц">&rsaquo;</button>';
+    html += '<button onclick="calNav(this,1,\'y\')" title="След. год">&raquo;</button>';
+    html += '</div>';
+    // Weekday headers
+    html += '<div class="dp-calendar-grid">';
+    weekDays.forEach(w => html += '<div class="dp-weekday">' + w + '</div>');
+    // Days
+    const firstDay = new Date(year, month-1, 1).getDay();
+    const startDay = firstDay === 0 ? 6 : firstDay - 1; // Monday=0
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInPrev = new Date(year, month-1, 0).getDate();
+    const today = new Date();
+    const todayStr = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+    // Previous month days
+    for (let i = startDay - 1; i >= 0; i--) {
+        const d = daysInPrev - i;
+        html += '<button class="dp-day-cell other-month" onclick="calPick(this,' + (month===1?year-1:year) + ',' + (month===1?12:month-1) + ',' + d + ')">' + d + '</button>';
+    }
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+        const isToday = year+'-'+month+'-'+d === todayStr;
+        const isSel = d === selectedDay;
+        let cls = 'dp-day-cell';
+        if (isToday) cls += ' today';
+        if (isSel) cls += ' selected';
+        html += '<button class="' + cls + '" onclick="calPick(this,' + year + ',' + month + ',' + d + ')">' + d + '</button>';
+    }
+    // Next month days
+    const totalCells = startDay + daysInMonth;
+    const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let d = 1; d <= remaining; d++) {
+        html += '<button class="dp-day-cell other-month" onclick="calPick(this,' + (month===12?year+1:year) + ',' + (month===12?1:month+1) + ',' + d + ')">' + d + '</button>';
+    }
+    html += '</div>';
+    // Today button
+    html += '<div style="text-align:center;margin-top:8px;"><button onclick="calPickToday(this)" style="padding:4px 12px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:11px;color:#3b82f6;font-weight:600;transition:all 0.15s;" onmouseenter="this.style.background=\'#eff6ff\'" onmouseleave="this.style.background=\'white\'">Сегодня</button></div>';
+    cal.innerHTML = html;
+    cal.dataset.year = year;
+    cal.dataset.month = month;
+    cal.dataset.selDay = selectedDay;
+    dp.appendChild(cal);
+    // Close on outside click
+    setTimeout(() => document.addEventListener('click', calOutsideClick), 0);
+}
+function calOutsideClick(e) {
+    if (activeCalendarPopup && !activeCalendarPopup.contains(e.target) && !e.target.classList.contains('dp-cal-btn')) {
+        activeCalendarPopup.remove();
+        activeCalendarPopup = null;
+        document.removeEventListener('click', calOutsideClick);
+    }
+}
+function calNav(btn, dir, unit) {
+    const cal = btn.closest('.dp-calendar');
+    const dp = cal.parentElement;
+    let y = parseInt(cal.dataset.year);
+    let m = parseInt(cal.dataset.month);
+    const selDay = parseInt(cal.dataset.selDay) || 0;
+    if (unit === 'm') { m += dir; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } }
+    if (unit === 'y') { y += dir; }
+    renderCalendarPopup(dp, y, m, selDay);
+}
+function calPick(btn, year, month, day) {
+    const dp = btn.closest('.date-picker-custom');
+    dp.querySelector('.dp-day').value = String(day).padStart(2, '0');
+    dp.querySelector('.dp-month').value = String(month).padStart(2, '0');
+    dp.querySelector('.dp-year').value = String(year);
+    if (activeCalendarPopup) { activeCalendarPopup.remove(); activeCalendarPopup = null; }
+    document.removeEventListener('click', calOutsideClick);
+}
+function calPickToday(btn) {
+    const dp = btn.closest('.date-picker-custom');
+    const t = new Date();
+    calPick(btn, t.getFullYear(), t.getMonth() + 1, t.getDate());
 }
 
 async function refreshOnlineStatus() {
@@ -4302,7 +4415,7 @@ async function renderKanban() {
                     ${allDepartments.map(d => '<option value="'+d.id+'"'+(currentUser.department_id==d.id?' selected':'')+'>'+d.name+'</option>').join('')}
                 </select>
                 <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
-                    <div class="date-picker-custom qt-deadline-date"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" style="width:28px;" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" style="width:28px;" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" style="width:44px;" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
+                    <div class="date-picker-custom qt-deadline-date"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" style="width:28px;" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" style="width:28px;" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" style="width:44px;" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"><button type="button" class="dp-cal-btn" onclick="toggleCalendarPopup(this)" tabindex="-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></div>
                     <div class="time-picker-custom qt-deadline-time" style="flex-shrink:0;">
                       <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" style="width:32px;" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
                       <span>:</span>
@@ -7213,7 +7326,7 @@ function openDeadlineCalendar(event, taskId) {
         <div style="display:flex;gap:16px;margin-bottom:20px;">
             <div style="flex:1;">
                 <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">Дата</label>
-                <div class="date-picker-custom" id="dlCalendarDate" style="justify-content:center;"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"></div>
+                <div class="date-picker-custom" id="dlCalendarDate" style="justify-content:center;"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"><button type="button" class="dp-cal-btn" onclick="toggleCalendarPopup(this)" tabindex="-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></div>
             </div>
             <div style="flex:1;">
                 <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">Время</label>
@@ -7302,7 +7415,7 @@ function openCardEditor(event, taskId, field) {
         modalHTML += '<div style="display:flex;flex-direction:column;gap:12px;">';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Дата</label>';
-        modalHTML += '<div class="date-picker-custom" id="ceDate"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,\'d\')" onkeydown="dpKey(this,\'d\',event)" onblur="dpBlur(this,\'d\')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,\'mo\')" onkeydown="dpKey(this,\'mo\',event)" onblur="dpBlur(this,\'mo\')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,\'y\')" onkeydown="dpKey(this,\'y\',event)" onblur="dpBlur(this,\'y\')"></div>';
+        modalHTML += '<div class="date-picker-custom" id="ceDate"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,\'d\')" onkeydown="dpKey(this,\'d\',event)" onblur="dpBlur(this,\'d\')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,\'mo\')" onkeydown="dpKey(this,\'mo\',event)" onblur="dpBlur(this,\'mo\')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,\'y\')" onkeydown="dpKey(this,\'y\',event)" onblur="dpBlur(this,\'y\')"><button type="button" class="dp-cal-btn" onclick="toggleCalendarPopup(this)" tabindex="-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></div>';
         modalHTML += '</div>';
         modalHTML += '<div>';
         modalHTML += '<label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Время</label>';
