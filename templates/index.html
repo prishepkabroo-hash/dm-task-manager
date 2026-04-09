@@ -164,10 +164,11 @@
 
         .dept-item {
             padding: 10px 12px;
-            margin: 4px 0;
-            border-radius: 4px;
+            margin: 4px 8px;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -175,11 +176,12 @@
         }
 
         .dept-item:hover {
-            background-color: #333;
+            background-color: rgba(255,255,255,0.08);
         }
 
         .dept-item.active {
-            background-color: #444;
+            background-color: rgba(59,130,246,0.15);
+            border-left: 3px solid #3b82f6;
         }
 
         .dept-color {
@@ -1482,10 +1484,12 @@
         .cmd-item-icon {
             width: 36px; height: 36px;
             border-radius: 10px;
+            background: #f1f5f9;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            color: #64748b;
         }
 
         .cmd-item-right {
@@ -2439,9 +2443,78 @@
 
     <!-- COMMAND PALETTE MENU -->
     <div class="cmd-overlay" id="cmdOverlay" onclick="if(event.target===this)closeCmdMenu()">
-        <div class="cmd-palette">
-            <input class="cmd-search" id="cmdSearch" placeholder="Поиск действий..." autocomplete="off">
-            <div class="cmd-list" id="cmdList"></div>
+        <div class="cmd-palette" style="max-width:520px;">
+            <!-- Main view: app hub -->
+            <div id="cmdMainView">
+                <div style="padding:20px 24px 12px;display:flex;align-items:center;gap:12px;">
+                    <img src="/static/helmet-white.png" alt="DM" style="width:36px;height:36px;border-radius:10px;background:#1e293b;padding:4px;">
+                    <div style="flex:1;">
+                        <div style="font-size:16px;font-weight:700;color:#1e293b;">Dudarev Motorsport</div>
+                        <div style="font-size:12px;color:#94a3b8;">Task Manager v2.0</div>
+                    </div>
+                    <button onclick="cmdShowSearch()" style="padding:6px 12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;color:#64748b;font-size:13px;transition:all 0.2s;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        Поиск
+                        <span style="font-size:10px;color:#94a3b8;background:#fff;padding:2px 6px;border-radius:4px;border:1px solid #e2e8f0;">Ctrl+K</span>
+                    </button>
+                </div>
+                <div style="padding:8px 16px;">
+                    <div style="background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-radius:12px;padding:14px 16px;margin-bottom:8px;">
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">Возможности системы</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;color:#475569;line-height:1.7;">
+                            <span>&#x2022; Канбан-доска задач</span>
+                            <span>&#x2022; Мессенджер с @</span>
+                            <span>&#x2022; Геймификация (км)</span>
+                            <span>&#x2022; Календарь дедлайнов</span>
+                            <span>&#x2022; Воронка по отделам</span>
+                            <span>&#x2022; Достижения и рейтинг</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding:0 16px 8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div onclick="closeCmdMenu();restartOnboarding()" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor='#3b82f6';this.style.background='#eff6ff'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Обучение</span>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;">Быстрое или подробное</div>
+                    </div>
+                    <div onclick="closeCmdMenu();navigate('feedback')" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor='#8b5cf6';this.style.background='#faf5ff'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Обратная связь</span>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;">Идеи и предложения</div>
+                    </div>
+                    <a href="https://t.me/LukianCH" target="_blank" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;text-decoration:none;transition:all 0.2s;display:block;" onmouseenter="this.style.borderColor='#22c55e';this.style.background='#f0fdf4'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#22c55e"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.146-.28.292-.576.292l.214-3.053 5.56-5.023c.242-.213-.054-.328-.373-.115l-6.869 4.32-2.96-.924c-.644-.213-.658-.644.136-.954l11.566-4.461c.538-.197 1.006.128.832.941z"/></svg>
+                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Тех. поддержка</span>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;">Telegram: @LukianCH</div>
+                    </a>
+                    <div onclick="cmdShowSearch()" style="padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor='#f59e0b';this.style.background='#fffbeb'" onmouseleave="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <span style="font-size:13px;font-weight:600;color:#1e293b;">Все действия</span>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;">Навигация и команды</div>
+                    </div>
+                </div>
+                <div style="padding:8px 16px 16px;border-top:1px solid #f1f5f9;margin-top:4px;">
+                    <div style="font-size:11px;color:#94a3b8;text-align:center;">Dudarev Motorsport Task Manager &mdash; управление задачами с геймификацией</div>
+                </div>
+            </div>
+            <!-- Search view: actions list -->
+            <div id="cmdSearchView" style="display:none;">
+                <div style="padding:4px 4px 0;">
+                    <div style="display:flex;align-items:center;gap:8px;padding:4px 8px;">
+                        <button onclick="document.getElementById('cmdMainView').style.display='';document.getElementById('cmdSearchView').style.display='none'" style="padding:4px 8px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:12px;color:#64748b;">← Назад</button>
+                        <input class="cmd-search" id="cmdSearch" placeholder="Поиск действий..." autocomplete="off" style="flex:1;">
+                    </div>
+                </div>
+                <div class="cmd-list" id="cmdList"></div>
+            </div>
         </div>
     </div>
 
@@ -3991,10 +4064,13 @@ function renderDepartmentItems() {
     if (sectionTitle) sectionTitle.style.display = visibleDepts.length ? '' : 'none';
     deptList.style.display = visibleDepts.length ? '' : 'none';
     visibleDepts.forEach(dept => {
+        const taskCount = allTasks ? allTasks.filter(t => t.department_id === dept.id).length : 0;
+        const memberCount = allUsers ? allUsers.filter(u => u.department_id === dept.id).length : 0;
         const div = document.createElement('div');
         div.className = 'dept-item';
         if (selectedDepartment === dept.id) div.classList.add('active');
-        div.innerHTML = `<div class="dept-color" style="background-color: ${dept.color || '#999'};"></div><span>${dept.name}</span>`;
+        div.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><div class="dept-color" style="background-color:' + (dept.color || '#999') + ';"></div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dept.name + '</span><span style="font-size:11px;color:rgba(255,255,255,0.35);white-space:nowrap;">' + taskCount + '</span></div>';
+        div.title = dept.name + ': ' + taskCount + ' задач, ' + memberCount + ' чел.';
         div.addEventListener('click', () => {
             selectedDepartment = selectedDepartment === dept.id ? null : dept.id;
             renderDepartmentItems();
@@ -7290,30 +7366,31 @@ function showToast(msg, type) {
 // COMMAND PALETTE MENU
 const cmdActions = [
     {section:'Навигация'},
-    {icon:'🏠', label:'Дашборд', desc:'Главная страница', action:()=>navigate('dashboard'), keys:'Alt+1'},
-    {icon:'📋', label:'Канбан', desc:'Доска задач', action:()=>navigate('kanban'), keys:'Alt+2'},
-    {icon:'🔻', label:'Воронка', desc:'Воронка статусов', action:()=>navigate('funnel'), keys:'Alt+3'},
-    {icon:'📑', label:'Список', desc:'Таблица задач', action:()=>navigate('list'), keys:'Alt+4'},
-    {icon:'💬', label:'Мессенджер', desc:'Чат с командой', action:()=>navigate('messenger'), keys:'Alt+5'},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>', label:'Дашборд', desc:'Статистика и последние задачи', action:()=>navigate('dashboard'), keys:'Alt+1'},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="8" y2="18"/><line x1="12" y1="6" x2="12" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>', label:'Канбан', desc:'Доска задач по статусам', action:()=>navigate('kanban'), keys:'Alt+2'},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>', label:'Воронка', desc:'Этапы воронки', action:()=>navigate('funnel'), keys:'Alt+3'},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>', label:'Список', desc:'Таблица всех задач', action:()=>navigate('list'), keys:'Alt+4'},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', label:'Календарь', desc:'Дедлайны на календаре', action:()=>navigate('calendar')},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>', label:'Мессенджер', desc:'Чат с командой', action:()=>navigate('messenger'), keys:'Alt+5'},
     {section:'Действия'},
-    {icon:'➕', label:'Создать задачу', desc:'Новая задача', action:()=>showTaskForm(), keys:'Ctrl+N'},
-    {icon:'👤', label:'Мой профиль', desc:'Настройки профиля', action:()=>navigate('profile')},
-    {icon:'📊', label:'Аналитика', desc:'Статистика', action:()=>navigate('analytics'), admin:true},
-    {icon:'🏆', label:'Рейтинг', desc:'Таблица лидеров', action:()=>navigate('leaderboard')},
-    {icon:'⚙️', label:'Управление', desc:'Администрирование', action:()=>navigate('admin'), admin:true},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>', label:'Создать задачу', desc:'Новая задача', action:()=>showTaskForm(), keys:'Ctrl+N'},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>', label:'Мой профиль', desc:'Настройки профиля', action:()=>navigate('profile')},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>', label:'Аналитика', desc:'Статистика', action:()=>navigate('analytics'), admin:true},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>', label:'Рейтинг', desc:'Таблица лидеров', action:()=>navigate('leaderboard')},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>', label:'Управление', desc:'Администрирование', action:()=>navigate('admin'), admin:true},
     {section:'Помощь'},
-    {icon:'🎓', label:'Пройти обучение', desc:'Перезапустить онбординг', action:()=>restartOnboarding()},
-    {icon:'💡', label:'Поддержка', desc:'Написать @LukianCH', action:()=>window.open('https://t.me/LukianCH','_blank')},
-    {icon:'🚪', label:'Выход', desc:'Выйти из системы', action:()=>logout()},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>', label:'Пройти обучение', desc:'Обучение по разделам', action:()=>restartOnboarding()},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>', label:'Тех. поддержка', desc:'Telegram: @LukianCH', action:()=>window.open('https://t.me/LukianCH','_blank')},
+    {icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>', label:'Выход', desc:'Выйти из аккаунта', action:()=>logout()},
 ];
 
 function openCmdMenu() {
-    const overlay = document.getElementById('cmdOverlay');
+    var overlay = document.getElementById('cmdOverlay');
     overlay.classList.add('active');
-    const search = document.getElementById('cmdSearch');
-    search.value = '';
-    search.focus();
-    renderCmdList('');
+    // Reset to main view
+    document.getElementById('cmdMainView').style.display = '';
+    document.getElementById('cmdSearchView').style.display = 'none';
+    document.getElementById('cmdSearch').value = '';
 }
 
 function closeCmdMenu() {
@@ -7494,39 +7571,40 @@ async function saveDeadlineFromCardEditor(taskId) {
 }
 
 function renderCmdList(query) {
-    const list = document.getElementById('cmdList');
-    const q = query.toLowerCase();
-    let html = '';
-    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
+    var list = document.getElementById('cmdList');
+    var q = query.toLowerCase();
+    var html = '';
+    var isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
 
-    cmdActions.forEach(item => {
+    cmdActions.forEach(function(item) {
         if (item.admin && !isAdmin) return;
         if (item.section) {
-            if (!q || cmdActions.some(a => !a.section && a.label && a.label.toLowerCase().includes(q) && !(a.admin && !isAdmin))) {
-                const sectionItems = cmdActions.filter(a => !a.section && a.label && a.label.toLowerCase().includes(q));
-                // only show section if not filtering or has matches
-            }
-            html += `<div class="cmd-section">${item.section}</div>`;
+            html += '<div class="cmd-section">' + item.section + '</div>';
             return;
         }
         if (q && !item.label.toLowerCase().includes(q) && !(item.desc||'').toLowerCase().includes(q)) return;
-        html += `
-            <div class="cmd-item" onclick="cmdActions.find(a=>a.label==='${item.label}').action();closeCmdMenu()">
-                <div class="cmd-item-icon" style="background:#f1f5f9;font-size:18px;">${item.icon}</div>
-                <div>
-                    <div style="font-weight:600;font-size:13px;">${item.label}</div>
-                    <div style="font-size:11px;color:#94a3b8;">${item.desc}</div>
-                </div>
-                ${item.keys ? `<div class="cmd-item-right">${item.keys}</div>` : ''}
-            </div>
-        `;
+        html += '<div class="cmd-item" onclick="cmdActions.find(function(a){return a.label===\'' + item.label.replace(/'/g,"\\'") + '\'}).action();closeCmdMenu()">' +
+            '<div class="cmd-item-icon">' + item.icon + '</div>' +
+            '<div><div style="font-weight:600;font-size:13px;">' + item.label + '</div>' +
+            '<div style="font-size:11px;color:#94a3b8;">' + item.desc + '</div></div>' +
+            (item.keys ? '<div class="cmd-item-right">' + item.keys + '</div>' : '') +
+            '</div>';
     });
     list.innerHTML = html || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Ничего не найдено</div>';
 }
 
-document.getElementById('cmdSearch')?.addEventListener('input', e => renderCmdList(e.target.value));
-document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCmdMenu(); }
+function cmdShowSearch() {
+    document.getElementById('cmdMainView').style.display = 'none';
+    document.getElementById('cmdSearchView').style.display = '';
+    var s = document.getElementById('cmdSearch');
+    s.value = '';
+    s.focus();
+    renderCmdList('');
+}
+
+document.getElementById('cmdSearch')?.addEventListener('input', function(e) { renderCmdList(e.target.value); });
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCmdMenu(); setTimeout(cmdShowSearch, 50); }
     if (e.key === 'Escape') closeCmdMenu();
 });
 
