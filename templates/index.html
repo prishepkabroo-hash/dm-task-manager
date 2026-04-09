@@ -3354,10 +3354,18 @@ function tpInput(el, type) {
     if (type === 'm' && el.value.length === 2) el.blur();
 }
 function tpKey(el, type, e) {
-    if (e.key === 'Backspace' && type === 'm' && el.value === '') {
+    if ((e.key === 'Backspace' || e.key === 'Delete') && el.value === '') {
         e.preventDefault();
-        const prev = el.closest('.time-picker-custom').querySelector('.tp-hours');
-        if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
+        const tp = el.closest('.time-picker-custom');
+        if (type === 'm') {
+            // Minutes empty -> go to hours
+            const prev = tp.querySelector('.tp-hours');
+            if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
+        } else if (type === 'h') {
+            // Hours empty -> go to date input (previous sibling of time-picker)
+            const dateInput = tp.parentElement.querySelector('input[type="date"], input[type="datetime-local"]');
+            if (dateInput) dateInput.focus();
+        }
     }
     if (e.key === 'Enter' && type === 'h') {
         e.preventDefault();
