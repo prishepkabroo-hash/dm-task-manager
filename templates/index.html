@@ -3995,7 +3995,7 @@ async function loadApp() {
         <div style="font-size:12px; color:#999;">${currentUser.department ? currentUser.department.name : roleName}</div>
     `;
 
-    navigate('dashboard');
+    navigate('kanban');
 
     // Setup intervals
     setupNotificationInterval();
@@ -4380,9 +4380,22 @@ async function renderKanban() {
             if (stagesData && stagesData.length) allStages = stagesData;
         }
     } else {
-        // "All departments" — show only global (base) stages
+        // "All departments" — global stages + unique department stages merged by key
         const globalStages = await apiCall('/api/stages') || [];
-        allStages = globalStages.sort((a,b) => a.sort_order - b.sort_order);
+        const mergedMap = new Map();
+        globalStages.forEach(s => mergedMap.set(s.key, {...s}));
+
+        // Add unique stages from each department (by key)
+        const departments = await apiCall('/api/departments') || [];
+        for (const dept of departments) {
+            const deptStages = await apiCall('/api/stages?department_id=' + dept.id) || [];
+            deptStages.forEach(ds => {
+                if (!mergedMap.has(ds.key)) {
+                    mergedMap.set(ds.key, {...ds});
+                }
+            });
+        }
+        allStages = Array.from(mergedMap.values()).sort((a,b) => a.sort_order - b.sort_order);
     }
 
     const statuses = getStageKeys();
