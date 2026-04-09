@@ -8174,18 +8174,23 @@ function _tutBuildSteps(pages, mode) {
 
 function showTutorialChoice(isInitial) {
     _tutorialIsInitial = !!isInitial;
+    const userName = currentUser ? (currentUser.full_name || currentUser.username) : '';
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    const greeting = isAdmin
+        ? 'Вы вошли как <b>администратор</b>. Обучение покажет все возможности системы — управление задачами, отделами, воронками и командой.'
+        : 'Давайте познакомимся с системой управления задачами. Обучение покажет основные возможности.';
     const m = document.createElement('div');
     m.id = 'tutChoiceModal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
-    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:460px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
-        '<div style="font-size:48px;margin-bottom:12px;">🎓</div>' +
-        '<h2 style="margin:0 0 8px;font-size:24px;">Добро пожаловать!</h2>' +
-        '<p style="margin:0 0 24px;color:#64748b;font-size:14px;">Выберите формат обучения:</p>' +
-        '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">' +
-        '<button onclick="startTut(\'quick\')" style="padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">🚀 Быстрое (~2 мин)</button>' +
-        '<button onclick="startTut(\'detailed\')" style="padding:14px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">📚 Подробное (~10 мин)</button>' +
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:6000;animation:fadeIn 0.3s;';
+    m.innerHTML = '<div style="background:white;border-radius:24px;padding:48px 40px;max-width:480px;width:90%;text-align:center;box-shadow:0 25px 80px rgba(0,0,0,0.35);animation:slideUp 0.4s ease;">' +
+        '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:36px;box-shadow:0 8px 24px rgba(59,130,246,0.3);">🎓</div>' +
+        '<h2 style="margin:0 0 6px;font-size:26px;font-weight:800;color:#0f172a;">' + (userName ? 'Привет, ' + userName + '!' : 'Добро пожаловать!') + '</h2>' +
+        '<p style="margin:0 0 28px;color:#64748b;font-size:14px;line-height:1.6;">' + greeting + '</p>' +
+        '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">' +
+        '<button onclick="startTut(\'quick\')" style="padding:16px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:14px;cursor:pointer;font-size:15px;font-weight:700;box-shadow:0 4px 16px rgba(59,130,246,0.3);transition:transform 0.15s;" onmouseenter="this.style.transform=\'scale(1.02)\'" onmouseleave="this.style.transform=\'scale(1)\'">🚀 Быстрый обзор <span style="opacity:0.7;font-weight:400;">~2 мин</span></button>' +
+        '<button onclick="startTut(\'detailed\')" style="padding:16px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:14px;cursor:pointer;font-size:15px;font-weight:700;box-shadow:0 4px 16px rgba(139,92,246,0.3);transition:transform 0.15s;" onmouseenter="this.style.transform=\'scale(1.02)\'" onmouseleave="this.style.transform=\'scale(1)\'">📚 Полное обучение <span style="opacity:0.7;font-weight:400;">~10 мин</span></button>' +
         '</div>' +
-        (isInitial ? '<button onclick="skipTut()" style="padding:8px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Пропустить</button>' : '') +
+        (isInitial ? '<button onclick="skipTut()" style="padding:10px 20px;background:transparent;color:#94a3b8;border:none;cursor:pointer;font-size:13px;transition:color 0.2s;" onmouseenter="this.style.color=\'#64748b\'" onmouseleave="this.style.color=\'#94a3b8\'">Пропустить, разберусь сам</button>' : '') +
         '</div>';
     document.body.appendChild(m);
 }
@@ -8252,23 +8257,100 @@ function _tutFinish() {
     // Show completion modal
     var m = document.createElement('div');
     m.id = 'tutDoneModal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
-    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:420px;width:90%;text-align:center;">' +
-        '<div style="font-size:56px;margin-bottom:12px;">🎉</div>' +
-        '<h2 style="margin:0 0 8px;font-size:22px;">Обучение завершено!</h2>' +
-        '<p style="margin:0 0 20px;color:#64748b;font-size:14px;">Вы готовы к работе! Нажмите ❓ в шапке для повторного обучения.</p>' +
-        '<button onclick="document.getElementById(\'tutDoneModal\').remove()" style="padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;">Начать работу!</button>' +
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:6000;animation:fadeIn 0.3s;';
+    m.innerHTML = '<div id="tutDoneCard" style="background:white;border-radius:24px;padding:48px 40px;max-width:440px;width:90%;text-align:center;box-shadow:0 25px 80px rgba(0,0,0,0.35);animation:slideUp 0.4s ease;position:relative;overflow:visible;">' +
+        '<canvas id="fireworkCanvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:6001;"></canvas>' +
+        '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:36px;box-shadow:0 8px 24px rgba(34,197,94,0.3);animation:pulse 1s infinite;">✅</div>' +
+        '<h2 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#0f172a;">Обучение пройдено!</h2>' +
+        '<p style="margin:0 0 8px;color:#64748b;font-size:15px;line-height:1.6;">Теперь вы знаете все возможности системы.</p>' +
+        '<p style="margin:0 0 28px;color:#94a3b8;font-size:13px;">Нажмите <b>❓</b> в шапке, чтобы пройти обучение по любому разделу.</p>' +
+        '<button id="tutDoneBtn" onclick="_tutDoneClose()" style="padding:14px 32px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:14px;cursor:pointer;font-weight:700;font-size:16px;box-shadow:0 4px 16px rgba(59,130,246,0.3);transition:transform 0.15s;position:relative;" onmouseenter="this.style.transform=\'scale(1.05)\'" onmouseleave="this.style.transform=\'scale(1)\'">Начать работу!</button>' +
         '</div>';
     document.body.appendChild(m);
+    // Launch fireworks
+    _launchFireworks();
+}
+
+function _tutDoneClose() {
+    var canvas = document.getElementById('fireworkCanvas');
+    if (canvas) canvas.remove();
+    document.getElementById('tutDoneModal')?.remove();
+}
+
+function _launchFireworks() {
+    var canvas = document.getElementById('fireworkCanvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    var particles = [];
+    var colors = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+    var startTime = Date.now();
+    var duration = 3000; // 3 seconds
+
+    function burst(x, y) {
+        var count = 30 + Math.random() * 20;
+        for (var i = 0; i < count; i++) {
+            var angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+            var speed = 2 + Math.random() * 4;
+            particles.push({
+                x: x, y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1,
+                decay: 0.015 + Math.random() * 0.015,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                size: 2 + Math.random() * 3
+            });
+        }
+    }
+
+    // Launch several bursts
+    burst(canvas.width * 0.3, canvas.height * 0.3);
+    burst(canvas.width * 0.7, canvas.height * 0.3);
+    burst(canvas.width * 0.5, canvas.height * 0.4);
+    setTimeout(function() { burst(canvas.width * 0.2, canvas.height * 0.5); burst(canvas.width * 0.8, canvas.height * 0.4); }, 400);
+    setTimeout(function() { burst(canvas.width * 0.4, canvas.height * 0.25); burst(canvas.width * 0.6, canvas.height * 0.5); }, 800);
+    setTimeout(function() { burst(canvas.width * 0.5, canvas.height * 0.35); }, 1200);
+
+    function animate() {
+        if (Date.now() - startTime > duration + 1000) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (var i = particles.length - 1; i >= 0; i--) {
+            var p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.05; // gravity
+            p.life -= p.decay;
+            if (p.life <= 0) { particles.splice(i, 1); continue; }
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+            ctx.fill();
+            // Sparkle trail
+            ctx.beginPath();
+            ctx.arc(p.x - p.vx * 2, p.y - p.vy * 2, p.size * p.life * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(animate);
+    }
+    animate();
 }
 
 function _tutCleanup() {
     document.getElementById('tutCard')?.remove();
+    document.getElementById('tutSpotlight')?.remove();
 }
 
 function _tutShow() {
-    // Remove old card
+    // Remove old card and spotlight
     document.getElementById('tutCard')?.remove();
+    document.getElementById('tutSpotlight')?.remove();
 
     if (_tutStepIdx >= _tutSteps.length) {
         _tutFinish();
@@ -8280,16 +8362,16 @@ function _tutShow() {
 
     // If it's a navigate step, navigate and auto-advance after a short pause
     if (step._type === 'nav') {
-        navigate(step._page);
-        // Show a brief "navigating" card, then auto-advance
+        _doNavigate(step._page);
+        // Show a brief "navigating" card with spotlight
+        _tutCreateSpotlight(null);
         var card = document.createElement('div');
         card.id = 'tutCard';
-        card.style.cssText = 'position:fixed;bottom:24px;right:24px;width:380px;max-width:calc(100vw - 48px);background:white;border-radius:16px;padding:20px 24px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:5500;animation:tooltipAppear 0.3s ease;display:flex;align-items:center;gap:12px;';
-        card.innerHTML = '<span style="font-size:32px;">' + step.icon + '</span>' +
-            '<div><div style="font-size:13px;color:#3b82f6;font-weight:600;">Переход в раздел</div>' +
-            '<div style="font-size:18px;font-weight:700;color:#1e293b;">' + step.title + '</div></div>';
+        card.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:380px;max-width:calc(100vw - 48px);background:white;border-radius:20px;padding:28px 32px;box-shadow:0 20px 60px rgba(0,0,0,0.3);z-index:5502;animation:slideUp 0.3s ease;display:flex;align-items:center;gap:16px;';
+        card.innerHTML = '<div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">' + step.icon + '</div>' +
+            '<div><div style="font-size:12px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Переход в раздел</div>' +
+            '<div style="font-size:20px;font-weight:700;color:#1e293b;margin-top:2px;">' + step.title + '</div></div>';
         document.body.appendChild(card);
-        // Auto advance after 800ms to let page render
         setTimeout(function() {
             _tutStepIdx++;
             _tutShow();
@@ -8297,55 +8379,108 @@ function _tutShow() {
         return;
     }
 
-    // Info step — show card at bottom-right
+    // Info step
     var page = step._page;
     var pageName = _tutPageNames[page] || page;
     var pageIcon = _tutPageIcons[page] || '';
+
+    // Spotlight: highlight target element if selector provided
+    var targetEl = step.selector ? document.querySelector(step.selector) : null;
+    _tutCreateSpotlight(targetEl);
 
     // Count info steps for this page (for dots)
     var pageInfoSteps = _tutSteps.filter(function(s) { return s._page === page && s._type === 'info'; });
     var myIdxInPage = pageInfoSteps.indexOf(step);
     var pageTotal = pageInfoSteps.length;
 
+    // Overall progress
+    var overallPct = Math.round(((_tutStepIdx + 1) / _tutSteps.length) * 100);
+
     // Dots
     var dots = pageInfoSteps.map(function(_, i) {
         var color = i === myIdxInPage ? '#3b82f6' : (i < myIdxInPage ? '#93c5fd' : '#cbd5e1');
-        return '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';"></div>';
+        return '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';transition:background 0.3s;"></div>';
     }).join('');
 
+    // Progress bar
+    var progressBar = '<div style="width:100%;height:3px;background:#e2e8f0;border-radius:2px;margin-bottom:16px;overflow:hidden;"><div style="width:' + overallPct + '%;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:2px;transition:width 0.4s;"></div></div>';
+
     // Badge
-    var badge = '<div style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#f0f9ff;border-radius:20px;font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:10px;">' +
-        pageIcon + ' ' + pageName + ' — ' + (myIdxInPage + 1) + '/' + pageTotal + '</div>';
+    var badge = '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;background:linear-gradient(135deg,#f0f9ff,#ede9fe);border-radius:20px;font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:12px;">' +
+        pageIcon + ' ' + pageName + ' — шаг ' + (myIdxInPage + 1) + ' из ' + pageTotal + '</div>';
 
     // Buttons
-    var skipBtn = '<button onclick="skipTut()" style="padding:6px 14px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;">Пропустить</button>';
-    var prevBtn = myIdxInPage > 0 ? '<button onclick="_tutGoStep(-1)" style="padding:6px 14px;background:#f1f5f9;border:none;border-radius:8px;color:#64748b;cursor:pointer;font-weight:600;">←</button>' : '';
+    var skipBtn = '<button onclick="skipTut()" style="padding:8px 16px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;transition:color 0.2s;" onmouseenter="this.style.color=\'#64748b\'" onmouseleave="this.style.color=\'#94a3b8\'">Пропустить</button>';
+    var prevBtn = myIdxInPage > 0 ? '<button onclick="_tutGoStep(-1)" style="padding:8px 16px;background:#f1f5f9;border:none;border-radius:10px;color:#64748b;cursor:pointer;font-weight:600;transition:background 0.2s;" onmouseenter="this.style.background=\'#e2e8f0\'" onmouseleave="this.style.background=\'#f1f5f9\'">←</button>' : '';
 
     // Figure out next button text
     var isLastOverall = _tutStepIdx >= _tutSteps.length - 1;
     var nextStep = _tutSteps[_tutStepIdx + 1];
     var isLastOnPage = !nextStep || nextStep._page !== page || nextStep._type === 'nav';
-    var nextLabel = isLastOverall ? 'Готово!' : (isLastOnPage ? 'Следующий раздел →' : 'Далее →');
-    var nextBtn = '<button onclick="_tutGoStep(1)" style="padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">' + nextLabel + '</button>';
+    var nextLabel = isLastOverall ? '🎉 Завершить' : (isLastOnPage ? 'Следующий раздел →' : 'Далее →');
+    var nextBg = isLastOverall ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'linear-gradient(135deg,#3b82f6,#2563eb)';
+    var nextBtn = '<button onclick="_tutGoStep(1)" style="padding:10px 22px;background:' + nextBg + ';color:white;border:none;border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(59,130,246,0.25);transition:transform 0.15s;" onmouseenter="this.style.transform=\'scale(1.05)\'" onmouseleave="this.style.transform=\'scale(1)\'">' + nextLabel + '</button>';
+
+    // Position card near target or bottom-right
+    var cardPos = 'position:fixed;bottom:24px;right:24px;';
+    if (targetEl) {
+        var rect = targetEl.getBoundingClientRect();
+        // Place card to the right of target if there's space, otherwise below
+        if (rect.right + 450 < window.innerWidth) {
+            cardPos = 'position:fixed;top:' + Math.max(20, rect.top - 20) + 'px;left:' + (rect.right + 20) + 'px;';
+        } else if (rect.bottom + 280 < window.innerHeight) {
+            cardPos = 'position:fixed;top:' + (rect.bottom + 16) + 'px;left:' + Math.max(20, rect.left) + 'px;';
+        }
+    }
 
     var card = document.createElement('div');
     card.id = 'tutCard';
-    card.style.cssText = 'position:fixed;bottom:24px;right:24px;width:420px;max-width:calc(100vw - 48px);background:white;border-radius:16px;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.25);z-index:5500;animation:tooltipAppear 0.3s ease;';
+    card.style.cssText = cardPos + 'width:440px;max-width:calc(100vw - 48px);background:white;border-radius:20px;padding:24px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);z-index:5502;animation:slideUp 0.3s ease;';
 
-    card.innerHTML = badge +
-        '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">' +
-            '<span style="font-size:28px;line-height:1;">' + (step.icon || '📌') + '</span>' +
-            '<div>' +
-                '<h3 style="margin:0 0 6px 0;font-size:17px;font-weight:700;color:#1e293b;">' + step.title + '</h3>' +
-                '<p style="margin:0;font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">' + step.description + '</p>' +
+    card.innerHTML = progressBar + badge +
+        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">' +
+            '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#f0f9ff,#ede9fe);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">' + (step.icon || '📌') + '</div>' +
+            '<div style="flex:1;">' +
+                '<h3 style="margin:0 0 6px 0;font-size:18px;font-weight:700;color:#0f172a;">' + step.title + '</h3>' +
+                '<p style="margin:0;font-size:14px;color:#475569;line-height:1.7;white-space:pre-wrap;">' + step.description + '</p>' +
             '</div>' +
         '</div>' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">' +
-            '<div style="display:flex;gap:5px;">' + dots + '</div>' +
-            '<div style="display:flex;gap:8px;">' + skipBtn + prevBtn + nextBtn + '</div>' +
+            '<div style="display:flex;gap:5px;align-items:center;">' + dots + '</div>' +
+            '<div style="display:flex;gap:8px;align-items:center;">' + skipBtn + prevBtn + nextBtn + '</div>' +
         '</div>';
 
     document.body.appendChild(card);
+}
+
+// Spotlight overlay — blocks clicks, darkens screen, highlights target
+function _tutCreateSpotlight(targetEl) {
+    document.getElementById('tutSpotlight')?.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'tutSpotlight';
+
+    if (targetEl) {
+        var rect = targetEl.getBoundingClientRect();
+        var pad = 8;
+        // Use CSS clip-path to cut out the target area
+        var top = rect.top - pad;
+        var left = rect.left - pad;
+        var bottom = rect.bottom + pad;
+        var right = rect.right + pad;
+        var radius = 12;
+        // Inset clip: darken everything except the target rect
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;pointer-events:auto;background:rgba(15,23,42,0.65);transition:all 0.3s;';
+        // Use a box-shadow trick for the spotlight
+        var highlight = document.createElement('div');
+        highlight.style.cssText = 'position:fixed;top:' + top + 'px;left:' + left + 'px;width:' + (right - left) + 'px;height:' + (bottom - top) + 'px;border-radius:' + radius + 'px;box-shadow:0 0 0 9999px rgba(15,23,42,0.65);z-index:5501;pointer-events:none;border:2px solid rgba(59,130,246,0.6);animation:pulse 2s infinite;';
+        overlay.style.background = 'transparent';
+        overlay.appendChild(highlight);
+        // Allow clicks on the highlighted element
+        overlay.addEventListener('click', function(e) { e.stopPropagation(); });
+    } else {
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;background:rgba(15,23,42,0.65);pointer-events:auto;transition:all 0.3s;';
+    }
+    document.body.appendChild(overlay);
 }
 
 function _tutGoStep(dir) {
@@ -8395,58 +8530,73 @@ function getDetailedSteps(page) {
     var isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
     var s = {
         dashboard: isAdmin ? [
-            { icon:'👑', title:'Добро пожаловать, руководитель!', description:'Вы вошли как администратор. У вас есть полный доступ ко всем функциям системы: управление пользователями, отделами, правами и задачами всех сотрудников.' },
-            { icon:'📊', title:'Дашборд', description:'Главная страница. Вверху — карточки со статистикой: сколько задач новых, в работе и завершённых по всем отделам.' },
-            { icon:'⚡', title:'Последние задачи', description:'Ниже — список последних задач. Нажмите на любую задачу, чтобы открыть её карточку и отредактировать.' }
+            { icon:'👑', title:'Добро пожаловать, руководитель!', description:'Вы вошли как администратор. У вас есть полный доступ ко всем функциям системы: управление пользователями, отделами, воронками и задачами всех сотрудников.' },
+            { icon:'📊', title:'Статистика', description:'Карточки вверху показывают общую картину: сколько задач новых, в работе и завершённых по всем отделам. Числа обновляются в реальном времени.', selector:'#statsGrid' },
+            { icon:'⚡', title:'Последние задачи', description:'Список последних задач из всех отделов. Нажмите на любую задачу — откроется карточка с деталями, где можно изменить статус, приоритет, исполнителя и дедлайн.', selector:'#recentTasksList' },
+            { icon:'🔔', title:'Уведомления', description:'Колокольчик вверху — ваши уведомления. Красная точка означает непрочитанные. Здесь приходят: назначение задач, изменение статусов, упоминания в чатах и приближение дедлайнов.', selector:'#notificationBell' },
+            { icon:'🔍', title:'Поиск', description:'Поле поиска позволяет быстро найти любую задачу по названию. Начните вводить — результаты фильтруются мгновенно.', selector:'#searchInput' },
+            { icon:'➕', title:'Создание задачи', description:'Синяя кнопка "+" — быстрое создание новой задачи из любого раздела. Укажите название, отдел, исполнителя, приоритет и дедлайн.', selector:'#fabCreateTask' }
         ] : [
             { icon:'👋', title:'Добро пожаловать!', description:'Это ваше рабочее пространство в Dudarev Motorsport. Здесь вы будете управлять задачами, общаться с коллегами и зарабатывать километры!' },
-            { icon:'📊', title:'Дашборд', description:'Главная страница. Вверху — карточки со статистикой ваших задач: новые, в работе, завершённые.' },
-            { icon:'⚡', title:'Последние задачи', description:'Ниже — список последних задач. Нажмите на любую, чтобы открыть и посмотреть детали.' }
+            { icon:'📊', title:'Статистика', description:'Карточки вверху — статистика ваших задач: новые, в работе, завершённые. Следите за прогрессом!', selector:'#statsGrid' },
+            { icon:'⚡', title:'Последние задачи', description:'Список последних задач. Нажмите на любую — откроется карточка с деталями.', selector:'#recentTasksList' },
+            { icon:'🔔', title:'Уведомления', description:'Колокольчик — ваши уведомления. Сюда приходят назначения задач, изменения статусов и упоминания в чатах.', selector:'#notificationBell' },
+            { icon:'🔍', title:'Поиск', description:'Поиск задач по названию. Начните вводить — результаты появятся мгновенно.', selector:'#searchInput' }
         ],
         kanban: isAdmin ? [
-            { icon:'📋', title:'Канбан-доска', description:'Задачи разложены по колонкам-статусам. Колонки настраиваются в разделе "Админ" → "Этапы" для каждого отдела отдельно.' },
-            { icon:'🏢', title:'Переключение отделов', description:'Вверху — кнопки отделов. Переключайтесь между ними чтобы видеть задачи каждого отдела. Как админ, вы видите все отделы.' },
-            { icon:'🎯', title:'Управление задачами', description:'Перетащите карточку в другую колонку чтобы сменить статус. Кнопка + внизу колонки — быстрое создание задачи.' }
+            { icon:'📋', title:'Канбан-доска', description:'Главный инструмент управления. Задачи разложены по колонкам-статусам (воронкам). Каждая колонка — это этап работы над задачей.', selector:'#kanbanBoard' },
+            { icon:'🏢', title:'Переключение отделов', description:'Кнопки отделов вверху доски. Переключайтесь между ними — у каждого отдела свои колонки и задачи. Кнопка "Все отделы" показывает объединённую картину.', selector:'.kanban-dept-btn' },
+            { icon:'✏️', title:'Редактирование воронки', description:'Кнопка "Редактировать воронку" позволяет настроить колонки: добавить новые этапы, изменить порядок, цвет и иконки. Доступно только при выборе конкретного отдела.', selector:'#kanbanEditBtn' },
+            { icon:'🎯', title:'Перетаскивание задач', description:'Перетащите карточку задачи из одной колонки в другую, чтобы изменить её статус. Это самый быстрый способ обновить ход работы.' },
+            { icon:'➕', title:'Быстрая задача', description:'Кнопка "+" внизу каждой колонки создаёт задачу сразу в нужном статусе. Удобно для быстрого добавления без открытия полной формы.' },
+            { icon:'👥', title:'Соисполнители', description:'В карточке задачи можно добавить соисполнителей — коллег, которые помогают с задачей. Они тоже получат уведомления об изменениях.' }
         ] : [
-            { icon:'📋', title:'Канбан-доска', description:'Ваши задачи разложены по колонкам-статусам: Новая, В работе, Готово и т.д.' },
-            { icon:'🎯', title:'Перемещение', description:'Перетащите карточку из одной колонки в другую, чтобы изменить статус задачи.' },
-            { icon:'➕', title:'Быстрое создание', description:'Кнопка + внизу каждой колонки — создаёт задачу сразу в нужном статусе.' }
+            { icon:'📋', title:'Канбан-доска', description:'Ваши задачи разложены по колонкам-статусам: от "Новая" до "Готово". Каждая колонка — этап работы.', selector:'#kanbanBoard' },
+            { icon:'🎯', title:'Перемещение задач', description:'Перетащите карточку из одной колонки в другую, чтобы изменить статус задачи. Руководитель увидит обновление сразу.' },
+            { icon:'➕', title:'Быстрое создание', description:'Кнопка "+" внизу каждой колонки — создаёт задачу сразу в нужном статусе. Быстро и удобно!' },
+            { icon:'👥', title:'Соисполнители', description:'Вас могут добавить соисполнителем в задачу. Вы получите уведомление и сможете следить за прогрессом.' }
         ],
         list: [
-            { icon:'📝', title:'Список задач', description:'Все задачи в виде таблицы: название, статус, приоритет, исполнитель, отдел и дедлайн.' },
-            { icon:'🔍', title:'Фильтр по отделу', description:'Вверху — выпадающий список для фильтрации задач по отделу. Выберите нужный отдел или "Все отделы".' },
-            { icon:'➕', title:'Быстрая задача', description:'Внизу таблицы — блок "Быстрая задача". Нажмите, введите название, выберите отдел и дедлайн — задача создастся мгновенно.' }
+            { icon:'📝', title:'Список задач', description:'Все задачи в виде таблицы: название, статус, приоритет, исполнитель, отдел и дедлайн. Удобно для общего обзора.' },
+            { icon:'🔍', title:'Фильтрация', description:'Используйте фильтр по отделу вверху, чтобы показать задачи конкретного отдела. Комбинируйте с поиском для точного результата.' },
+            { icon:'📊', title:'Сортировка', description:'Нажмите на заголовок столбца, чтобы отсортировать задачи по этому параметру: по дате, приоритету или статусу.' },
+            { icon:'➕', title:'Быстрая задача', description:'Внизу таблицы — блок "Быстрая задача". Введите название, выберите отдел и дедлайн — задача создастся мгновенно без открытия формы.' }
         ],
         calendar: [
-            { icon:'📅', title:'Календарь', description:'Задачи с дедлайнами отображаются на календаре. Цветные точки показывают приоритет задачи.' },
-            { icon:'🗓', title:'Виды', description:'Переключайте вид: Месяц, Неделя или День. Стрелки ← → листают период.' },
-            { icon:'➕', title:'Создание', description:'Нажмите на дату в календаре — откроется форма создания задачи с этим дедлайном.' }
+            { icon:'📅', title:'Календарь задач', description:'Задачи с дедлайнами отображаются на календаре. Цветные точки показывают приоритет: красный — срочный, жёлтый — высокий, синий — обычный.', selector:'#calendarContainer' },
+            { icon:'🗓', title:'Виды календаря', description:'Три вида: Месяц — общая картина, Неделя — детальный план, День — фокус на сегодня. Стрелки ← → переключают период.' },
+            { icon:'➕', title:'Создание с датой', description:'Нажмите на любую дату — откроется форма создания задачи с автоматически заполненным дедлайном на эту дату.' },
+            { icon:'🏢', title:'Фильтр по отделу', description:'Календарь показывает задачи выбранного отдела. Переключите отдел в боковой панели или в канбане — календарь обновится автоматически.' }
         ],
         messenger: [
-            { icon:'💬', title:'Мессенджер', description:'Встроенный чат. Слева — список диалогов, справа — переписка.' },
-            { icon:'👥', title:'Новый чат', description:'Кнопки вверху: "Новый диалог" для личных сообщений, "Групповой чат" для создания группы с несколькими участниками.' },
-            { icon:'@', title:'Упоминания', description:'В групповом чате наберите @ — появится список участников. Выберите человека, чтобы упомянуть его.' },
-            { icon:'✅', title:'Галочки и статусы', description:'Серые галочки = доставлено, синие = прочитано. Анимированные точки покажут, когда собеседник печатает.' }
+            { icon:'💬', title:'Мессенджер', description:'Встроенный корпоративный чат. Слева — список диалогов, справа — переписка. Общайтесь с коллегами не выходя из системы.', selector:'#conversationList' },
+            { icon:'👤', title:'Личные сообщения', description:'Выберите коллегу из списка или нажмите "Новый диалог", чтобы начать личную переписку.' },
+            { icon:'👥', title:'Групповые чаты', description:'Создайте групповой чат для обсуждения проектов. Добавьте участников из любого отдела — все будут в курсе.' },
+            { icon:'@', title:'Упоминания', description:'Наберите @ в чате — появится список участников. Выберите коллегу, чтобы привлечь его внимание. Он получит уведомление.' },
+            { icon:'🎤', title:'Голосовые сообщения', description:'Кнопка микрофона позволяет записать голосовое сообщение. Удобно, когда писать текст долго.' },
+            { icon:'✅', title:'Статусы сообщений', description:'Серая галочка = доставлено, синяя = прочитано. Анимированные точки показывают, что собеседник печатает ответ.' }
         ],
         leaderboard: [
-            { icon:'🏆', title:'Геймификация', description:'Работа как гонка! Закрывайте задачи, зарабатывайте километры и повышайте уровень.' },
-            { icon:'🏎', title:'Уровни', description:'9 уровней — от Босоногого (0 км) до Чемпиона (25,000 км). Каждый уровень — новая машинка!' },
-            { icon:'⭐', title:'Километры', description:'За закрытие задачи: +10 км. До дедлайна: ещё +5 км. В день создания: ещё +3 км. Максимум 18 км за задачу.' },
-            { icon:'🥇', title:'Достижения', description:'Блок "Достижения" — награды за особые успехи: первая задача, серия дней, скорость, количество.' },
-            { icon:'📊', title:'Таблица лидеров', description:'Внизу — рейтинг всех сотрудников. Соревнуйтесь с коллегами!' },
-            { icon:'🎨', title:'Скины', description:'Нажмите на свою машинку вверху — откроется выбор скинов из уже открытых уровней.' }
+            { icon:'🏆', title:'Геймификация', description:'Работа как гонка! Закрывайте задачи, зарабатывайте километры и повышайте уровень. Соревнуйтесь с коллегами!', selector:'#userRacingCard' },
+            { icon:'🏎', title:'Уровни и машинки', description:'9 уровней — от Босоногого (0 км) до Чемпиона (25,000 км). За каждый уровень открывается новая машинка!', selector:'#userRacingCard' },
+            { icon:'⭐', title:'Как заработать километры', description:'Закрытие задачи: +10 км\nДо дедлайна: ещё +5 км\nВ день создания: ещё +3 км\nМаксимум 18 км за одну задачу.' },
+            { icon:'🥇', title:'Достижения', description:'Награды за особые успехи: первая задача, серия из 3 дней подряд, 10 задач за неделю, скорость закрытия и многое другое.' },
+            { icon:'📊', title:'Таблица лидеров', description:'Рейтинг всех сотрудников компании. Кто закрыл больше задач — тот выше! Обновляется в реальном времени.', selector:'#leaderboardTable' },
+            { icon:'🎨', title:'Скины машинок', description:'Нажмите на свою машинку — откроется галерея скинов. Выбирайте из открытых уровней и кастомизируйте свой болид!' }
         ],
         profile: [
-            { icon:'👤', title:'Профиль', description:'Ваши личные данные: имя, логин, отдел.' },
-            { icon:'📷', title:'Аватар', description:'Нажмите на иконку камеры, чтобы загрузить фото. Оно будет видно в задачах и мессенджере.' },
-            { icon:'💾', title:'Сохранение', description:'Измените имя и нажмите "Сохранить изменения". Ниже — кнопки повторного обучения и тех. поддержки.' }
+            { icon:'👤', title:'Ваш профиль', description:'Личные данные: имя, логин, отдел и роль. Здесь видна вся информация о вашем аккаунте.', selector:'#profileAvatarWrap' },
+            { icon:'📷', title:'Аватар', description:'Нажмите на иконку камеры, чтобы загрузить фото. Аватар отображается в задачах, мессенджере и таблице лидеров.' },
+            { icon:'💾', title:'Редактирование', description:'Измените имя и нажмите "Сохранить изменения". Логин и отдел изменить может только администратор.' },
+            { icon:'❓', title:'Повторное обучение', description:'Кнопка "Пройти обучение заново" — запустит это обучение ещё раз. Также кнопка ❓ в шапке открывает обучение по текущему разделу.', selector:'#helpBtn' }
         ],
         admin: [
-            { icon:'👑', title:'Панель администратора', description:'Здесь вы управляете всей системой. Четыре вкладки: Пользователи, Отделы, Этапы, Настройки.' },
-            { icon:'👥', title:'Пользователи', description:'Список всех аккаунтов. Назначайте роли: сотрудник, руководитель отдела, администратор. Привязывайте людей к отделам.' },
-            { icon:'🏢', title:'Отделы', description:'Создавайте отделы, задавайте цвет и назначайте руководителя. Все задачи привязаны к отделам.' },
-            { icon:'📊', title:'Этапы воронки', description:'Настройте колонки канбан-доски для каждого отдела. У разных отделов могут быть разные этапы работы.' },
-            { icon:'🔐', title:'Права', description:'Тонкая настройка: какие функции доступны каждой роли. Контролируйте, что могут делать сотрудники и руководители.' }
+            { icon:'👑', title:'Панель администратора', description:'Центр управления системой. Четыре вкладки для полного контроля: Пользователи, Отделы, Этапы и Настройки.' },
+            { icon:'👥', title:'Вкладка "Пользователи"', description:'Список всех аккаунтов. Здесь вы:\n• Назначаете роли: сотрудник, руководитель отдела, администратор\n• Привязываете людей к отделам\n• Блокируете и разблокируете аккаунты', selector:'#adminTabUsers' },
+            { icon:'🏢', title:'Вкладка "Отделы"', description:'Управление отделами компании. Создавайте новые отделы, задавайте цвет для визуального отличия и назначайте руководителя.', selector:'#adminTabDepartments' },
+            { icon:'📊', title:'Вкладка "Этапы воронки"', description:'Настройка колонок канбан-доски. У каждого отдела свои этапы работы. Добавляйте, удаляйте и меняйте порядок колонок с иконками и цветами.', selector:'#adminTabStages' },
+            { icon:'🔐', title:'Вкладка "Настройки"', description:'Тонкая настройка прав доступа для каждой роли. Контролируйте, кто может создавать задачи, управлять воронками, видеть чужие задачи и т.д.', selector:'#adminTabSettings' },
+            { icon:'🏢', title:'Отделы в боковой панели', description:'Внизу слева — кнопки отделов. Нажмите, чтобы фильтровать задачи по отделу. Фильтр работает на канбане, в списке и календаре одновременно.', selector:'#departmentsList' }
         ]
     };
     return s[page] || [];
