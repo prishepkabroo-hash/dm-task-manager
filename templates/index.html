@@ -7805,279 +7805,166 @@ function startAdminOnboarding() {
 // NEW TUTORIAL SYSTEM
 // =================================
 
-let _tutorialMode = null; // 'quick' or 'detailed'
-let _tutorialPages = [];
 let _tutorialIsInitial = false;
+let _tutorialPages = [];
+let _tutorialCurrentPageIdx = 0;
 
-function showTutorialChoice(isInitial = false) {
-    _tutorialIsInitial = isInitial;
-
-    const modal = document.createElement('div');
-    modal.id = 'tutorialChoiceModal';
-    modal.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 6000;
-    `;
-
-    modal.innerHTML = `
-        <div style="background:white;border-radius:20px;padding:48px;max-width:500px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <div style="font-size:48px;margin-bottom:16px;">🎓</div>
-            <h2 style="margin:0 0 12px 0;font-size:26px;color:#1e293b;font-weight:700;">Добро пожаловать в Dudarev Motorsport!</h2>
-            <p style="margin:0 0 32px 0;color:#64748b;font-size:15px;line-height:1.6;">Выберите формат обучения:</p>
-
-            <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
-                <button onclick="startTutorial('quick')" style="padding:16px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;" onmouseenter="this.style.transform='scale(1.02)';this.style.boxShadow='0 8px 20px rgba(37,99,235,0.3)'" onmouseleave="this.style.transform='scale(1)';this.style.boxShadow='none'">
-                    <span style="font-size:20px;">🚀</span> Быстрое обучение (~2 мин)
-                </button>
-                <button onclick="startTutorial('detailed')" style="padding:16px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;" onmouseenter="this.style.transform='scale(1.02)';this.style.boxShadow='0 8px 20px rgba(124,58,237,0.3)'" onmouseleave="this.style.transform='scale(1)';this.style.boxShadow='none'">
-                    <span style="font-size:20px;">📚</span> Подробное обучение (~10 мин)
-                </button>
-            </div>
-
-            ${isInitial ? '<button onclick="skipTutorial()" style="padding:10px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s;" onmouseenter="this.style.background=\'#e2e8f0\'" onmouseleave="this.style.background=\'#f1f5f9\'">⏭ Пропустить</button>' : ''}
-        </div>
-    `;
-
-    document.body.appendChild(modal);
+function showTutorialChoice(isInitial) {
+    _tutorialIsInitial = !!isInitial;
+    const m = document.createElement('div');
+    m.id = 'tutorialChoiceModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
+    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:460px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><div style="font-size:48px;margin-bottom:12px;">🎓</div><h2 style="margin:0 0 8px;font-size:24px;">Добро пожаловать!</h2><p style="margin:0 0 24px;color:#64748b;font-size:14px;">Выберите формат обучения:</p><div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"><button onclick="startTut(\'quick\')" style="padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">🚀 Быстрое обучение (~2 мин)</button><button onclick="startTut(\'detailed\')" style="padding:14px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;">📚 Подробное обучение (~10 мин)</button></div>' + (isInitial ? '<button onclick="skipTut()" style="padding:8px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">⏭ Пропустить</button>' : '') + '</div>';
+    document.body.appendChild(m);
 }
-
-function startTutorial(mode) {
-    _tutorialMode = mode;
-    document.getElementById('tutorialChoiceModal')?.remove();
-    createOnboardingOverlay();
-
-    if (mode === 'quick') {
-        runQuickTutorial(null);
-    } else {
-        _tutorialPages = ['dashboard', 'kanban', 'list', 'calendar', 'messenger', 'leaderboard'];
-        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'head')) {
-            _tutorialPages.push('admin');
-        }
-        _tutorialPages.push('profile');
-        runDetailedTutorial(_tutorialPages[0]);
-    }
-}
-
 function showTutorialMenu() {
-    const modal = document.createElement('div');
-    modal.id = 'tutorialMenuModal';
-    modal.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 6000;
-    `;
-
-    modal.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:32px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="margin:0 0 20px 0;font-size:18px;color:#1e293b;font-weight:700;">Обучение по текущему разделу:</h3>
-
-            <div style="display:flex;gap:12px;margin-bottom:16px;">
-                <button onclick="closeModal('tutorialMenuModal');runQuickTutorial('${currentPage}')" style="flex:1;padding:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s;" onmouseenter="this.style.transform='scale(1.02)'" onmouseleave="this.style.transform='scale(1)'">
-                    🚀 Быстрое
-                </button>
-                <button onclick="closeModal('tutorialMenuModal');runDetailedTutorial('${currentPage}')" style="flex:1;padding:12px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s;" onmouseenter="this.style.transform='scale(1.02)'" onmouseleave="this.style.transform='scale(1)'">
-                    📚 Подробное
-                </button>
-            </div>
-
-            <button onclick="closeModal('tutorialMenuModal')" style="padding:8px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">
-                Закрыть
-            </button>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
+    const pg = currentPage;
+    const m = document.createElement('div');
+    m.id = 'tutorialMenuModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
+    m.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;font-size:17px;">Обучение по разделу</h3><div style="display:flex;gap:10px;margin-bottom:12px;"><button onclick="document.getElementById(\'tutorialMenuModal\').remove();_tutorialIsInitial=false;_tutorialPages=[\'' + pg + '\'];_tutorialCurrentPageIdx=0;runPageTutorial(\'quick\')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">🚀 Быстрое</button><button onclick="document.getElementById(\'tutorialMenuModal\').remove();_tutorialIsInitial=false;_tutorialPages=[\'' + pg + '\'];_tutorialCurrentPageIdx=0;runPageTutorial(\'detailed\')" style="flex:1;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">📚 Подробное</button></div><button onclick="document.getElementById(\'tutorialMenuModal\').remove()" style="padding:6px 14px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Закрыть</button></div>';
+    document.body.appendChild(m);
 }
-
-function closeModal(modalId) {
-    document.getElementById(modalId)?.remove();
-}
-
-function skipTutorial() {
+function skipTut() {
     document.getElementById('tutorialChoiceModal')?.remove();
     cleanupOnboarding();
     if (_tutorialIsInitial) {
-        apiCall('/api/onboarding_done', {method: 'POST'}).then(() => {
-            if (currentUser) currentUser.onboarding_done = 1;
-            showToast('Онбординг завершён!', 'success');
-        });
+        apiCall('/api/onboarding_done', {method:'POST'});
+        if (currentUser) currentUser.onboarding_done = 1;
     }
 }
-
-function runQuickTutorial(pageFilter) {
-    const steps = getQuickSteps(pageFilter);
-    _obSteps = steps;
-    _obStep = 0;
-    _obFinishFn = () => {
-        cleanupOnboarding();
-        if (_tutorialIsInitial) {
-            apiCall('/api/onboarding_done', {method: 'POST'}).then(() => {
-                if (currentUser) currentUser.onboarding_done = 1;
-                showToast('Онбординг завершён! Добро пожаловать!', 'success');
-            });
-        } else {
-            showTutorialCompletedModal();
-        }
-    };
-    showOnboardingStep(steps, 0, _obFinishFn);
+function startTut(mode) {
+    document.getElementById('tutorialChoiceModal')?.remove();
+    if (mode === 'quick') {
+        _tutorialPages = [];
+        _tutorialCurrentPageIdx = 0;
+        const steps = getQuickSteps();
+        startOnboarding(steps, () => { cleanupOnboarding(); tutDone(); });
+    } else {
+        _tutorialPages = ['dashboard','kanban','list','calendar','messenger','leaderboard'];
+        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'head')) _tutorialPages.push('admin');
+        _tutorialPages.push('profile');
+        _tutorialCurrentPageIdx = 0;
+        runPageTutorial('detailed');
+    }
 }
-
-function runDetailedTutorial(page) {
-    const steps = getDetailedSteps(page);
-    _obSteps = steps;
-    _obStep = 0;
-    _obFinishFn = () => {
-        cleanupOnboarding();
-        // Go to next page or finish
-        const pageIndex = _tutorialPages.indexOf(page);
-        if (pageIndex < _tutorialPages.length - 1) {
-            const nextPage = _tutorialPages[pageIndex + 1];
-            runDetailedTutorial(nextPage);
-        } else {
-            if (_tutorialIsInitial) {
-                apiCall('/api/onboarding_done', {method: 'POST'}).then(() => {
-                    if (currentUser) currentUser.onboarding_done = 1;
-                    showTutorialCompletedModal();
-                });
+function tutDone() {
+    if (_tutorialIsInitial) {
+        apiCall('/api/onboarding_done', {method:'POST'});
+        if (currentUser) currentUser.onboarding_done = 1;
+    }
+    showTutDoneModal();
+}
+function showTutDoneModal() {
+    const m = document.createElement('div');
+    m.id = 'tutDoneModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
+    m.innerHTML = '<div style="background:white;border-radius:20px;padding:40px;max-width:420px;width:90%;text-align:center;"><div style="font-size:56px;margin-bottom:12px;">🎉</div><h2 style="margin:0 0 8px;font-size:22px;">Обучение завершено!</h2><p style="margin:0 0 20px;color:#64748b;font-size:14px;">Вы готовы к работе! Нажмите ❓ в шапке, чтобы пройти обучение повторно.</p><button onclick="document.getElementById(\'tutDoneModal\').remove()" style="padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;">Начать работу!</button></div>';
+    document.body.appendChild(m);
+}
+function runPageTutorial(mode) {
+    const page = _tutorialPages[_tutorialCurrentPageIdx];
+    if (!page) { tutDone(); return; }
+    // Navigate first, then show steps after render
+    navigate(page);
+    setTimeout(() => {
+        const steps = mode === 'detailed' ? getDetailedSteps(page) : getQuickStepsForPage(page);
+        if (!steps.length) { _tutorialCurrentPageIdx++; runPageTutorial(mode); return; }
+        startOnboarding(steps, () => {
+            cleanupOnboarding();
+            _tutorialCurrentPageIdx++;
+            if (_tutorialCurrentPageIdx < _tutorialPages.length) {
+                runPageTutorial(mode);
             } else {
-                showTutorialCompletedModal();
+                tutDone();
             }
-        }
-    };
-    showOnboardingStep(steps, 0, _obFinishFn);
-}
-
-function getQuickSteps(pageFilter) {
-    const allSteps = [
-        {
-            icon: '👋',
-            title: 'Добро пожаловать!',
-            description: 'Это быстрый обзор основных разделов DM Tasks. Система управления задачами Dudarev Motorsport.',
-            selector: null,
-            type: 'info'
-        },
-        {
-            icon: '📊',
-            title: 'Дашборд',
-            description: 'Сводка по вашим задачам: новые, в работе, на согласовании, завершённые.',
-            selector: '[data-page="dashboard"]',
-            position: 'right'
-        },
-        {
-            icon: '📋',
-            title: 'Канбан-доска',
-            description: 'Визуальная доска. Перетаскивайте задачи между колонками для изменения статуса.',
-            selector: '[data-page="kanban"]',
-            position: 'right'
-        },
-        {
-            icon: '📝',
-            title: 'Список задач',
-            description: 'Таблица со всеми задачами. Удобно для поиска и фильтрации по статусу, приоритету, отделу.',
-            selector: '[data-page="list"]',
-            position: 'right'
-        },
-        {
-            icon: '📅',
-            title: 'Календарь',
-            description: 'Задачи с дедлайнами на календаре. Переключайте между месяцем, неделей и днём.',
-            selector: '[data-page="calendar"]',
-            position: 'right'
-        },
-        {
-            icon: '💬',
-            title: 'Мессенджер',
-            description: 'Общайтесь с коллегами: личные сообщения и групповые чаты.',
-            selector: '[data-page="messenger"]',
-            position: 'right'
-        },
-        {
-            icon: '🏆',
-            title: 'Рейтинг и геймификация',
-            description: 'Выполняйте задачи, получайте км. Начните босиком — доберитесь до Формулы 1!',
-            selector: '[data-page="leaderboard"]',
-            position: 'right'
-        },
-        {
-            icon: '🚀',
-            title: 'Вы готовы!',
-            description: 'Теперь вы знаете основные разделы. Начните работу — удачи! 🏁',
-            selector: null,
-            type: 'info'
-        }
-    ];
-
-    if (pageFilter) {
-        return allSteps.filter(step => {
-            if (!step.selector) return true;
-            return step.selector.includes(`"${pageFilter}"`) || step.selector.includes(`'${pageFilter}'`);
         });
-    }
-    return allSteps;
+    }, 400);
 }
-
+function getQuickSteps() {
+    return [
+        { icon:'👋', title:'Добро пожаловать!', description:'Быстрый обзор Dudarev Motorsport — системы управления задачами с геймификацией.', type:'info' },
+        { icon:'📊', title:'Дашборд', description:'Сводка: задачи, дедлайны, прогресс.', selector:'.nav-item[data-page="dashboard"]', position:'right' },
+        { icon:'📋', title:'Канбан', description:'Доска задач. Перетаскивайте карточки между колонками.', selector:'.nav-item[data-page="kanban"]', position:'right' },
+        { icon:'📝', title:'Список', description:'Все задачи в таблице с фильтрами и сортировкой.', selector:'.nav-item[data-page="list"]', position:'right' },
+        { icon:'📅', title:'Календарь', description:'Дедлайны на календаре: месяц, неделя, день.', selector:'.nav-item[data-page="calendar"]', position:'right' },
+        { icon:'💬', title:'Мессенджер', description:'Личные и групповые чаты с коллегами.', selector:'.nav-item[data-page="messenger"]', position:'right' },
+        { icon:'🏆', title:'Геймификация', description:'Выполняйте задачи → получайте км → открывайте новые уровни!', selector:'.nav-item[data-page="leaderboard"]', position:'right' },
+        { icon:'🚀', title:'Готово!', description:'Нажмите ❓ в шапке чтобы пройти обучение по любому разделу.', type:'info' }
+    ];
+}
+function getQuickStepsForPage(page) {
+    const map = {
+        dashboard: [{ icon:'📊', title:'Дашборд', description:'Главная страница со статистикой, графиками и последними задачами.', type:'info' }],
+        kanban: [{ icon:'📋', title:'Канбан', description:'Перетаскивайте задачи между колонками чтобы менять статус. Нажмите + для быстрого создания.', type:'info' }],
+        list: [{ icon:'📝', title:'Список', description:'Таблица задач. Фильтруйте по статусу, приоритету, отделу.', type:'info' }],
+        calendar: [{ icon:'📅', title:'Календарь', description:'Задачи с дедлайнами. Переключайте вид: месяц, неделя, день.', type:'info' }],
+        messenger: [{ icon:'💬', title:'Мессенджер', description:'Личные и групповые чаты. В группах — @упоминания участников.', type:'info' }],
+        leaderboard: [{ icon:'🏆', title:'Рейтинг', description:'Таблица лидеров. Закрывайте задачи чтобы набирать км и повышать уровень.', type:'info' }],
+        profile: [{ icon:'👤', title:'Профиль', description:'Ваши данные, аватар и настройки.', type:'info' }],
+        admin: [{ icon:'⚙️', title:'Админ', description:'Управление пользователями, отделами, правами и этапами воронки.', type:'info' }]
+    };
+    return map[page] || [];
+}
 function getDetailedSteps(page) {
-    const stepsByPage = {
+    const s = {
         dashboard: [
-            { icon: '📊', title: 'Дашборд', description: 'Главная страница с вашей статистикой.', selector: null, action: () => navigate('dashboard') },
-            { icon: '📈', title: 'Карточки статистики', description: 'Здесь ваша статистика — задачи, дедлайны, прогресс за период.', selector: '.stats-grid', position: 'bottom' },
-            { icon: '⭐', title: 'Последние задачи', description: 'Последние задачи для быстрого доступа. Нажмите на задачу, чтобы её отредактировать.', selector: '.recent-tasks', position: 'top' }
+            { icon:'📊', title:'Дашборд — обзор', description:'Это главная страница. Здесь собрана вся ключевая информация о ваших задачах и активности.', type:'info' },
+            { icon:'📈', title:'Статистика', description:'Вверху — карточки с количеством задач по статусам. Вы видите сколько задач новых, в работе и завершённых.', type:'info' },
+            { icon:'⚡', title:'Быстрый доступ', description:'Ниже — список последних задач. Нажмите на любую, чтобы открыть и отредактировать.', type:'info' }
         ],
         kanban: [
-            { icon: '📋', title: 'Канбан-доска', description: 'Доска задач с колонками по статусам.', selector: null, action: () => navigate('kanban') },
-            { icon: '🎯', title: 'Перемещение задач', description: 'Нажмите и перетащите задачу между колонками, чтобы изменить её статус.', selector: '.kanban-board', position: 'bottom' },
-            { icon: '🏢', title: 'Фильтр по отделам', description: 'Если вы администратор — переключайте отделы чтобы видеть задачи каждого.', selector: null, position: 'bottom' },
-            { icon: '➕', title: 'Быстрое создание', description: 'Нажмите + чтобы создать задачу прямо на доске. Заполните название, отдел и дедлайн.', selector: '.quick-task-btn', position: 'top', type: 'action' }
+            { icon:'📋', title:'Канбан-доска', description:'Доска с колонками по статусам задач. Каждая колонка — это этап: Новая, В работе, Готово и т.д.', type:'info' },
+            { icon:'🎯', title:'Перемещение задач', description:'Чтобы изменить статус задачи — просто перетащите карточку из одной колонки в другую.', type:'info' },
+            { icon:'🏢', title:'Отделы', description:'Если вы админ или руководитель — вверху есть кнопки переключения между отделами. Так вы видите задачи каждого отдела отдельно.', type:'info' },
+            { icon:'➕', title:'Быстрое создание', description:'В каждой колонке есть кнопка +. Нажмите её, чтобы создать задачу прямо в нужном статусе. Укажите название, отдел и дедлайн.', type:'info' }
         ],
         list: [
-            { icon: '📝', title: 'Список задач', description: 'Все задачи в одной таблице с полной информацией.', selector: null, action: () => navigate('list') },
-            { icon: '🔍', title: 'Поиск и фильтры', description: 'Фильтруйте по статусу, приоритету, отделу. Используйте поиск вверху для быстрого поиска.', selector: '#listDepartmentFilter', position: 'bottom' },
-            { icon: '⚡', title: 'Быстрое редактирование', description: 'Нажмите на любую ячейку, чтобы отредактировать задачу прямо в таблице.', selector: '.tasks-table', position: 'bottom' }
+            { icon:'📝', title:'Список задач', description:'Здесь все задачи в виде таблицы. Удобно когда нужно быстро найти конкретную задачу.', type:'info' },
+            { icon:'🔍', title:'Фильтры', description:'Вверху — фильтры по отделу, статусу, приоритету. Используйте их чтобы быстро найти нужные задачи.', type:'info' },
+            { icon:'⚡', title:'Редактирование', description:'Нажмите на задачу в таблице, чтобы открыть её детали. Можно менять статус, дедлайн, ответственного.', type:'info' }
         ],
         calendar: [
-            { icon: '📅', title: 'Календарь', description: 'Все задачи с дедлайнами на календаре.', selector: null, action: () => navigate('calendar') },
-            { icon: '🎯', title: 'Навигация', description: 'Нажимайте на даты, чтобы увидеть задачи или создать новую. Есть кнопки для переключения месяца.', selector: null }
+            { icon:'📅', title:'Календарь', description:'Все задачи с дедлайнами отображаются на календаре. Цвет точки — приоритет задачи.', type:'info' },
+            { icon:'🗓', title:'Виды', description:'Переключайте между видами: Месяц (общая картина), Неделя (планирование), День (детали). Стрелки ← → переключают период.', type:'info' },
+            { icon:'➕', title:'Создание из календаря', description:'Нажмите на любую дату, чтобы создать задачу с этим дедлайном.', type:'info' }
         ],
         messenger: [
-            { icon: '💬', title: 'Мессенджер', description: 'Общайтесь с коллегами внутри системы.', selector: null, action: () => navigate('messenger') },
-            { icon: '💭', title: 'Чаты', description: 'Слева видны все ваши чаты — личные и групповые. Нажмите, чтобы открыть и написать сообщение.', selector: null },
-            { icon: '@', title: 'Упоминания', description: 'В групповых чатах введите @ и выберите участника, чтобы его упомянуть и отправить уведомление.', selector: null }
+            { icon:'💬', title:'Мессенджер', description:'Встроенный чат для общения с командой. Личные сообщения и групповые чаты.', type:'info' },
+            { icon:'👥', title:'Чаты и группы', description:'Слева — список ваших диалогов. Нажмите "Новый диалог" чтобы написать коллеге, или "Групповой чат" для создания группы.', type:'info' },
+            { icon:'@', title:'Упоминания', description:'В групповых чатах наберите @ и имя участника — он получит уведомление. Удобно чтобы привлечь внимание конкретного человека.', type:'info' },
+            { icon:'✅', title:'Статусы сообщений', description:'Серые галочки — доставлено, синие — прочитано. Видно когда собеседник печатает.', type:'info' }
         ],
         leaderboard: [
-            { icon: '🏆', title: 'Геймификация', description: 'Система уровней на основе выполненных задач.', selector: null, action: () => navigate('leaderboard'), type: 'info' },
-            { icon: '🎮', title: '🏎 Карьера гонщика', description: '🦶 Босоногий — 0 км\n🛴 Самокатчик — 100 км\n🎡 Моноколёсник — 500 км\n🏍 Байкер — 1,500 км\n🚗 Водитель — 3,500 км\n🏎 Формула 3 — 7,000 км\n🏎 Формула 2 — 12,000 км\n🏎 Формула 1 — 18,000 км\n🏆 Чемпион — 25,000 км', type: 'info' },
-            { icon: '⭐', title: '⭐ Как заработать км', description: '✅ Закрыть задачу — +10 км\n⏰ Закрыть до дедлайна — ещё +5 км\n⚡ Закрыть в день создания — ещё +3 км\n\nМаксимум за одну задачу: 18 км', type: 'info' },
-            { icon: '📊', title: '📊 Пример расчёта', description: 'Чтобы перейти с Босоногого (0 км) на Самокатчика (100 км), нужно закрыть минимум 10 задач по 10 км каждая.\n\nА если закрывать быстро — ещё меньше! Максимум 18 км за задачу.', type: 'info' },
-            { icon: '📈', title: 'Рейтинг', description: 'Таблица рейтинга показывает, кто больше проехал км. Соревнуйтесь с коллегами!', selector: '.leaderboard-table', position: 'bottom' },
-            { icon: '🥇', title: '🥇 Достижения', description: '🥇 Первая задача — закройте 1 задачу\n🔥 Стабильность — 7 дней подряд\n⚡ Скоростной — закройте задачу в день создания\n💯 Сотня — 100 задач\n⭐ Звезда отдела — 5 задач за день', type: 'info' }
+            { icon:'🏆', title:'Геймификация', description:'В Dudarev Motorsport работа превращается в гонку! Выполняйте задачи, зарабатывайте километры и повышайте свой уровень.', type:'info' },
+            { icon:'🏎', title:'Уровни и машинки', description:'Каждый уровень — новая машинка:\n\n🦶 Босоногий — 0 км (старт)\n🛴 Самокатчик — 100 км\n🎡 Моноколёсник — 500 км\n🏍 Байкер — 1,500 км\n🚗 Водитель — 3,500 км\n🏎 Формула 3 — 7,000 км\n🏎 Формула 2 — 12,000 км\n🏎 Формула 1 — 18,000 км\n🏆 Чемпион — 25,000 км', type:'info' },
+            { icon:'⭐', title:'Как заработать км', description:'За каждую закрытую задачу вы получаете километры:\n\n✅ Закрыть задачу — +10 км\n⏰ Закрыть до дедлайна — ещё +5 км\n⚡ Закрыть в день создания — ещё +3 км\n\nМаксимум за задачу: 18 км', type:'info' },
+            { icon:'🧮', title:'Пример', description:'Чтобы стать Самокатчиком (100 км):\n• Минимум: 10 задач × 10 км = 100 км\n• Быстрее: 6 задач × 18 км = 108 км\n\nЧтобы стать Байкером (1,500 км):\n• Минимум: 150 задач\n• Быстрее: 84 задачи по 18 км', type:'info' },
+            { icon:'📊', title:'Рейтинг', description:'Таблица лидеров показывает кто впереди. Соревнуйтесь с коллегами — кто первый доберётся до Чемпиона!', type:'info' },
+            { icon:'🥇', title:'Достижения', description:'Специальные награды за особые достижения:\n\n🥇 Первая задача — закройте 1 задачу\n🔥 Стабильность — работайте 7 дней подряд\n⚡ Скоростной — закройте задачу в день создания\n🏅 Марафонец — закройте 25 задач\n💯 Сотня — закройте 100 задач\n⭐ Звезда отдела — 5 задач за один день\n⏰ Ранняя пташка — закройте до дедлайна', type:'info' },
+            { icon:'🎨', title:'Скины', description:'В разделе геймификации вы можете выбрать скин (машинку) из уже открытых уровней. Нажмите на свою машинку чтобы открыть выбор!', type:'info' }
         ],
         profile: [
-            { icon: '👤', title: 'Ваш профиль', description: 'Управляйте своей информацией и настройками.', selector: null, action: () => navigate('profile') },
-            { icon: '📷', title: 'Аватарка', description: 'Загрузите фото. Ваша аватарка будет видна на всех карточках задач.', selector: null },
-            { icon: '✏️', title: 'Информация', description: 'Отредактируйте имя, должность, отдел и статус. Не забудьте сохранить!', selector: null }
+            { icon:'👤', title:'Профиль', description:'Здесь ваши личные данные и настройки аккаунта.', type:'info' },
+            { icon:'📷', title:'Аватар', description:'Загрузите фотографию — она будет отображаться в задачах, комментариях и мессенджере.', type:'info' },
+            { icon:'✏️', title:'Данные', description:'Измените имя, должность или пароль. Не забудьте нажать "Сохранить"!', type:'info' }
         ],
         admin: [
-            { icon: '⚙️', title: 'Панель администрирования', description: 'Полный контроль над системой.', selector: null, action: () => navigate('admin') },
-            { icon: '👥', title: 'Пользователи', description: 'Управляйте пользователями: меняйте роли (сотрудник, глава отдела, администратор) и удаляйте пользователей.', selector: '.admin-tab[data-admin-tab="users"]', position: 'bottom' },
-            { icon: '🏢', title: 'Отделы', description: 'Создавайте отделы, задавайте цвет, назначайте главу отдела. Отделы структурируют задачи.', selector: '.admin-tab[data-admin-tab="departments"]', position: 'bottom' },
-            { icon: '🔐', title: 'Права доступа', description: 'Тонкая настройка: какие функции доступны каждой роли — решать вам!', selector: '.admin-tab[data-admin-tab="settings"]', position: 'bottom' }
+            { icon:'⚙️', title:'Администрирование', description:'Полный контроль над системой. Здесь вы управляете пользователями, отделами и правами.', type:'info' },
+            { icon:'👥', title:'Пользователи', description:'Вкладка "Пользователи" — список всех аккаунтов. Меняйте роли: сотрудник, руководитель отдела, администратор.', type:'info' },
+            { icon:'🏢', title:'Отделы', description:'Вкладка "Отделы" — создавайте отделы, задавайте цвет и назначайте руководителя. Задачи привязаны к отделам.', type:'info' },
+            { icon:'📊', title:'Этапы воронки', description:'Вкладка "Этапы" — настройте этапы (колонки канбана) для каждого отдела отдельно.', type:'info' },
+            { icon:'🔐', title:'Права', description:'Вкладка "Настройки" — тонкая настройка прав: какие функции доступны каждой роли.', type:'info' }
         ]
     };
-
-    return stepsByPage[page] || [];
+    return s[page] || [];
 }
+function showTutorialCompletedModal() { showTutDoneModal(); }
 
-function showTutorialCompletedModal() {
+// ---- Completion modal ----
+function _showTutCompletedLegacy() {
     const modal = document.createElement('div');
-    modal.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 6000;
-    `;
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;';
 
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:48px;max-width:450px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
