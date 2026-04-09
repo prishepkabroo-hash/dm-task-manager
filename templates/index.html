@@ -3357,9 +3357,8 @@ function tpInput(el, type) {
     if (type === 'm' && el.value.length === 2) el.blur();
 }
 function tpKey(el, type, e) {
-    if (e.key === 'Backspace' && el.value.length <= 1) {
+    if (e.key === 'Backspace' && el.value === '') {
         e.preventDefault();
-        el.value = '';
         const tp = el.closest('.time-picker-custom');
         if (type === 'm') {
             const prev = tp.querySelector('.tp-hours');
@@ -3408,9 +3407,8 @@ function dpInput(el, type) {
     }
 }
 function dpKey(el, type, e) {
-    if (e.key === 'Backspace' && el.value.length <= 1) {
+    if (e.key === 'Backspace' && el.value === '') {
         e.preventDefault();
-        el.value = '';
         const dp = el.closest('.date-picker-custom');
         if (type === 'y') {
             const prev = dp.querySelector('.dp-month');
@@ -3419,7 +3417,6 @@ function dpKey(el, type, e) {
             const prev = dp.querySelector('.dp-day');
             if (prev) { prev.focus(); prev.setSelectionRange(prev.value.length, prev.value.length); }
         }
-        // type === 'd' — начало цепочки, некуда идти
     }
     if (e.key === 'Enter') {
         e.preventDefault();
