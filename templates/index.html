@@ -4978,17 +4978,17 @@ function renderCalendar() {
         return 'padding:6px 14px;border:1px solid '+(calendarView===v?'#3b82f6':'#e2e8f0')+';border-radius:8px;background:'+(calendarView===v?'#3b82f6':'white')+';color:'+(calendarView===v?'white':'#64748b')+';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;';
     };
 
-    var calHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">'
-        +'<div style="display:flex;align-items:center;gap:12px;">'
-        +'<button onclick="'+prevFn+'" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8249;</button>'
-        +'<div style="font-size:18px;font-weight:700;color:#1e293b;text-transform:capitalize;">'+navLabel+'</div>'
-        +'<button onclick="'+nextFn+'" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8250;</button>'
+    var calHtml = '<div id="calendarHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">'
+        +'<div id="calendarNavControls" style="display:flex;align-items:center;gap:12px;">'
+        +'<button id="calendarPrevBtn" onclick="'+prevFn+'" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8249;</button>'
+        +'<div id="calendarNavLabel" style="font-size:18px;font-weight:700;color:#1e293b;text-transform:capitalize;">'+navLabel+'</div>'
+        +'<button id="calendarNextBtn" onclick="'+nextFn+'" style="width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#64748b;transition:all 0.15s;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'white\'">&#8250;</button>'
         +'</div>'
-        +'<div style="display:flex;gap:4px;align-items:center;">'
+        +'<div id="calendarViewSwitcher" style="display:flex;gap:4px;align-items:center;">'
         +'<button onclick="calendarView=\'day\';renderCalendar()" style="'+viewBtnStyle('day')+'">День</button>'
         +'<button onclick="calendarView=\'week\';renderCalendar()" style="'+viewBtnStyle('week')+'">Неделя</button>'
         +'<button onclick="calendarView=\'month\';renderCalendar()" style="'+viewBtnStyle('month')+'">Месяц</button>'
-        +'<button onclick="calendarDate=new Date();renderCalendar()" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:12px;font-weight:600;color:#3b82f6;cursor:pointer;transition:all 0.15s;margin-left:4px;" onmouseenter="this.style.background=\'#3b82f6\';this.style.color=\'white\'" onmouseleave="this.style.background=\'white\';this.style.color=\'#3b82f6\'">Сегодня</button>'
+        +'<button id="calendarTodayBtn" onclick="calendarDate=new Date();renderCalendar()" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:12px;font-weight:600;color:#3b82f6;cursor:pointer;transition:all 0.15s;margin-left:4px;" onmouseenter="this.style.background=\'#3b82f6\';this.style.color=\'white\'" onmouseleave="this.style.background=\'white\';this.style.color=\'#3b82f6\'">Сегодня</button>'
         +'</div></div>';
 
     // ===================== DAY VIEW =====================
@@ -8156,17 +8156,17 @@ const _tutPageIcons = {
 function _tutBuildSteps(pages, mode) {
     const all = [];
     pages.forEach(page => {
-        // Check if nav is visible
-        const navEl = document.querySelector('.nav-item[data-page="' + page + '"]');
-        if (!navEl) return;
-        const par = navEl.closest('[style]');
-        if (navEl.style.display === 'none' || (navEl.offsetParent === null && navEl.style.position !== 'fixed')) return;
+        // Skip admin for non-admins (the only role-based skip)
+        if (page === 'admin' && currentUser && currentUser.role !== 'admin') return;
+
+        // Get info steps for this page
+        const infoSteps = mode === 'detailed' ? getDetailedSteps(page) : getQuickStepsForPage(page);
+        if (!infoSteps || !infoSteps.length) return;
 
         // First: a "navigate" step
         all.push({ _type: 'nav', _page: page, icon: _tutPageIcons[page] || '📌', title: _tutPageNames[page] || page });
 
         // Then: info steps for this page
-        const infoSteps = mode === 'detailed' ? getDetailedSteps(page) : getQuickStepsForPage(page);
         infoSteps.forEach(s => { all.push(Object.assign({}, s, { _type: 'info', _page: page })); });
     });
     return all;
@@ -8375,7 +8375,7 @@ function _tutShow() {
         setTimeout(function() {
             _tutStepIdx++;
             _tutShow();
-        }, 800);
+        }, 1200);
         return;
     }
 
@@ -8387,6 +8387,10 @@ function _tutShow() {
     // Spotlight: highlight target element if selector provided
     var targetEl = step.selector ? document.querySelector(step.selector) : null;
     _tutCreateSpotlight(targetEl);
+    // Scroll target into view
+    if (targetEl) {
+        try { targetEl.scrollIntoView({behavior:'smooth', block:'center', inline:'center'}); } catch(e){}
+    }
 
     // Count info steps for this page (for dots)
     var pageInfoSteps = _tutSteps.filter(function(s) { return s._page === page && s._type === 'info'; });
@@ -8556,73 +8560,78 @@ function getDetailedSteps(page) {
     var isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
     var s = {
         dashboard: isAdmin ? [
-            { icon:'👑', title:'Добро пожаловать, руководитель!', description:'Вы вошли как администратор. У вас есть полный доступ ко всем функциям системы: управление пользователями, отделами, воронками и задачами всех сотрудников.' },
-            { icon:'📊', title:'Статистика', description:'Карточки вверху показывают общую картину: сколько задач новых, в работе и завершённых по всем отделам. Числа обновляются в реальном времени.', selector:'#statsGrid' },
-            { icon:'⚡', title:'Последние задачи', description:'Список последних задач из всех отделов. Нажмите на любую задачу — откроется карточка с деталями, где можно изменить статус, приоритет, исполнителя и дедлайн.', selector:'#recentTasksList' },
-            { icon:'🔔', title:'Уведомления', description:'Колокольчик вверху — ваши уведомления. Красная точка означает непрочитанные. Здесь приходят: назначение задач, изменение статусов, упоминания в чатах и приближение дедлайнов.', selector:'#notificationBell' },
-            { icon:'🔍', title:'Поиск', description:'Поле поиска позволяет быстро найти любую задачу по названию. Начните вводить — результаты фильтруются мгновенно.', selector:'#searchInput' },
-            { icon:'➕', title:'Создание задачи', description:'Синяя кнопка "+" — быстрое создание новой задачи из любого раздела. Укажите название, отдел, исполнителя, приоритет и дедлайн.', selector:'#fabCreateTask' }
+            { icon:'👑', title:'Добро пожаловать, руководитель!', description:'Вы вошли как администратор. У вас полный доступ: управление пользователями, отделами, воронками и задачами всех сотрудников.', selector:'#userInfo' },
+            { icon:'📊', title:'Статистика', description:'Карточки показывают общую картину: сколько задач новых, в работе и завершённых по всем отделам. Обновляются в реальном времени.', selector:'#statsGrid' },
+            { icon:'⚡', title:'Последние задачи', description:'Список последних задач из всех отделов. Нажмите на любую — откроется карточка с деталями: статус, приоритет, исполнитель, дедлайн.', selector:'#recentTasksList' },
+            { icon:'🔔', title:'Уведомления', description:'Колокольчик — ваши уведомления. Красная точка = непрочитанные. Сюда приходят назначения задач, изменения статусов, упоминания и дедлайны.', selector:'#notificationBell' },
+            { icon:'🔍', title:'Поиск', description:'Поле поиска быстро находит любую задачу по названию. Начните вводить — результаты фильтруются мгновенно.', selector:'#searchInput' },
+            { icon:'🎤', title:'Голосовой ввод', description:'Микрофон рядом с поиском — голосовое создание задачи. Нажмите, скажите название — задача создастся автоматически.', selector:'#voiceBtn' },
+            { icon:'❓', title:'Кнопка помощи', description:'Знак вопроса в шапке — запуск обучения по текущему разделу в любой момент. Забыли что-то — нажмите и освежите память.', selector:'#helpBtn' },
+            { icon:'➕', title:'Создание задачи', description:'Синяя круглая кнопка "+" справа внизу — быстрое создание задачи. Укажите название, отдел, исполнителя, приоритет и дедлайн.', selector:'#fabCreateTask' }
         ] : [
-            { icon:'👋', title:'Добро пожаловать!', description:'Это ваше рабочее пространство в Dudarev Motorsport. Здесь вы будете управлять задачами, общаться с коллегами и зарабатывать километры!' },
-            { icon:'📊', title:'Статистика', description:'Карточки вверху — статистика ваших задач: новые, в работе, завершённые. Следите за прогрессом!', selector:'#statsGrid' },
-            { icon:'⚡', title:'Последние задачи', description:'Список последних задач. Нажмите на любую — откроется карточка с деталями.', selector:'#recentTasksList' },
-            { icon:'🔔', title:'Уведомления', description:'Колокольчик — ваши уведомления. Сюда приходят назначения задач, изменения статусов и упоминания в чатах.', selector:'#notificationBell' },
-            { icon:'🔍', title:'Поиск', description:'Поиск задач по названию. Начните вводить — результаты появятся мгновенно.', selector:'#searchInput' }
+            { icon:'👋', title:'Добро пожаловать!', description:'Это ваше рабочее пространство в Dudarev Motorsport. Здесь вы будете управлять задачами и зарабатывать километры!', selector:'#userInfo' },
+            { icon:'📊', title:'Статистика', description:'Карточки — статистика ваших задач: новые, в работе, завершённые. Следите за прогрессом.', selector:'#statsGrid' },
+            { icon:'⚡', title:'Последние задачи', description:'Список ваших последних задач. Нажмите на любую — откроется карточка с деталями.', selector:'#recentTasksList' },
+            { icon:'🔔', title:'Уведомления', description:'Колокольчик — уведомления. Сюда приходят назначения задач, изменения статусов и упоминания в чатах.', selector:'#notificationBell' },
+            { icon:'🔍', title:'Поиск', description:'Поиск задач по названию. Начните вводить — результаты появятся мгновенно.', selector:'#searchInput' },
+            { icon:'🎤', title:'Голосовой ввод', description:'Микрофон — создать задачу голосом. Удобно, когда писать некогда.', selector:'#voiceBtn' },
+            { icon:'❓', title:'Кнопка помощи', description:'Знак вопроса — запуск обучения по текущему разделу в любой момент.', selector:'#helpBtn' },
+            { icon:'➕', title:'Создание задачи', description:'Синяя кнопка "+" снизу справа — быстрое создание новой задачи.', selector:'#fabCreateTask' }
         ],
         kanban: isAdmin ? [
-            { icon:'📋', title:'Канбан-доска', description:'Главный инструмент управления. Задачи разложены по колонкам-статусам (воронкам). Каждая колонка — это этап работы над задачей.', selector:'#kanbanBoard' },
-            { icon:'🏢', title:'Переключение отделов', description:'Кнопки отделов вверху доски. Переключайтесь между ними — у каждого отдела свои колонки и задачи. Кнопка "Все отделы" показывает объединённую картину.', selector:'.kanban-dept-btn' },
-            { icon:'✏️', title:'Редактирование воронки', description:'Кнопка "Редактировать воронку" позволяет настроить колонки: добавить новые этапы, изменить порядок, цвет и иконки. Доступно только при выборе конкретного отдела.', selector:'#kanbanEditBtn' },
-            { icon:'🎯', title:'Перетаскивание задач', description:'Перетащите карточку задачи из одной колонки в другую, чтобы изменить её статус. Это самый быстрый способ обновить ход работы.' },
-            { icon:'➕', title:'Быстрая задача', description:'Кнопка "+" внизу каждой колонки создаёт задачу сразу в нужном статусе. Удобно для быстрого добавления без открытия полной формы.' },
-            { icon:'👥', title:'Соисполнители', description:'В карточке задачи можно добавить соисполнителей — коллег, которые помогают с задачей. Они тоже получат уведомления об изменениях.' }
+            { icon:'📋', title:'Канбан-доска', description:'Главный инструмент управления. Задачи разложены по колонкам-этапам (воронкам). Каждая колонка — этап работы.', selector:'#kanbanBoard' },
+            { icon:'🏢', title:'Переключение отделов', description:'Кнопки отделов над доской. Переключайтесь — у каждого отдела свои колонки и задачи. Они синхронизируются с боковой панелью.', selector:'#kanbanDeptSwitcher' },
+            { icon:'✏️', title:'Редактирование воронки', description:'Кнопка "Редактировать воронку" позволяет настроить колонки: добавить этапы, изменить порядок, цвет и иконки. Доступна при выборе конкретного отдела.', selector:'#kanbanEditBtn' },
+            { icon:'🎯', title:'Колонки-этапы', description:'Каждая колонка — этап работы над задачей. Перетащите карточку из одной в другую, чтобы изменить статус. Это самый быстрый способ обновить ход работы.', selector:'.kanban-column' },
+            { icon:'➕', title:'Быстрая задача', description:'Кнопка "+" внизу каждой колонки создаёт задачу сразу в нужном статусе. Удобно для быстрого добавления.', selector:'.kanban-column' },
+            { icon:'👥', title:'Соисполнители', description:'В карточке задачи можно добавить соисполнителей — коллег, которые помогают. Они получат уведомления обо всех изменениях.', selector:'#kanbanBoard' }
         ] : [
-            { icon:'📋', title:'Канбан-доска', description:'Ваши задачи разложены по колонкам-статусам: от "Новая" до "Готово". Каждая колонка — этап работы.', selector:'#kanbanBoard' },
-            { icon:'🎯', title:'Перемещение задач', description:'Перетащите карточку из одной колонки в другую, чтобы изменить статус задачи. Руководитель увидит обновление сразу.' },
-            { icon:'➕', title:'Быстрое создание', description:'Кнопка "+" внизу каждой колонки — создаёт задачу сразу в нужном статусе. Быстро и удобно!' },
-            { icon:'👥', title:'Соисполнители', description:'Вас могут добавить соисполнителем в задачу. Вы получите уведомление и сможете следить за прогрессом.' }
+            { icon:'📋', title:'Канбан-доска', description:'Ваши задачи разложены по колонкам-этапам: от "Новая" до "Готово". Каждая колонка — этап работы.', selector:'#kanbanBoard' },
+            { icon:'🏢', title:'Переключение отделов', description:'Кнопки отделов вверху доски. Переключайтесь, чтобы видеть задачи разных отделов.', selector:'#kanbanDeptSwitcher' },
+            { icon:'🎯', title:'Перемещение задач', description:'Перетащите карточку из одной колонки в другую, чтобы изменить статус. Руководитель увидит обновление сразу.', selector:'.kanban-column' },
+            { icon:'➕', title:'Быстрое создание', description:'Кнопка "+" внизу каждой колонки создаёт задачу сразу в нужном статусе.', selector:'.kanban-column' },
+            { icon:'👥', title:'Соисполнители', description:'Вас могут добавить соисполнителем в задачу. Получите уведомление и сможете следить за прогрессом.', selector:'#kanbanBoard' }
         ],
         list: [
-            { icon:'📝', title:'Список задач', description:'Все задачи в виде таблицы: название, статус, приоритет, исполнитель, отдел и дедлайн. Удобно для общего обзора.' },
-            { icon:'🔍', title:'Фильтрация', description:'Используйте фильтр по отделу вверху, чтобы показать задачи конкретного отдела. Комбинируйте с поиском для точного результата.' },
-            { icon:'📊', title:'Сортировка', description:'Нажмите на заголовок столбца, чтобы отсортировать задачи по этому параметру: по дате, приоритету или статусу.' },
-            { icon:'➕', title:'Быстрая задача', description:'Внизу таблицы — блок "Быстрая задача". Введите название, выберите отдел и дедлайн — задача создастся мгновенно без открытия формы.' }
+            { icon:'📝', title:'Список задач', description:'Все задачи в виде таблицы: название, статус, приоритет, исполнитель, отдел и дедлайн. Удобно для общего обзора.', selector:'.tasks-table' },
+            { icon:'🔍', title:'Фильтр по отделу', description:'Выпадающий список вверху — фильтр по отделу. Выберите нужный, чтобы показать только его задачи.', selector:'#listDepartmentFilter' },
+            { icon:'📋', title:'Строки-задачи', description:'Каждая строка — задача. Нажмите на любую, чтобы открыть её карточку со всеми деталями и редактировать.', selector:'#tasksTableBody' },
+            { icon:'➕', title:'Быстрая задача', description:'Внизу списка — блок "Быстрая задача". Введите название, выберите отдел и дедлайн — задача создастся мгновенно.', selector:'#listQuickTask' }
         ],
         calendar: [
-            { icon:'📅', title:'Календарь задач', description:'Задачи с дедлайнами отображаются на календаре. Цветные точки показывают приоритет: красный — срочный, жёлтый — высокий, синий — обычный.', selector:'#calendarContainer' },
-            { icon:'🗓', title:'Виды календаря', description:'Три вида: Месяц — общая картина, Неделя — детальный план, День — фокус на сегодня. Стрелки ← → переключают период.' },
-            { icon:'➕', title:'Создание с датой', description:'Нажмите на любую дату — откроется форма создания задачи с автоматически заполненным дедлайном на эту дату.' },
-            { icon:'🏢', title:'Фильтр по отделу', description:'Календарь показывает задачи выбранного отдела. Переключите отдел в боковой панели или в канбане — календарь обновится автоматически.' }
+            { icon:'📅', title:'Календарь задач', description:'Задачи с дедлайнами отображаются на календаре. Цветные точки показывают приоритет.', selector:'#calendarContainer' },
+            { icon:'◀▶', title:'Навигация', description:'Стрелки ← и → переключают период: следующий день, неделю или месяц. Между ними показана текущая дата.', selector:'#calendarNavControls' },
+            { icon:'🗓', title:'Виды календаря', description:'Три вида: День — фокус на сегодня, Неделя — детальный план, Месяц — общая картина. Нажмите нужную кнопку.', selector:'#calendarViewSwitcher' },
+            { icon:'📌', title:'Кнопка "Сегодня"', description:'Нажмите, чтобы быстро вернуться к текущей дате, если вы ушли далеко вперёд или назад.', selector:'#calendarTodayBtn' },
+            { icon:'➕', title:'Создание задачи', description:'Нажмите на любую дату в календаре — откроется форма создания задачи с автоматически заполненным дедлайном на эту дату.', selector:'#calendarContainer' }
         ],
         messenger: [
             { icon:'💬', title:'Мессенджер', description:'Встроенный корпоративный чат. Слева — список диалогов, справа — переписка. Общайтесь с коллегами не выходя из системы.', selector:'#conversationList' },
-            { icon:'👤', title:'Личные сообщения', description:'Выберите коллегу из списка или нажмите "Новый диалог", чтобы начать личную переписку.' },
-            { icon:'👥', title:'Групповые чаты', description:'Создайте групповой чат для обсуждения проектов. Добавьте участников из любого отдела — все будут в курсе.' },
-            { icon:'@', title:'Упоминания', description:'Наберите @ в чате — появится список участников. Выберите коллегу, чтобы привлечь его внимание. Он получит уведомление.' },
-            { icon:'🎤', title:'Голосовые сообщения', description:'Кнопка микрофона позволяет записать голосовое сообщение. Удобно, когда писать текст долго.' },
-            { icon:'✅', title:'Статусы сообщений', description:'Серая галочка = доставлено, синяя = прочитано. Анимированные точки показывают, что собеседник печатает ответ.' }
+            { icon:'👤', title:'Список диалогов', description:'В списке слева все ваши чаты. Выберите коллегу из списка — откроется личная переписка.', selector:'#conversationList' },
+            { icon:'👥', title:'Групповой чат', description:'Кнопка с плюсом создаёт групповой чат. Добавьте участников из любого отдела — все будут в курсе.', selector:'#conversationList' },
+            { icon:'✍️', title:'Окно переписки', description:'Справа — сообщения выбранного чата. Здесь вы видите историю переписки и статусы сообщений.', selector:'#chatMessages' },
+            { icon:'🎤', title:'Голосовое сообщение', description:'Кнопка микрофона позволяет записать голосовое сообщение. Удобно, когда писать текст долго.', selector:'#voiceRecordBtn' },
+            { icon:'@', title:'Упоминания', description:'В групповом чате наберите @ — появится список участников. Выберите коллегу, чтобы привлечь его внимание. Он получит уведомление.', selector:'#chatMessages' }
         ],
         leaderboard: [
-            { icon:'🏆', title:'Геймификация', description:'Работа как гонка! Закрывайте задачи, зарабатывайте километры и повышайте уровень. Соревнуйтесь с коллегами!', selector:'#userRacingCard' },
-            { icon:'🏎', title:'Уровни и машинки', description:'9 уровней — от Босоногого (0 км) до Чемпиона (25,000 км). За каждый уровень открывается новая машинка!', selector:'#userRacingCard' },
-            { icon:'⭐', title:'Как заработать километры', description:'Закрытие задачи: +10 км\nДо дедлайна: ещё +5 км\nВ день создания: ещё +3 км\nМаксимум 18 км за одну задачу.' },
-            { icon:'🥇', title:'Достижения', description:'Награды за особые успехи: первая задача, серия из 3 дней подряд, 10 задач за неделю, скорость закрытия и многое другое.' },
-            { icon:'📊', title:'Таблица лидеров', description:'Рейтинг всех сотрудников компании. Кто закрыл больше задач — тот выше! Обновляется в реальном времени.', selector:'#leaderboardTable' },
-            { icon:'🎨', title:'Скины машинок', description:'Нажмите на свою машинку — откроется галерея скинов. Выбирайте из открытых уровней и кастомизируйте свой болид!' }
+            { icon:'🏆', title:'Геймификация', description:'Работа как гонка! Закрывайте задачи, зарабатывайте километры и повышайте уровень.', selector:'#userRacingCard' },
+            { icon:'🏎', title:'Ваша машинка', description:'Ваш текущий уровень и машинка. 9 уровней — от Босоногого (0 км) до Чемпиона (25,000 км). За каждый уровень новая машинка!', selector:'#userRacingCard' },
+            { icon:'🎨', title:'Смена скина', description:'Нажмите на свою машинку — откроется галерея скинов из открытых уровней. Кастомизируйте свой болид!', selector:'#userRacingCard' },
+            { icon:'🥇', title:'Достижения', description:'Награды за особые успехи: первая задача, серия из 3 дней подряд, 10 задач за неделю, скорость закрытия и многое другое.', selector:'#achievementGrid' },
+            { icon:'📊', title:'Таблица лидеров', description:'Рейтинг всех сотрудников компании. Кто закрыл больше задач — тот выше! Обновляется в реальном времени.', selector:'#leaderboardTable' }
         ],
         profile: [
             { icon:'👤', title:'Ваш профиль', description:'Личные данные: имя, логин, отдел и роль. Здесь видна вся информация о вашем аккаунте.', selector:'#profileAvatarWrap' },
-            { icon:'📷', title:'Аватар', description:'Нажмите на иконку камеры, чтобы загрузить фото. Аватар отображается в задачах, мессенджере и таблице лидеров.' },
-            { icon:'💾', title:'Редактирование', description:'Измените имя и нажмите "Сохранить изменения". Логин и отдел изменить может только администратор.' },
-            { icon:'❓', title:'Повторное обучение', description:'Кнопка "Пройти обучение заново" — запустит это обучение ещё раз. Также кнопка ❓ в шапке открывает обучение по текущему разделу.', selector:'#helpBtn' }
+            { icon:'📷', title:'Аватар', description:'Нажмите на иконку камеры, чтобы загрузить фото. Аватар отображается в задачах, мессенджере и таблице лидеров.', selector:'#profileAvatarDisplay' },
+            { icon:'✏️', title:'Редактирование имени', description:'Измените имя и нажмите "Сохранить изменения". Логин и отдел изменить может только администратор.', selector:'#profileName' }
         ],
         admin: [
-            { icon:'👑', title:'Панель администратора', description:'Центр управления системой. Четыре вкладки для полного контроля: Пользователи, Отделы, Этапы и Настройки.' },
-            { icon:'👥', title:'Вкладка "Пользователи"', description:'Список всех аккаунтов. Здесь вы:\n• Назначаете роли: сотрудник, руководитель отдела, администратор\n• Привязываете людей к отделам\n• Блокируете и разблокируете аккаунты', selector:'#adminTabUsers' },
-            { icon:'🏢', title:'Вкладка "Отделы"', description:'Управление отделами компании. Создавайте новые отделы, задавайте цвет для визуального отличия и назначайте руководителя.', selector:'#adminTabDepartments' },
-            { icon:'📊', title:'Вкладка "Этапы воронки"', description:'Настройка колонок канбан-доски. У каждого отдела свои этапы работы. Добавляйте, удаляйте и меняйте порядок колонок с иконками и цветами.', selector:'#adminTabStages' },
-            { icon:'🔐', title:'Вкладка "Настройки"', description:'Тонкая настройка прав доступа для каждой роли. Контролируйте, кто может создавать задачи, управлять воронками, видеть чужие задачи и т.д.', selector:'#adminTabSettings' },
-            { icon:'🏢', title:'Отделы в боковой панели', description:'Внизу слева — кнопки отделов. Нажмите, чтобы фильтровать задачи по отделу. Фильтр работает на канбане, в списке и календаре одновременно.', selector:'#departmentsList' }
+            { icon:'👑', title:'Панель администратора', description:'Центр управления системой. Несколько вкладок для полного контроля над системой.', selector:'#page-admin' },
+            { icon:'👥', title:'Вкладка "Пользователи"', description:'Управление аккаунтами: роли (сотрудник/руководитель/администратор), привязка к отделам, блокировка аккаунтов.', selector:'.admin-tab[data-admin-tab="users"]' },
+            { icon:'🏢', title:'Вкладка "Отделы"', description:'Управление отделами компании. Создавайте отделы, задавайте цвет для визуального отличия и назначайте руководителя.', selector:'.admin-tab[data-admin-tab="departments"]' },
+            { icon:'📊', title:'Вкладка "Этапы воронки"', description:'Настройка колонок канбан-доски для каждого отдела. Добавляйте, удаляйте и меняйте порядок этапов с иконками и цветами.', selector:'.admin-tab[data-admin-tab="stages"]' },
+            { icon:'🔐', title:'Вкладка "Настройки"', description:'Тонкая настройка прав доступа для каждой роли. Контролируйте, кто может создавать задачи, управлять воронками и видеть чужие задачи.', selector:'.admin-tab[data-admin-tab="settings"]' },
+            { icon:'🏢', title:'Отделы в боковой панели', description:'Внизу слева — кнопки отделов. Нажмите, чтобы фильтровать задачи. Фильтр работает на канбане, в списке и календаре одновременно.', selector:'#departmentsList' }
         ]
     };
     return s[page] || [];
