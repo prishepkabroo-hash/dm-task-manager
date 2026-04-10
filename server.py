@@ -1051,7 +1051,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             user_dept = user_row["department_id"] if user_row else None
 
             query = """SELECT t.*, u1.full_name as creator_name, u2.full_name as assignee_name,
-                d.name as department_name, d.color as department_color
+                d.name as department_name, d.color as department_color,
+                (SELECT COUNT(*) FROM comments c WHERE c.task_id = t.id) as comment_count
                 FROM tasks t LEFT JOIN users u1 ON t.created_by = u1.id
                 LEFT JOIN users u2 ON t.assigned_to = u2.id
                 LEFT JOIN departments d ON t.department_id = d.id"""

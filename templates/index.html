@@ -880,13 +880,17 @@
             font-weight: 500;
         }
         .cat-tree-item-actions {
-            display: none;
-            gap: 2px;
-        }
-        .cat-tree-item:hover .cat-tree-item-actions {
             display: flex;
+            gap: 2px;
+            opacity: 0.35;
+            transition: opacity .15s;
         }
-        .cat-tree-item:hover .cat-tree-item-count {
+        .cat-tree-item:hover .cat-tree-item-actions,
+        .cat-tree-item.active .cat-tree-item-actions {
+            opacity: 1;
+        }
+        .cat-tree-item:hover .cat-tree-item-count,
+        .cat-tree-item.active .cat-tree-item-count {
             display: none;
         }
         .cat-tree-item-actions button {
@@ -898,6 +902,8 @@
             color: #64748b;
             display: flex;
             align-items: center;
+            font-size: 13px;
+            line-height: 1;
         }
         .cat-tree-item-actions button:hover {
             background: #cbd5e1;
@@ -3688,13 +3694,13 @@
             <!-- Tabs -->
             <div id="detailTabs" style="display:flex;gap:0;border-bottom:1px solid #e2e8f0;padding:0 24px;background:white;">
                 <button class="td-tab active" data-tdtab="td-main" style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">Основное</button>
-                <button class="td-tab" data-tdtab="td-subtasks" style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">Подзадачи <span id="tdSubtaskCount" style="display:none;background:#3b82f6;color:white;padding:1px 7px;border-radius:10px;font-size:10px;margin-left:4px;">0</span></button>
                 <button class="td-tab" data-tdtab="td-comments" style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">Комментарии</button>
                 <button class="td-tab" data-tdtab="td-activity" style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">История изменений</button>
             </div>
             <!-- Tab Contents -->
             <div style="padding:20px 24px 24px;background:#f8fafc;max-height:60vh;overflow-y:auto;">
                 <div id="td-main"></div>
+                <!-- legacy hidden container kept for backward compat (not rendered) -->
                 <div id="td-subtasks" style="display:none;"></div>
                 <div id="td-comments" style="display:none;"></div>
                 <div id="td-activity" style="display:none;"></div>
@@ -4428,7 +4434,7 @@ function _doNavigate(page) {
     // и ВСЕ пользователи увидят туториал заново.
     try {
         if (page === 'kanban') {
-            var _catsTutKey = 'dm_onboarding_categories_v1';
+            var _catsTutKey = 'dm_onboarding_categories_v2';
             if (!localStorage.getItem(_catsTutKey)) {
                 // Даём DOM прорисоваться и отрендерить сайдбар/задачи
                 setTimeout(function(){
@@ -4819,12 +4825,12 @@ async function renderKanban() {
 
     // -------- Sidebar --------
     let sbHtml = '';
-    sbHtml += '<div class="cat-tree-section">Виды</div>';
+    sbHtml += '<div class="cat-tree-section" title="Стандартные подборки задач">📚 Подборки</div>';
     sbHtml += _catBuiltinItemHTML('all', 'Все задачи', '#3b82f6', total, (sel === null || sel === 'all'), 'inbox');
     sbHtml += _catBuiltinItemHTML('none', 'Без категории', '#94a3b8', noneCount, sel === 'none', 'empty');
     sbHtml += _catBuiltinItemHTML('done', 'Выполненные', '#10b981', doneCount, sel === 'done', 'check');
 
-    sbHtml += '<div class="cat-tree-section" style="margin-top:10px;">Категории</div>';
+    sbHtml += '<div class="cat-tree-section" style="margin-top:14px;" title="Свои метки-теги для задач">🏷 Мои категории</div>';
 
     function renderBranch(parentId) {
         const children = byParent.get(parentId) || [];
@@ -4841,10 +4847,16 @@ async function renderKanban() {
     }
     sbHtml += renderBranch(0);
     if (cats.length === 0) {
-        sbHtml += '<div style="padding:8px 10px;color:#94a3b8;font-size:12px;">Нет категорий</div>';
+        sbHtml +=
+            '<div style="padding:14px 12px;color:#64748b;font-size:12px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px;margin:4px 2px;text-align:center;line-height:1.5;">' +
+                (canManage
+                    ? '<div style="font-size:22px;margin-bottom:4px;">🗂</div><b>Категорий пока нет</b><br>Создайте первую — и раскладывайте задачи по темам, клиентам или проектам.'
+                    : '<div style="font-size:22px;margin-bottom:4px;">🗂</div><b>Категорий пока нет</b><br>Руководитель создаст их — и вы сможете фильтровать задачи по категориям.'
+                ) +
+            '</div>';
     }
     if (canManage) {
-        sbHtml += '<button class="cat-add-btn" onclick="showCategoryModal()">+ Новая категория</button>';
+        sbHtml += '<button class="cat-add-btn" onclick="showCategoryModal()" title="Создать новую категорию-тег">+ Новая категория</button>';
     }
     sidebar.innerHTML = sbHtml;
 
@@ -4882,14 +4894,52 @@ async function renderKanban() {
 
     // -------- Task list --------
     const tasks = _filterTasksForCategories(sel);
+
+    // Inline hint banner (dismissable). Shown once per browser to explain the new view.
+    let hintHtml = '';
+    try {
+        if (!localStorage.getItem('dm_cats_hint_v1')) {
+            hintHtml =
+                '<div id="catsHintBanner" style="background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #dbeafe;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:flex-start;gap:12px;">' +
+                    '<div style="font-size:22px;line-height:1;">💡</div>' +
+                    '<div style="flex:1;font-size:12px;color:#334155;line-height:1.55;">' +
+                        '<div style="font-weight:700;color:#1e293b;margin-bottom:4px;">Как это работает</div>' +
+                        'Слева <b>виды и категории</b>. Справа — задачи выбранного вида. Клик по <b>кружку слева</b> переключает статус задачи (Новая → В работе → Выполнена). Задача может быть в <b>нескольких категориях</b> — это теги. Подзадачи и переписка теперь <b>сразу внутри</b> карточки задачи.' +
+                    '</div>' +
+                    '<button onclick="(function(){try{localStorage.setItem(\'dm_cats_hint_v1\',\'1\')}catch(e){};document.getElementById(\'catsHintBanner\').remove();})()" title="Скрыть" style="border:none;background:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;">×</button>' +
+                '</div>';
+        }
+    } catch(e) {}
+
     if (tasks.length === 0) {
-        list.innerHTML = '<div class="cats-empty">' +
-            '<div class="cats-empty-icon">📭</div>' +
-            '<div>Здесь пока нет задач</div>' +
-            (sel !== 'done' ? '<div style="margin-top:14px;"><button onclick="showTaskForm()" style="padding:10px 18px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Создать задачу</button></div>' : '') +
+        let emptyMsg, emptyIcon, emptyHint;
+        if (sel === 'done') {
+            emptyIcon = '✅';
+            emptyMsg = 'Здесь ещё нет выполненных задач';
+            emptyHint = 'Закрывайте задачи — и они будут появляться в этом архиве.';
+        } else if (sel === 'none') {
+            emptyIcon = '🎉';
+            emptyMsg = 'Все задачи разложены по категориям';
+            emptyHint = 'Тут появляются задачи без категории. Создавайте новые — или откройте категорию слева.';
+        } else if (typeof sel === 'number') {
+            const cur = cats.find(x => x.id === sel);
+            emptyIcon = '📭';
+            emptyMsg = 'В категории «' + (cur ? cur.name : '') + '» пока нет задач';
+            emptyHint = 'Нажмите «+ Новая задача» сверху — она автоматически попадёт в эту категорию.';
+        } else {
+            emptyIcon = '🚀';
+            emptyMsg = 'Пока ни одной активной задачи';
+            emptyHint = 'Создайте первую задачу — и начнём работу!';
+        }
+        list.innerHTML = hintHtml +
+            '<div class="cats-empty">' +
+                '<div class="cats-empty-icon">' + emptyIcon + '</div>' +
+                '<div style="font-weight:600;color:#475569;font-size:15px;margin-bottom:6px;">' + emptyMsg + '</div>' +
+                '<div style="color:#94a3b8;font-size:13px;max-width:320px;margin:0 auto;line-height:1.5;">' + emptyHint + '</div>' +
+                (sel !== 'done' ? '<div style="margin-top:18px;"><button onclick="showTaskForm()" style="padding:10px 18px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Создать задачу</button></div>' : '') +
             '</div>';
     } else {
-        list.innerHTML = tasks.map(t => _catTaskRowHTML(t)).join('');
+        list.innerHTML = hintHtml + tasks.map(t => _catTaskRowHTML(t)).join('');
     }
 }
 
@@ -5953,6 +6003,9 @@ async function showTaskDetail(taskId) {
             </div>
         </div>
 
+        <!-- Subtasks (inline, was a separate tab before) -->
+        <div id="td-subtasks-inline" style="margin-bottom:14px;"></div>
+
         <!-- Watchers -->
         <div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid #e8ecf1;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -5990,12 +6043,14 @@ async function showTaskDetail(taskId) {
     // Async: load comments into main tab
     loadMainTabComments(taskId);
 
-    // Show subtask count badge if any exist
-    var subtaskCount = allTasks.filter(t => t.parent_task_id === taskId).length;
-    var badge = document.getElementById('tdSubtaskCount');
-    if (badge) {
-        if (subtaskCount > 0) { badge.style.display = 'inline-block'; badge.textContent = subtaskCount; }
-        else { badge.style.display = 'none'; }
+    // Render subtasks inline on the main tab (no longer a separate tab).
+    // Skip rendering the inline block for tasks that are themselves subtasks
+    // — nested subtasks are not supported by the UI.
+    if (!task.parent_task_id) {
+        try { renderSubtasks(taskId); } catch(e) { console.warn('inline subtasks failed', e); }
+    } else {
+        var inlineBox = document.getElementById('td-subtasks-inline');
+        if (inlineBox) inlineBox.innerHTML = '';
     }
 
     // Setup tab switching
@@ -6007,10 +6062,10 @@ async function showTaskDetail(taskId) {
             tab.style.borderBottomColor = '#3b82f6';
             const target = tab.getAttribute('data-tdtab');
             ['td-main','td-subtasks','td-comments','td-activity'].forEach(id => {
-                document.getElementById(id).style.display = id === target ? 'block' : 'none';
+                var el = document.getElementById(id);
+                if (el) el.style.display = id === target ? 'block' : 'none';
             });
             // Lazy load tabs
-            if (target === 'td-subtasks') renderSubtasks(taskId);
             if (target === 'td-comments') loadDetailComments(taskId);
             if (target === 'td-activity') loadDetailActivity(taskId);
         };
@@ -6043,7 +6098,8 @@ function _subtaskSortKey(s) {
 }
 
 function renderSubtasks(parentTaskId) {
-    const container = document.getElementById('td-subtasks');
+    // Prefer the inline container (main tab). Fall back to legacy tab container.
+    const container = document.getElementById('td-subtasks-inline') || document.getElementById('td-subtasks');
     if (!container) return;
     const parent = allTasks.find(t => t.id === parentTaskId);
     if (!parent) return;
@@ -6060,10 +6116,10 @@ function renderSubtasks(parentTaskId) {
 
     let listHtml = '';
     if (total === 0) {
-        listHtml = '<div style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:13px;border:2px dashed #e2e8f0;border-radius:12px;background:#fafbfc;">'
-            + '<div style="font-size:32px;margin-bottom:8px;">🧩</div>'
-            + '<div style="font-weight:600;color:#64748b;margin-bottom:4px;">Пока нет подзадач</div>'
-            + '<div style="font-size:12px;">Добавьте первую подзадачу в поле сверху</div>'
+        listHtml = '<div style="text-align:center;padding:22px 16px;color:#94a3b8;font-size:12px;border:2px dashed #e2e8f0;border-radius:10px;background:#fafbfc;">'
+            + '<div style="font-size:24px;margin-bottom:4px;">🧩</div>'
+            + '<div style="font-weight:600;color:#64748b;margin-bottom:2px;">Пока нет подзадач</div>'
+            + '<div style="font-size:11px;">Разбейте задачу на шаги — впишите название выше и нажмите Enter</div>'
             + '</div>';
     } else {
         listHtml = subtasks.map(s => {
@@ -6095,6 +6151,7 @@ function renderSubtasks(parentTaskId) {
                     + '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap;">'
                         + (assignee ? '<span style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;">' + avatarHTML(assignee.full_name, assignee.avatar_color, 14, assignee.avatar_url) + assignee.full_name.split(' ')[0] + '</span>' : '')
                         + (deadline.text ? '<span style="font-size:11px;color:var(--' + deadline.class + ');font-weight:600;">📅 ' + deadline.text + '</span>' : '')
+                        + ((s.comment_count && s.comment_count > 0) ? '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#3b82f6;font-weight:600;background:#eff6ff;padding:2px 7px;border-radius:10px;cursor:pointer;">💬 ' + s.comment_count + '</span>' : '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#94a3b8;font-weight:500;cursor:pointer;">💬 Обсудить</span>')
                     + '</div>'
                 + '</div>'
                 + '<button onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть подробно" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseenter="this.style.background=\'#eff6ff\';this.style.color=\'#3b82f6\'" onmouseleave="this.style.background=\'none\';this.style.color=\'#cbd5e1\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg></button>'
@@ -6125,11 +6182,8 @@ function renderSubtasks(parentTaskId) {
             + listHtml
         + '</div>';
 
-    // Autofocus the composer when the user opens the subtasks tab
-    setTimeout(function() {
-        var inp = document.getElementById('newSubtaskInput');
-        if (inp && document.activeElement !== inp) inp.focus();
-    }, 50);
+    // NOTE: autofocus removed — subtasks are now inline on the main tab
+    // and auto-focusing would steal focus from the rest of the card.
 }
 
 async function createSubtask(parentTaskId) {
@@ -8491,6 +8545,23 @@ function skipTut() {
 // ============ CHANGELOG / UPDATE HISTORY ============
 var CHANGELOG_DATA = [
     {
+        version: '2.7.0',
+        date: '10 апреля 2026',
+        time: '22:30',
+        title: 'Подзадачи inline + проще «Категории»',
+        type: 'minor',
+        changes: [
+            { type: 'new', text: 'Подзадачи теперь прямо на главной вкладке задачи — больше не надо искать их на отдельной вкладке' },
+            { type: 'new', text: 'У каждой подзадачи виден счётчик комментариев 💬 — клик открывает переписку внутри этой подзадачи' },
+            { type: 'new', text: 'Подзадача открывается как полноценная задача со всеми возможностями: комментарии, вложения, голосовые, история' },
+            { type: 'improve', text: 'Сайдбар «Категории» переименован: «📚 Подборки» (Все/Без категории/Выполненные) и «🏷 Мои категории»' },
+            { type: 'improve', text: 'Иконки редактирования и удаления категорий теперь видны всегда (раньше появлялись только при наведении)' },
+            { type: 'improve', text: 'Информативная подсказка-банер при первом заходе в раздел «Категории» — объясняет всё за 5 секунд' },
+            { type: 'improve', text: 'Дружелюбные пустые состояния: каждая подборка показывает, что значит пустой экран и что с ним делать' },
+            { type: 'remove', text: 'Удалена вкладка «Подзадачи» из модалки задачи — они теперь всегда на виду' }
+        ]
+    },
+    {
         version: '2.6.0',
         date: '10 апреля 2026',
         time: '20:00',
@@ -8996,31 +9067,34 @@ function getDetailedSteps(page) {
             { icon:'➕', title:'Создание задачи', description:'Синяя кнопка "+" снизу справа — быстрое создание новой задачи.', selector:'#fabCreateTask' }
         ],
         kanban: isAdmin ? [
-            { icon:'🗂', title:'Новый раздел «Категории»', description:'Вместо старой канбан-доски — Todoist-подобный вид. Слева дерево категорий и виды, справа список задач выбранной категории. Задачи можно раскладывать по нескольким категориям одновременно — как теги.', selector:'#page-kanban' },
-            { icon:'📚', title:'Сайдбар: виды и дерево', description:'Слева — панель навигации. Сверху встроенные виды («Все задачи», «Без категории», «Выполненные»), ниже — ваше дерево категорий. Нажатие на любой пункт фильтрует список справа.', selector:'#catsSidebar' },
-            { icon:'📋', title:'«Все задачи»', description:'Показывает ВСЕ активные задачи вашей компании (или отдела). Отсюда удобно начинать день — видно всё, что в работе. Выполненные сюда не попадают.', selector:'#catsSidebar' },
+            { icon:'🗂', title:'Раздел «Категории»', description:'Вместо старой канбан-доски — Todoist-подобный вид. Слева подборки и ваши категории, справа список задач выбранной категории. У одной задачи может быть сразу несколько категорий — как теги.', selector:'#page-kanban' },
+            { icon:'💡', title:'Банер-подсказка', description:'При первом заходе вверху списка появляется цветной банер с краткой инструкцией. Прочитали — закройте крестиком ×, и он больше не вернётся в этом браузере.', selector:'#catsList' },
+            { icon:'📚', title:'Блок «Подборки»', description:'Верхняя часть сайдбара — три готовых вида. Они всегда на месте, их нельзя удалить. С них обычно и начинаем день.', selector:'#catsSidebar' },
+            { icon:'📋', title:'«Все задачи»', description:'Показывает ВСЕ активные задачи вашей компании (или отдела). Выполненные сюда не попадают автоматически — чтобы не мешали. Самый универсальный вид.', selector:'#catsSidebar' },
             { icon:'🗄', title:'«Без категории»', description:'Тут лежат задачи, которым ещё никто не назначил категорию. Регулярно заглядывайте и раскладывайте — так ничего не потеряется.', selector:'#catsSidebar' },
-            { icon:'✅', title:'«Выполненные»', description:'Архив завершённых задач. Из основного списка они автоматически скрываются, чтобы не мешать. Нужно что-то восстановить — заходите сюда.', selector:'#catsSidebar' },
-            { icon:'🌳', title:'Дерево категорий', description:'Ваши собственные категории. У категории может быть родитель — тогда получается дерево. Треугольник слева — раскрыть/свернуть подкатегории. Числа справа — количество активных задач.', selector:'#catsSidebar' },
-            { icon:'➕', title:'Создать категорию', description:'Кнопка «+ Новая категория» внизу сайдбара. Задайте название, цвет, иконку и (опционально) родителя. Администратор ещё выбирает отдел — категория будет видна только этому отделу.', selector:'.cat-add-btn' },
-            { icon:'✏️', title:'Редактирование и удаление', description:'Наведите мышь на категорию в дереве — справа появятся иконки карандаша (редактировать) и корзины (удалить). При удалении все подкатегории и привязки к задачам удаляются вместе, сами задачи остаются.', selector:'#catsSidebar' },
-            { icon:'📑', title:'Заголовок категории', description:'В верхней части основной области — название текущей категории и кнопка «+ Новая задача». Нажатие создаёт задачу, автоматически привязанную к открытой категории.', selector:'#catsHeader' },
-            { icon:'⭕', title:'Кружок слева — статус', description:'Самая важная деталь! Кликните по кружку слева от задачи — статус переключится по циклу: Новая → В работе → Выполнена → снова Новая. Цвет обводки кружка = цвет приоритета задачи.', selector:'.cat-task-check' },
-            { icon:'🏷', title:'Теги категорий на задаче', description:'Под названием задачи — цветные теги всех категорий, к которым она привязана. Одна задача может быть одновременно в «Клиенты», «Срочное» и «Маркетинг» — всё через запятую.', selector:'.cat-task-row' },
-            { icon:'☑', title:'Индикатор подзадач', description:'Если у задачи есть подзадачи, в её строке появится голубой чип «☑ X/Y подзадач». Сами подзадачи не загромождают общий список — открываются внутри родительской задачи.', selector:'.cat-task-row' },
-            { icon:'👆', title:'Открыть карточку задачи', description:'Клик по названию задачи (не по кружку!) открывает полную карточку: описание, исполнители, дедлайн, комментарии, вложения, подзадачи. Там же можно изменить набор категорий.', selector:'.cat-task-row' },
-            { icon:'🎯', title:'Создание задачи в несколько категорий', description:'В форме создания задачи есть блок «Категории» — набор плиток. Нажимайте на нужные, чтобы выделить несколько. Это и есть «теги» — задача попадёт во все выбранные виды одновременно.', selector:'#fabCreateTask' }
+            { icon:'✅', title:'«Выполненные»', description:'Архив завершённых задач. Нужно вспомнить или восстановить — заходите сюда. Здесь нет кнопки «+ задача», это архив.', selector:'#catsSidebar' },
+            { icon:'🏷', title:'Блок «Мои категории»', description:'Ниже — ваши собственные категории (теги). У категории может быть родитель — тогда получается дерево. Треугольник слева — раскрыть/свернуть. Числа справа — количество активных задач.', selector:'#catsSidebar' },
+            { icon:'➕', title:'Создать категорию', description:'Кнопка «+ Новая категория» внизу сайдбара. Название, цвет, иконка, (опционально) родитель. Админ ещё выбирает отдел — категория будет видна только этому отделу.', selector:'.cat-add-btn' },
+            { icon:'✏️', title:'Редактировать/удалить', description:'Иконки +/✎/✕ справа от названия категории теперь видны всегда (раньше появлялись только при наведении). «+» — создать подкатегорию, «✎» — редактировать, «✕» — удалить. Сами задачи при удалении категории не пропадают.', selector:'#catsSidebar' },
+            { icon:'📑', title:'Заголовок раздела', description:'В верхней части основной области — название текущего вида и кнопка «+ Новая задача». Если открыта какая-то категория — новая задача автоматически попадёт именно в неё.', selector:'#catsHeader' },
+            { icon:'⭕', title:'Кружок слева — статус', description:'Самая важная деталь! Кликните по кружку слева от задачи — статус переключится по циклу: Новая → В работе → Выполнена → снова Новая. Цвет обводки = приоритет задачи.', selector:'.cat-task-check' },
+            { icon:'🏷', title:'Теги категорий', description:'Под названием задачи — цветные чипы всех категорий, к которым она привязана. Одна задача может быть одновременно в «Клиенты», «Срочное» и «Маркетинг».', selector:'.cat-task-row' },
+            { icon:'☑', title:'Чип «Подзадачи»', description:'Если у задачи есть подзадачи — в строке появится голубой чип «☑ X/Y подзадач». Он показывает прогресс. Клик по названию откроет задачу — и вы сразу увидите все подзадачи.', selector:'.cat-task-row' },
+            { icon:'🧩', title:'ВАЖНО: подзадачи теперь ВНУТРИ карточки', description:'Раньше подзадачи жили на отдельной вкладке — теперь они встроены в главную вкладку задачи. Открыл задачу — сразу видно все подзадачи под полями. Ничего не прячется.', selector:'.cat-task-row' },
+            { icon:'💬', title:'Чат внутри подзадачи', description:'У каждой подзадачи есть чип «💬 N» или «💬 Обсудить». Клик по нему откроет подзадачу как отдельную карточку, где можно писать комментарии, прикреплять файлы и записывать голосовые. Переписка по шагам — в одном месте.', selector:'.cat-task-row' },
+            { icon:'🎯', title:'Несколько категорий при создании', description:'В форме создания задачи есть блок «Категории» — набор плиток-тегов. Нажимайте на нужные, чтобы выделить несколько. Задача попадёт во все выбранные категории.', selector:'#fabCreateTask' }
         ] : [
-            { icon:'🗂', title:'Новый раздел «Категории»', description:'Вместо старой канбан-доски — удобный вид по категориям (как в Todoist). Слева — список категорий и готовые виды, справа — ваши задачи.', selector:'#page-kanban' },
-            { icon:'📚', title:'Сайдбар слева', description:'Здесь три встроенных вида («Все задачи», «Без категории», «Выполненные») и дерево категорий. Нажатие на любой пункт показывает нужные задачи справа.', selector:'#catsSidebar' },
-            { icon:'📋', title:'«Все задачи»', description:'Ваши активные задачи одним списком — удобно начинать день. Выполненные сюда не попадают, чтобы не мешали работать.', selector:'#catsSidebar' },
-            { icon:'✅', title:'«Выполненные»', description:'Архив завершённых задач. Нужно что-то вспомнить или восстановить — загляните сюда.', selector:'#catsSidebar' },
-            { icon:'🌳', title:'Категории', description:'Задачи группируются по категориям (тегам). У одной задачи может быть сразу несколько категорий — как ярлыки в почте. Категории создаёт руководитель.', selector:'#catsSidebar' },
-            { icon:'⭕', title:'Кружок слева — статус', description:'Главное взаимодействие: клик по кружку переключает статус задачи по циклу Новая → В работе → Выполнена → Новая. Цвет обводки = приоритет задачи.', selector:'.cat-task-check' },
-            { icon:'🏷', title:'Теги категорий', description:'Под названием задачи — цветные теги категорий. Одна задача может быть в нескольких сразу, ищите её в любом из этих видов.', selector:'.cat-task-row' },
-            { icon:'☑', title:'Подзадачи', description:'Если у задачи есть подзадачи, вы увидите голубой чип «☑ X/Y подзадач» в строке. Откройте задачу кликом по названию — подзадачи будут внутри карточки.', selector:'.cat-task-row' },
-            { icon:'👆', title:'Открыть задачу', description:'Клик по названию (не по кружку!) открывает полную карточку: описание, комментарии, вложения, подзадачи. Там же вы выбираете категории, если имеете право редактировать.', selector:'.cat-task-row' },
-            { icon:'➕', title:'Создать задачу', description:'Кнопка «+ Новая задача» в шапке раздела, а также круглая «+» справа внизу. Если категория открыта — новая задача автоматически попадёт в неё.', selector:'#fabCreateTask' }
+            { icon:'🗂', title:'Раздел «Категории»', description:'Вместо старой канбан-доски — удобный вид по категориям (как в Todoist). Слева подборки и категории, справа ваши задачи.', selector:'#page-kanban' },
+            { icon:'💡', title:'Банер-подсказка', description:'При первом заходе вверху списка — цветной банер с краткой инструкцией. Прочитали — закрывайте крестиком ×, больше не появится.', selector:'#catsList' },
+            { icon:'📚', title:'«Подборки»', description:'Верхний блок сайдбара: «Все задачи», «Без категории», «Выполненные». Это готовые виды — они всегда на месте.', selector:'#catsSidebar' },
+            { icon:'📋', title:'«Все задачи»', description:'Ваши активные задачи одним списком — удобно начинать день. Выполненные сюда не попадают.', selector:'#catsSidebar' },
+            { icon:'✅', title:'«Выполненные»', description:'Архив закрытых задач. Нужно что-то вспомнить — загляните сюда.', selector:'#catsSidebar' },
+            { icon:'🏷', title:'«Мои категории»', description:'Ниже — дерево категорий. Задача может быть в нескольких категориях сразу, это теги. Создаёт и настраивает руководитель.', selector:'#catsSidebar' },
+            { icon:'⭕', title:'Кружок — статус задачи', description:'Главное взаимодействие: клик по кружку переключает статус по циклу Новая → В работе → Выполнена → Новая. Цвет обводки = приоритет.', selector:'.cat-task-check' },
+            { icon:'☑', title:'Чип «Подзадачи»', description:'Если у задачи есть подзадачи — в строке появится голубой чип «☑ X/Y подзадач». Видно, сколько уже сделано из общего числа.', selector:'.cat-task-row' },
+            { icon:'🧩', title:'ВАЖНО: подзадачи теперь внутри карточки', description:'Раньше подзадачи жили на отдельной вкладке — теперь они встроены в главную вкладку задачи. Открыл задачу — сразу видно все подзадачи под полями.', selector:'.cat-task-row' },
+            { icon:'💬', title:'Чат внутри подзадачи', description:'У каждой подзадачи есть чип «💬 N» или «💬 Обсудить». Клик по нему откроет подзадачу с отдельным чатом: комментарии, файлы, голосовые — всё как в обычной задаче.', selector:'.cat-task-row' },
+            { icon:'➕', title:'Создать задачу', description:'Кнопка «+ Новая задача» в шапке раздела, а также круглая «+» справа внизу. Если открыта категория — новая задача автоматически попадёт в неё.', selector:'#fabCreateTask' }
         ],
         list: [
             { icon:'📝', title:'Список задач', description:'Все задачи в виде таблицы: название, статус, приоритет, исполнитель, отдел и дедлайн. Удобно для общего обзора.', selector:'.tasks-table' },
