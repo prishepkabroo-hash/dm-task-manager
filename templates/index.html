@@ -640,6 +640,11 @@
             transform: translateY(-1px);
         }
 
+        /* Hover reveals quick-action buttons (complete/delete) on medium cards */
+        .kanban-card:hover .kanban-card-actions {
+            opacity: 1 !important;
+        }
+
         .kanban-card:active {
             cursor: grabbing;
         }
@@ -4389,14 +4394,15 @@ async function renderKanban() {
     const allFiltered = getFilteredTasks();
     // Match the board's exact layout: same gap, flex distribution, overflow behavior
     stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;padding:0 0 8px 0;overflow-x:auto;align-items:stretch;';
-    // Use IDENTICAL width rules as the columns below so tabs align one-to-one
-    const _tabColMin = kanbanCardSize === 'small' ? 200 : (kanbanCardSize === 'large' ? 340 : 260);
-    const _tabColMax = kanbanCardSize === 'small' ? 240 : (kanbanCardSize === 'large' ? 400 : 310);
+    // Use IDENTICAL width rules as the columns below so tabs align one-to-one.
+    // No max-width cap — columns and tabs always stretch to fill available width
+    // (prevents the "right side is empty" problem in compact mode).
+    const _tabColMin = kanbanCardSize === 'small' ? 240 : (kanbanCardSize === 'large' ? 340 : 280);
     stagesBar.innerHTML = statuses.map((status, idx) => {
         const cfg = statusConfig[status];
         const count = allFiltered.filter(t => t.status === status).length;
         const isLast = idx === statuses.length - 1;
-        const tabSizing = 'min-width:' + _tabColMin + 'px;max-width:' + _tabColMax + 'px;';
+        const tabSizing = 'min-width:' + _tabColMin + 'px;';
         return `
             <div class="kanban-stage-tab" data-stage="${status}"
                  ondragover="event.preventDefault();this.style.background='${cfg.color}';this.style.color='white';"
@@ -4590,12 +4596,11 @@ async function renderKanban() {
 
         const col = document.createElement('div');
         col.className = 'kanban-column';
-        // Column width depends on chosen card size
-        var _colMin = kanbanCardSize === 'small' ? 200 : (kanbanCardSize === 'large' ? 340 : 260);
-        var _colMax = kanbanCardSize === 'small' ? 240 : (kanbanCardSize === 'large' ? 400 : 310);
-        const colSizing = kanbanEditMode
-            ? 'min-width:' + _colMin + 'px;max-width:' + _colMax + 'px;'
-            : 'min-width:' + _colMin + 'px;max-width:' + _colMax + 'px;';
+        // Column width: min-width varies by mode, no max-width cap.
+        // Columns always stretch via flex:1 to fill available width — this keeps
+        // the right side from being empty when the workflow has few stages.
+        var _colMin = kanbanCardSize === 'small' ? 240 : (kanbanCardSize === 'large' ? 340 : 280);
+        const colSizing = 'min-width:' + _colMin + 'px;';
         col.style.cssText = `background:${cfg.bg}; border-radius:12px; ${colSizing} flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden; min-height:300px;`;
         col.setAttribute('data-status', status);
         col.addEventListener('dragover', e => {
@@ -4725,67 +4730,111 @@ async function renderKanban() {
             const _subs = allTasks.filter(x => x.parent_task_id === task.id);
             const _subsDone = _subs.filter(s => s.status === 'done').length;
 
+            // Short relative "created" label used in the detailed view footer
+            const _createdLabel = (function() {
+                if (!task.created_at) return '';
+                const d = new Date(task.created_at);
+                const diffMs = Date.now() - d.getTime();
+                const day = 86400000;
+                if (diffMs < day) return 'сегодня';
+                if (diffMs < 2 * day) return 'вчера';
+                const days = Math.floor(diffMs / day);
+                if (days < 7) return days + ' дн. назад';
+                if (days < 30) return Math.floor(days / 7) + ' нед. назад';
+                if (days < 365) return Math.floor(days / 30) + ' мес. назад';
+                return Math.floor(days / 365) + ' г. назад';
+            })();
+
             if (kanbanCardSize === 'small') {
-                // === COMPACT: single line title + tiny priority dot + mini avatar, nothing else ===
+                // === COMPACT — "СКАН" режим ===
+                // Цель: увидеть как можно больше задач одним взглядом.
+                // Показываем ТОЛЬКО: точка приоритета, название в одну строку, аватарка.
+                // Никаких описаний, дедлайнов, кнопок, счётчиков — минимум.
                 card.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                        ${kanbanSelectMode ? `<input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:14px;height:14px;cursor:pointer;accent-color:#ef4444;flex-shrink:0;">` : ''}
                         <span style="width:6px;height:6px;border-radius:50%;background:${p.c};flex-shrink:0;${isOverdue ? 'animation: pulse 2s infinite;' : ''}" title="${p.l}"></span>
-                        <span class="kanban-card-title" style="font-weight:600;font-size:12px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.35;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${task.title.replace(/"/g, '&quot;')}">${task.title}</span>
-                        ${_subs.length ? `<span style="font-size:10px;color:#64748b;background:#f1f5f9;padding:1px 5px;border-radius:4px;flex-shrink:0;" title="Подзадачи">${_subsDone}/${_subs.length}</span>` : ''}
-                        ${isOverdue ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" style="flex-shrink:0;" title="Просрочено"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' : ''}
-                        ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 18, assignee.avatar_url) : '<div style="width:18px;height:18px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:9px;color:#cbd5e1;flex-shrink:0;">?</div>'}
+                        <span class="kanban-card-title" style="font-weight:600;font-size:13px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.35;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${task.title.replace(/"/g, '&quot;')}">${task.title}</span>
+                        ${isOverdue ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" style="flex-shrink:0;" title="Просрочено"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' : ''}
+                        ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 20, assignee.avatar_url) : '<div style="width:20px;height:20px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:9px;color:#cbd5e1;flex-shrink:0;">?</div>'}
                     </div>
-                    ${kanbanSelectMode ? `<div style="margin-top:6px;"><input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:14px;height:14px;cursor:pointer;accent-color:#ef4444;"></div>` : ''}
                 `;
             } else if (kanbanCardSize === 'large') {
-                // === LARGE: full rich card — all metadata visible ===
+                // === LARGE — "ОБЗОР" режим ===
+                // Цель: увидеть ВСЮ информацию о задаче, чтобы принимать решения не открывая её.
+                // Показываем: название, полное описание (до 4 строк), приоритет текстом, отдел,
+                // дедлайн, прогресс подзадач (с bar), автора, исполнителя с полным именем,
+                // номер задачи, когда создана. Кнопки действий всегда видны.
+                const _subsPct = _subs.length ? Math.round((_subsDone / _subs.length) * 100) : 0;
+                const _creator = allUsers.find(u => u.id === task.created_by);
                 card.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;">
-                        <span class="kanban-card-title" style="font-weight:700;font-size:15px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.4;flex:1;">${task.title}</span>
-                        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
-                            ${task.status !== 'done' ? `<button onclick="event.stopPropagation();quickCompleteTask(${task.id})" title="Завершить задачу" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:5px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#f0fdf4';this.style.color='#22c55e'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
-                            <button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:5px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-                            <span style="width:10px;height:10px;border-radius:50%;background:${p.c};margin-left:4px;${isOverdue ? 'animation: pulse 2s infinite;' : ''}" title="${p.l}"></span>
+                    <!-- Header: title + quick actions -->
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                <span style="background:${p.bg};color:${p.c};padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0;">${p.l}</span>
+                                ${dept ? `<span style="background:${dept.color || '#94a3b8'}22;color:${dept.color || '#64748b'};padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;flex-shrink:0;">${dept.name}</span>` : ''}
+                                <span style="color:#cbd5e1;font-size:11px;font-weight:600;margin-left:auto;flex-shrink:0;">#${task.id}</span>
+                            </div>
+                            <div class="kanban-card-title" style="font-weight:700;font-size:15px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.35;">${task.title}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
+                            ${task.status !== 'done' ? `<button onclick="event.stopPropagation();quickCompleteTask(${task.id})" title="Завершить задачу" style="width:28px;height:28px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#f0fdf4';this.style.color='#22c55e'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
+                            <button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:28px;height:28px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
                         </div>
                     </div>
-                    ${kanbanSelectMode ? `<div style="margin-bottom:8px;"><input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:18px;height:18px;cursor:pointer;accent-color:#ef4444;"></div>` : ''}
-                    ${task.description ? `<div class="kanban-card-desc" style="font-size:13px;color:#64748b;margin-bottom:12px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;">${task.description.substring(0, 320)}</div>` : ''}
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
-                        <span style="background:${p.bg};color:${p.c};padding:3px 10px;border-radius:5px;font-size:11px;font-weight:700;">${p.l}</span>
-                        ${dept ? `<span style="background:${dept.color || '#94a3b8'}22;color:${dept.color || '#64748b'};padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;">${dept.name}</span>` : ''}
-                        ${deadline.text ? `<span style="color:var(--${deadline.class});font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;background:#f8fafc;padding:3px 10px;border-radius:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${deadline.text}</span>` : ''}
-                        ${_subs.length ? `<span title="Подзадачи" style="background:#eff6ff;color:#3b82f6;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>${_subsDone}/${_subs.length}</span>` : ''}
-                    </div>
-                    <div style="display:flex;align-items:center;gap:10px;padding-top:10px;border-top:1px solid #f1f5f9;">
-                        ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 30, assignee.avatar_url) : '<div style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:12px;color:#cbd5e1;">?</div>'}
+                    ${kanbanSelectMode ? `<div style="margin-bottom:10px;"><input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:18px;height:18px;cursor:pointer;accent-color:#ef4444;"></div>` : ''}
+                    <!-- Description (up to 4 lines) -->
+                    ${task.description ? `<div class="kanban-card-desc" style="font-size:13px;color:#64748b;margin-bottom:12px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">${task.description.substring(0, 280)}</div>` : '<div style="font-size:12px;color:#cbd5e1;font-style:italic;margin-bottom:12px;">Без описания</div>'}
+                    <!-- Subtasks progress bar (only if there are subtasks) -->
+                    ${_subs.length ? `
+                        <div style="margin-bottom:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px;">
+                                <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Подзадачи</span>
+                                <span>${_subsDone} из ${_subs.length}</span>
+                            </div>
+                            <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
+                                <div style="height:100%;width:${_subsPct}%;background:linear-gradient(90deg,#3b82f6,#06b6d4);border-radius:3px;transition:width 0.3s;"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <!-- Deadline chip -->
+                    ${deadline.text ? `<div style="margin-bottom:12px;display:inline-flex;align-items:center;gap:6px;background:#f8fafc;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;color:var(--${deadline.class});"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${deadline.text}</div>` : ''}
+                    <!-- Footer: assignee + creator info -->
+                    <div style="display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid #f1f5f9;">
+                        ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 32, assignee.avatar_url) : '<div style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:13px;color:#cbd5e1;">?</div>'}
                         <div style="flex:1;min-width:0;">
-                            <div style="font-size:12px;color:#1e293b;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${assignee ? assignee.full_name : 'Не назначен'}</div>
-                            <div style="font-size:10px;color:#94a3b8;">#${task.id}</div>
+                            <div style="font-size:13px;color:#1e293b;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${assignee ? assignee.full_name : 'Не назначен'}</div>
+                            <div style="font-size:10px;color:#94a3b8;">${_creator ? 'от ' + _creator.full_name.split(' ')[0] : ''}${_creator && _createdLabel ? ' • ' : ''}${_createdLabel}</div>
                         </div>
                         ${assignee ? onlineDotHtml(assignee.id) : ''}
                     </div>
                 `;
             } else {
-                // === MEDIUM: default balanced card ===
+                // === MEDIUM — "РАБОТА" режим ===
+                // Цель: ежедневная работа с задачами — видно главное, но ничего лишнего.
+                // Показываем: точка приоритета, название (до 2 строк), чипы дедлайна/подзадач,
+                // аватар + имя исполнителя. БЕЗ описания, БЕЗ отдела (он виден по столбцу),
+                // БЕЗ номера задачи. Кнопки действий — только при hover.
                 card.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-                        <span class="kanban-card-title" style="font-weight:600;font-size:13px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.4;flex:1;">${task.title}</span>
-                        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-top:2px;">
-                            ${task.status !== 'done' ? `<button onclick="event.stopPropagation();quickCompleteTask(${task.id})" title="Завершить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#f0fdf4';this.style.color='#22c55e'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
-                            <button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-                            <span style="width:8px;height:8px;border-radius:50%;background:${p.c};margin-left:4px;${isOverdue ? 'animation: pulse 2s infinite;' : ''}" title="${p.l}"></span>
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
+                        <div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;">
+                            ${kanbanSelectMode ? `<input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:16px;height:16px;cursor:pointer;accent-color:#ef4444;flex-shrink:0;margin-top:3px;">` : ''}
+                            <span style="width:8px;height:8px;border-radius:50%;background:${p.c};flex-shrink:0;margin-top:5px;${isOverdue ? 'animation: pulse 2s infinite;' : ''}" title="${p.l}"></span>
+                            <span class="kanban-card-title" style="font-weight:600;font-size:13px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.4;flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${task.title}</span>
+                        </div>
+                        <div class="kanban-card-actions" style="display:flex;align-items:center;gap:2px;flex-shrink:0;opacity:0;transition:opacity 0.15s;">
+                            ${task.status !== 'done' ? `<button onclick="event.stopPropagation();quickCompleteTask(${task.id})" title="Завершить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;padding:0;" onmouseenter="this.style.background='#f0fdf4';this.style.color='#22c55e'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
+                            <button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
                         </div>
                     </div>
-                    ${kanbanSelectMode ? `<div style="margin-bottom:6px;"><input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:16px;height:16px;cursor:pointer;accent-color:#ef4444;"></div>` : ''}
-                    ${task.description ? `<div class="kanban-card-desc" style="font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${task.description.substring(0, 120)}</div>` : ''}
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-                        ${dept ? `<span style="background:${dept.color || '#94a3b8'}18;color:${dept.color || '#64748b'};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:0.3px;">${dept.name}</span>` : ''}
-                        ${deadline.text ? `<span style="color:var(--${deadline.class});font-size:10px;font-weight:600;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${deadline.text}</span>` : ''}
-                        ${_subs.length ? `<span title="Подзадачи" style="background:#eff6ff;color:#3b82f6;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>${_subsDone}/${_subs.length}</span>` : ''}
-                    </div>
+                    ${(deadline.text || _subs.length) ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+                        ${deadline.text ? `<span style="color:var(--${deadline.class});font-size:11px;font-weight:600;display:flex;align-items:center;gap:3px;background:#f8fafc;padding:3px 8px;border-radius:5px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${deadline.text}</span>` : ''}
+                        ${_subs.length ? `<span title="Подзадачи" style="background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>${_subsDone}/${_subs.length}</span>` : ''}
+                    </div>` : ''}
                     <div style="display:flex;align-items:center;gap:8px;">
                         ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 24, assignee.avatar_url) : '<div style="width:24px;height:24px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;color:#cbd5e1;">?</div>'}
-                        <span style="font-size:12px;color:#64748b;">${assignee ? assignee.full_name.split(' ')[0] : 'Не назначен'}</span>
+                        <span style="font-size:12px;color:#64748b;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${assignee ? assignee.full_name.split(' ')[0] : 'Не назначен'}</span>
                         ${assignee ? onlineDotHtml(assignee.id) : ''}
                     </div>
                 `;
@@ -4840,19 +4889,9 @@ async function renderKanban() {
         board.appendChild(addCol);
     }
 
-    // In edit mode: overflow-x for scrolling to "+Новый этап"; normal mode: no overflow so flex:1 stretches columns
-    if (kanbanEditMode) {
-        board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:4px 0 12px 0;';
-        const syncStagesBar = document.getElementById('kanbanStagesBar');
-        if (syncStagesBar) {
-            board.onscroll = function() { syncStagesBar.scrollLeft = board.scrollLeft; };
-            syncStagesBar.onscroll = function() { board.scrollLeft = syncStagesBar.scrollLeft; };
-        }
-    } else {
-        // If many stages, enable horizontal scroll; otherwise stretch to fill
-        const needsScroll = statuses.length > 5;
-        board.style.cssText = 'display:flex;gap:16px;padding:4px 0 12px 0;' + (needsScroll ? 'overflow-x:auto;' : '');
-    }
+    // Board always uses overflow-x:auto — flex:1 still stretches columns when there's
+    // room, and scrolls horizontally only when total min-widths exceed the viewport.
+    board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:4px 0 12px 0;';
 }
 
 async function handleKanbanDrop(e, newStatus) {
