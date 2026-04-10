@@ -3446,8 +3446,13 @@ function getInitials(name) {
     if (!name) return '?';
     const parts = String(name).trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0][0].toUpperCase();
-    // Take first letters of first two words -> e.g. "Иванов Иван" -> "ИИ"
+    if (parts.length === 1) {
+        // Only one word — use first two letters of it (e.g. "Лукьян" -> "ЛУ")
+        const w = parts[0];
+        if (w.length >= 2) return (w[0] + w[1]).toUpperCase();
+        return w[0].toUpperCase();
+    }
+    // Two or more words — first letter of first + first letter of second (e.g. "Иван Петров" -> "ИП")
     return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
@@ -3461,7 +3466,7 @@ function _colorFromName(name) {
 
 function avatarHTML(name, color, size=32, avatarUrl=null) {
     if (avatarUrl) {
-        return `<img src="${avatarUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.12);" alt="${(name||'')[0]||'?'}">`;
+        return `<img src="${avatarUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.12);" alt="${getInitials(name)}">`;
     }
     const initials = getInitials(name);
     const bg = color || _colorFromName(name || '?');
@@ -4382,20 +4387,22 @@ async function renderKanban() {
         board.parentNode.insertBefore(stagesBar, board);
     }
     const allFiltered = getFilteredTasks();
-    // Match the board's flex layout exactly: same gap, overflow-x, padding
-    stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;padding:0 0 8px 0;' + (kanbanEditMode ? 'overflow-x:auto;' : '');
+    // Match the board's exact layout: same gap, flex distribution, overflow behavior
+    stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;padding:0 0 8px 0;overflow-x:auto;align-items:stretch;';
+    // Use IDENTICAL width rules as the columns below so tabs align one-to-one
+    const _tabColMin = kanbanCardSize === 'small' ? 200 : (kanbanCardSize === 'large' ? 340 : 260);
+    const _tabColMax = kanbanCardSize === 'small' ? 240 : (kanbanCardSize === 'large' ? 400 : 310);
     stagesBar.innerHTML = statuses.map((status, idx) => {
         const cfg = statusConfig[status];
         const count = allFiltered.filter(t => t.status === status).length;
         const isLast = idx === statuses.length - 1;
-        // Each tab matches column sizing
-        const tabSizing = kanbanEditMode ? 'min-width:280px;max-width:320px;' : 'min-width:0;';
+        const tabSizing = 'min-width:' + _tabColMin + 'px;max-width:' + _tabColMax + 'px;';
         return `
             <div class="kanban-stage-tab" data-stage="${status}"
                  ondragover="event.preventDefault();this.style.background='${cfg.color}';this.style.color='white';"
                  ondragleave="this.style.background='';this.style.color='';"
                  ondrop="event.preventDefault();this.style.background='';this.style.color='';handleKanbanDrop(event,'${status}')"
-                 style="${tabSizing}flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+                 style="${tabSizing}flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);box-sizing:border-box;"
                  onmouseenter="this.style.background='${cfg.color}12';this.style.color='${cfg.color}'"
                  onmouseleave="this.style.background='white';this.style.color='#64748b'">
                 <div style="width:10px;height:10px;border-radius:50%;background:${cfg.color};flex-shrink:0;"></div>
@@ -4405,6 +4412,24 @@ async function renderKanban() {
             </div>
         `;
     }).join('');
+
+    // Sync horizontal scroll between stages bar and board (only bind once per render cycle)
+    if (!stagesBar._scrollSynced) {
+        stagesBar._scrollSynced = true;
+        let _syncLock = false;
+        stagesBar.addEventListener('scroll', function() {
+            if (_syncLock) return;
+            _syncLock = true;
+            board.scrollLeft = stagesBar.scrollLeft;
+            requestAnimationFrame(function() { _syncLock = false; });
+        });
+        board.addEventListener('scroll', function() {
+            if (_syncLock) return;
+            _syncLock = true;
+            stagesBar.scrollLeft = board.scrollLeft;
+            requestAnimationFrame(function() { _syncLock = false; });
+        });
+    }
 
     // Toolbar: filters, size, select mode + edit stages button
     let toolbar = document.getElementById('kanbanToolbar');
