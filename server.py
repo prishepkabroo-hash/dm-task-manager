@@ -533,6 +533,45 @@ def init_db():
     except Exception as e:
         print(f"[Migration] funnel_stages fix: {e}")
 
+    # ================================================================
+    # Migration v2.6: Categories (Todoist-style) + normalize task.status
+    # ================================================================
+    # Creates: categories (hierarchical with parent_id), task_categories (M2M join)
+    # Normalizes task.status to 3 fixed values: new / in_progress / done.
+    # Any tasks with custom statuses get reset to 'new'; 'done' and 'in_progress' preserved.
+    try:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                color TEXT DEFAULT '#3b82f6',
+                icon TEXT DEFAULT '',
+                sort_order INTEGER DEFAULT 0,
+                department_id INTEGER DEFAULT NULL,
+                parent_id INTEGER DEFAULT NULL,
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS task_categories (
+                task_id INTEGER NOT NULL,
+                category_id INTEGER NOT NULL,
+                PRIMARY KEY (task_id, category_id),
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+            )
+        """)
+        # Normalize task.status to the new fixed 3-value set.
+        # Any status that is not one of the three gets converted to 'new'.
+        c.execute("UPDATE tasks SET status='new' WHERE status NOT IN ('new', 'in_progress', 'done', 'cancelled')")
+        conn.commit()
+    except Exception as e:
+        print(f"[Migration] categories v2.6: {e}")
+
     # Migrate: add is_deleted, edited_at to direct_messages
     try:
         c.execute("SELECT is_deleted FROM direct_messages LIMIT 1")
@@ -939,6 +978,25 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json([dict(d) for d in r])
 
+        # ---------------- Categories (Todoist-style) ----------------
+        if path == "/api/categories":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            # Return all categories the user can see. Include task counts per category
+            # (only counting non-done tasks — done are hidden by default in the UI).
+            rows = conn.execute("""
+                SELECT c.*,
+                    (SELECT COUNT(*) FROM task_categories tc JOIN tasks t ON tc.task_id = t.id
+                     WHERE tc.category_id = c.id AND t.status != 'done' AND t.status != 'cancelled') AS task_count,
+                    (SELECT COUNT(*) FROM task_categories tc JOIN tasks t ON tc.task_id = t.id
+                     WHERE tc.category_id = c.id AND t.status = 'done') AS done_count
+                FROM categories c
+                ORDER BY c.parent_id IS NULL DESC, c.sort_order, c.name
+            """).fetchall()
+            conn.close()
+            return self._json([dict(r) for r in rows])
+
         if path == "/api/users":
             conn = get_db()
             r = conn.execute(
@@ -1029,6 +1087,17 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if "department_id" in qs: conds.append("t.department_id = ?"); params.append(qs["department_id"][0])
             if "assigned_to" in qs: conds.append("t.assigned_to = ?"); params.append(qs["assigned_to"][0])
             if "status" in qs: conds.append("t.status = ?"); params.append(qs["status"][0])
+            # Filter by category (M2M): if category_id is "none" → tasks without any category
+            if "category_id" in qs:
+                cat_val = qs["category_id"][0]
+                if cat_val == "none":
+                    conds.append("NOT EXISTS (SELECT 1 FROM task_categories tc WHERE tc.task_id = t.id)")
+                else:
+                    conds.append("EXISTS (SELECT 1 FROM task_categories tc WHERE tc.task_id = t.id AND tc.category_id = ?)")
+                    params.append(cat_val)
+            # Hide done tasks by default; include them only when ?include_done=1
+            if qs.get("include_done", ["0"])[0] != "1":
+                conds.append("t.status != 'done'")
 
             # Quick filters
             if "filter" in qs:
@@ -1049,7 +1118,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END,
                 t.created_at DESC"""
             tasks = [dict(t) for t in conn.execute(query, params).fetchall()]
-            # Attach watchers
+            # Attach watchers, coexecutors, categories
             for t in tasks:
                 watchers = conn.execute(
                     "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (t["id"],)
@@ -1059,6 +1128,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=?", (t["id"],)
                 ).fetchall()
                 t["coexecutors"] = [dict(c) for c in coexecs]
+                cats = conn.execute(
+                    "SELECT c.id, c.name, c.color, c.icon FROM task_categories tc JOIN categories c ON tc.category_id=c.id WHERE tc.task_id=?", (t["id"],)
+                ).fetchall()
+                t["categories"] = [dict(c) for c in cats]
             conn.close()
             return self._json(tasks)
 
@@ -1116,6 +1189,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=?", (task_id,)
             ).fetchall()
             result["coexecutors"] = [dict(c) for c in coexecs]
+            cats = conn.execute(
+                "SELECT c.id, c.name, c.color, c.icon FROM task_categories tc JOIN categories c ON tc.category_id=c.id WHERE tc.task_id=?", (task_id,)
+            ).fetchall()
+            result["categories"] = [dict(c) for c in cats]
             conn.close()
             return self._json(result)
 
@@ -1533,6 +1610,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
                     (assigned_to, task_id, "assigned", f"Вам назначена задача: {title}"))
 
+            # Attach categories (Todoist-style M2M)
+            category_ids = data.get("category_ids") or []
+            if isinstance(category_ids, list):
+                for cid in category_ids:
+                    try:
+                        conn.execute("INSERT OR IGNORE INTO task_categories (task_id, category_id) VALUES (?,?)",
+                                     (task_id, int(cid)))
+                    except: pass
+
             conn.commit(); conn.close()
             return self._json({"ok": True, "id": task_id})
 
@@ -1852,6 +1938,94 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"ok": True})
 
+        # ================================================================
+        # Categories CRUD (Todoist-style)
+        # ================================================================
+        # Permission model: admin — any category; head of dept — categories in
+        # their own department (or global ones where department_id IS NULL is
+        # admin-only); regular members — read-only via GET /api/categories.
+        def _can_edit_category(user, cat_dept_id):
+            """Return True iff the given user can create/edit/delete a category
+            scoped to the given department_id (None = global, admin only)."""
+            if user.get("role") == "admin":
+                return True
+            if user.get("role") == "head":
+                if cat_dept_id is None:
+                    return False  # global categories = admin only
+                conn_p = get_db()
+                dept = conn_p.execute("SELECT id FROM departments WHERE head_user_id=?", (user["id"],)).fetchone()
+                conn_p.close()
+                return bool(dept and dept["id"] == int(cat_dept_id))
+            return False
+
+        if path == "/api/categories":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            name = (data.get("name") or "").strip()
+            if not name:
+                return self._json({"error": "Название обязательно"}, 400)
+            dept_id = data.get("department_id")
+            if dept_id is not None and dept_id != "":
+                try:
+                    dept_id = int(dept_id)
+                except (TypeError, ValueError):
+                    return self._json({"error": "Некорректный отдел"}, 400)
+            else:
+                dept_id = None
+            if not _can_edit_category(u, dept_id):
+                return self._json({"error": "Нет прав на создание категории в этом отделе"}, 403)
+            parent_id = data.get("parent_id")
+            if parent_id in ("", None, 0, "0"):
+                parent_id = None
+            else:
+                try: parent_id = int(parent_id)
+                except: parent_id = None
+            color = data.get("color", "#3b82f6")
+            icon = data.get("icon", "")
+            conn = get_db()
+            # If parent given — inherit its department to prevent cross-dept mess
+            if parent_id:
+                parent = conn.execute("SELECT department_id FROM categories WHERE id=?", (parent_id,)).fetchone()
+                if not parent:
+                    conn.close()
+                    return self._json({"error": "Родительская категория не найдена"}, 404)
+                dept_id = parent["department_id"]
+            max_order = conn.execute(
+                "SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE COALESCE(parent_id,0)=COALESCE(?,0)",
+                (parent_id,)
+            ).fetchone()[0] or 0
+            conn.execute(
+                "INSERT INTO categories (name, color, icon, sort_order, department_id, parent_id, created_by) VALUES (?,?,?,?,?,?,?)",
+                (name, color, icon, max_order + 1, dept_id, parent_id, u["id"])
+            )
+            new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            conn.commit()
+            row = conn.execute("SELECT * FROM categories WHERE id=?", (new_id,)).fetchone()
+            conn.close()
+            return self._json({"ok": True, "category": dict(row)})
+
+        if path == "/api/categories/reorder":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            order = data.get("order", [])
+            if not isinstance(order, list) or not order:
+                return self._json({"error": "order обязателен"}, 400)
+            conn = get_db()
+            for idx, cid in enumerate(order):
+                try:
+                    cid_int = int(cid)
+                except (TypeError, ValueError):
+                    continue
+                cat = conn.execute("SELECT department_id FROM categories WHERE id=?", (cid_int,)).fetchone()
+                if not cat: continue
+                if not _can_edit_category(u, cat["department_id"]):
+                    conn.close()
+                    return self._json({"error": "Нет прав"}, 403)
+                conn.execute("UPDATE categories SET sort_order=? WHERE id=?", (idx, cid_int))
+            conn.commit()
+            conn.close()
+            return self._json({"ok": True})
+
         if path == "/api/gamification/check":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
@@ -2118,6 +2292,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                                     nv = str(new_val) if new_val else "—"
                                 log_activity(conn, int(task_id), u["id"], f"{field}_changed", None, old_value=ov, new_value=nv)
 
+                # Sync categories (Todoist-style M2M) if provided
+                if "category_ids" in data and isinstance(data.get("category_ids"), list):
+                    conn.execute("DELETE FROM task_categories WHERE task_id=?", (task_id,))
+                    for cid in data["category_ids"]:
+                        try:
+                            conn.execute("INSERT OR IGNORE INTO task_categories (task_id, category_id) VALUES (?,?)",
+                                         (task_id, int(cid)))
+                        except: pass
+
                 # Status change notifications
                 if "status" in data and old_task and data["status"] != old_task["status"]:
                     msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
@@ -2135,6 +2318,109 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.commit()
             conn.close()
             return self._json({"ok": True})
+
+        # ================================================================
+        # Update category (Todoist-style)
+        # ================================================================
+        if path.startswith("/api/categories/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                cat_id = int(path.split("/")[3])
+            except (ValueError, IndexError):
+                return self._json({"error": "bad id"}, 400)
+            conn = get_db()
+            cat = conn.execute("SELECT * FROM categories WHERE id=?", (cat_id,)).fetchone()
+            if not cat:
+                conn.close()
+                return self._json({"error": "Категория не найдена"}, 404)
+
+            # Permission check using current department_id
+            def _can(user, dept):
+                if user.get("role") == "admin": return True
+                if user.get("role") == "head":
+                    if dept is None: return False
+                    d = conn.execute("SELECT id FROM departments WHERE head_user_id=?", (user["id"],)).fetchone()
+                    return bool(d and d["id"] == int(dept))
+                return False
+
+            if not _can(u, cat["department_id"]):
+                conn.close()
+                return self._json({"error": "Нет прав на изменение этой категории"}, 403)
+
+            sets, params = [], []
+            if "name" in data:
+                name = (data.get("name") or "").strip()
+                if not name:
+                    conn.close()
+                    return self._json({"error": "Название обязательно"}, 400)
+                sets.append("name=?"); params.append(name)
+            if "color" in data:
+                sets.append("color=?"); params.append(data.get("color") or "#3b82f6")
+            if "icon" in data:
+                sets.append("icon=?"); params.append(data.get("icon") or "")
+            if "parent_id" in data:
+                pid = data.get("parent_id")
+                if pid in ("", None, 0, "0"):
+                    pid = None
+                else:
+                    try: pid = int(pid)
+                    except: pid = None
+                # Prevent self-parenting and simple cycles
+                if pid == cat_id:
+                    conn.close()
+                    return self._json({"error": "Категория не может быть родителем самой себя"}, 400)
+                if pid:
+                    # Walk up the parent chain to prevent cycles
+                    cur = pid
+                    safety = 0
+                    while cur is not None and safety < 100:
+                        parent_row = conn.execute("SELECT parent_id FROM categories WHERE id=?", (cur,)).fetchone()
+                        if not parent_row: break
+                        if parent_row["parent_id"] == cat_id:
+                            conn.close()
+                            return self._json({"error": "Цикл в дереве категорий"}, 400)
+                        cur = parent_row["parent_id"]
+                        safety += 1
+                    # Inherit department from new parent
+                    par = conn.execute("SELECT department_id FROM categories WHERE id=?", (pid,)).fetchone()
+                    if par:
+                        sets.append("department_id=?"); params.append(par["department_id"])
+                sets.append("parent_id=?"); params.append(pid)
+            if "department_id" in data and "parent_id" not in data:
+                # Only allow department change for top-level categories
+                if cat["parent_id"] is None:
+                    did = data.get("department_id")
+                    if did in ("", None): did = None
+                    else:
+                        try: did = int(did)
+                        except: did = None
+                    # Must still have permission for the NEW department too
+                    if not _can(u, did):
+                        conn.close()
+                        return self._json({"error": "Нет прав на целевой отдел"}, 403)
+                    sets.append("department_id=?"); params.append(did)
+                    # Propagate to all descendants
+                    # (collect descendants iteratively)
+                    to_update = [cat_id]
+                    descendants = []
+                    while to_update:
+                        next_batch = []
+                        for pid_ in to_update:
+                            children = conn.execute("SELECT id FROM categories WHERE parent_id=?", (pid_,)).fetchall()
+                            for ch in children:
+                                descendants.append(ch["id"])
+                                next_batch.append(ch["id"])
+                        to_update = next_batch
+                    for d_id in descendants:
+                        conn.execute("UPDATE categories SET department_id=? WHERE id=?", (did, d_id))
+            if sets:
+                params.append(cat_id)
+                conn.execute(f"UPDATE categories SET {', '.join(sets)} WHERE id=?", params)
+                conn.commit()
+            row = conn.execute("SELECT * FROM categories WHERE id=?", (cat_id,)).fetchone()
+            conn.close()
+            return self._json({"ok": True, "category": dict(row)})
 
         if path.startswith("/api/admin/departments/"):
             u = self._user()
@@ -2245,6 +2531,41 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Remove from sessions
             to_remove = [k for k, v in sessions.items() if v.get("id") == int(user_id)]
             for k in to_remove: sessions.pop(k, None)
+            return self._json({"ok": True})
+
+        # ================================================================
+        # Delete category (Todoist-style) — cascade via FK handles children
+        # and task_categories rows. Tasks themselves remain.
+        # ================================================================
+        if path.startswith("/api/categories/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                cat_id = int(path.split("/")[3])
+            except (ValueError, IndexError):
+                return self._json({"error": "bad id"}, 400)
+            conn = get_db()
+            cat = conn.execute("SELECT * FROM categories WHERE id=?", (cat_id,)).fetchone()
+            if not cat:
+                conn.close()
+                return self._json({"error": "Категория не найдена"}, 404)
+
+            # Permission check
+            dept = cat["department_id"]
+            can = False
+            if u.get("role") == "admin":
+                can = True
+            elif u.get("role") == "head" and dept is not None:
+                d = conn.execute("SELECT id FROM departments WHERE head_user_id=?", (u["id"],)).fetchone()
+                can = bool(d and d["id"] == int(dept))
+            if not can:
+                conn.close()
+                return self._json({"error": "Нет прав на удаление этой категории"}, 403)
+
+            # CASCADE handles children categories AND task_categories rows.
+            conn.execute("DELETE FROM categories WHERE id=?", (cat_id,))
+            conn.commit()
+            conn.close()
             return self._json({"ok": True})
 
         if path.startswith("/api/admin/departments/"):

@@ -753,6 +753,392 @@
             border-radius: 2px;
         }
 
+        /* ================================================================
+           CATEGORIES (Todoist-style) — replaces old kanban
+           ================================================================ */
+        .cats-layout {
+            display: flex;
+            gap: 16px;
+            height: calc(100vh - 140px);
+            min-height: 500px;
+        }
+        .cats-sidebar {
+            width: 260px;
+            flex-shrink: 0;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 12px 8px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+        }
+        .cats-main {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+        .cats-header {
+            padding: 18px 24px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .cats-header-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .cats-header-sub {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .cats-list-wrap {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 24px 24px;
+        }
+        .cats-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+        .cat-tree-section {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            font-weight: 600;
+            padding: 10px 10px 4px;
+        }
+        .cat-tree-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #334155;
+            font-size: 14px;
+            position: relative;
+            user-select: none;
+        }
+        .cat-tree-item:hover {
+            background: #eef2f7;
+        }
+        .cat-tree-item.active {
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: 600;
+        }
+        .cat-tree-item-caret {
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .cat-tree-item-caret.empty {
+            visibility: hidden;
+        }
+        .cat-tree-item-icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .cat-tree-item-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .cat-tree-item-label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cat-tree-item-count {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        .cat-tree-item-actions {
+            display: none;
+            gap: 2px;
+        }
+        .cat-tree-item:hover .cat-tree-item-actions {
+            display: flex;
+        }
+        .cat-tree-item:hover .cat-tree-item-count {
+            display: none;
+        }
+        .cat-tree-item-actions button {
+            background: transparent;
+            border: none;
+            padding: 3px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+        }
+        .cat-tree-item-actions button:hover {
+            background: #cbd5e1;
+            color: #0f172a;
+        }
+        .cat-tree-children {
+            padding-left: 18px;
+            border-left: 1px dashed #e2e8f0;
+            margin-left: 14px;
+        }
+        .cat-add-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #3b82f6;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px dashed #93c5fd;
+            margin-top: 8px;
+            background: transparent;
+            width: calc(100% - 4px);
+            justify-content: center;
+        }
+        .cat-add-btn:hover {
+            background: #eff6ff;
+        }
+        /* Task rows */
+        .cat-task-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 10px 10px 4px;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            transition: background .12s;
+        }
+        .cat-task-row:hover {
+            background: #f8fafc;
+        }
+        .cat-task-check {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            background: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+            transition: all .15s;
+        }
+        .cat-task-check:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .cat-task-check.in-progress {
+            border-color: #3b82f6;
+            background: #fff;
+            position: relative;
+        }
+        .cat-task-check.in-progress::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #3b82f6;
+            border-radius: 50%;
+        }
+        .cat-task-check.done {
+            background: #10b981;
+            border-color: #10b981;
+        }
+        .cat-task-check.done svg {
+            color: #fff;
+            width: 12px;
+            height: 12px;
+        }
+        .cat-task-check.priority-urgent { border-color: #ef4444; }
+        .cat-task-check.priority-high { border-color: #f59e0b; }
+        .cat-task-check.priority-low { border-color: #94a3b8; }
+        .cat-task-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .cat-task-title {
+            font-size: 14px;
+            color: #0f172a;
+            font-weight: 500;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .cat-task-row.done .cat-task-title {
+            color: #94a3b8;
+            text-decoration: line-through;
+        }
+        .cat-task-desc {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 3px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .cat-task-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #64748b;
+            flex-wrap: wrap;
+        }
+        .cat-task-meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .cat-task-meta-chip.overdue {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .cat-task-meta-cat {
+            background: #ede9fe;
+            color: #6d28d9;
+        }
+        .cat-task-assignee {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .cats-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .cats-empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: .6;
+        }
+        .cats-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .cats-toolbar button {
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cats-toolbar button:hover {
+            background: #2563eb;
+        }
+        .cats-toolbar button.secondary {
+            background: #fff;
+            color: #3b82f6;
+            border: 1px solid #bfdbfe;
+        }
+        .cats-toolbar button.secondary:hover {
+            background: #eff6ff;
+        }
+        .cats-toolbar button.secondary.active {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+        @media (max-width: 900px) {
+            .cats-layout { flex-direction: column; height: auto; }
+            .cats-sidebar { width: 100%; max-height: 260px; }
+        }
+        /* Category edit modal */
+        .cat-edit-color-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .cat-edit-color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform .12s;
+        }
+        .cat-edit-color-swatch:hover { transform: scale(1.1); }
+        .cat-edit-color-swatch.selected {
+            border-color: #0f172a;
+            box-shadow: 0 0 0 2px #fff inset;
+        }
+        /* Multi-category selector in task form */
+        .cat-multi-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 8px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            min-height: 42px;
+            align-items: flex-start;
+        }
+        .cat-multi-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            color: #334155;
+            background: #f1f5f9;
+        }
+        .cat-multi-chip.selected {
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: #3b82f6;
+        }
+
         /* FUNNEL */
         .funnel-container {
             background-color: var(--bg-secondary);
@@ -2755,11 +3141,12 @@
                 </div>
                 <div class="nav-item" data-page="kanban">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="8" y1="6" x2="8" y2="18"></line>
-                        <line x1="12" y1="6" x2="12" y2="18"></line>
-                        <line x1="16" y1="6" x2="16" y2="18"></line>
+                        <path d="M3 6h18M3 12h18M3 18h18"></path>
+                        <circle cx="6" cy="6" r="1" fill="currentColor"></circle>
+                        <circle cx="6" cy="12" r="1" fill="currentColor"></circle>
+                        <circle cx="6" cy="18" r="1" fill="currentColor"></circle>
                     </svg>
-                    <span>Канбан</span>
+                    <span>Категории</span>
                 </div>
                 <div class="nav-item" data-page="funnel">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2919,9 +3306,17 @@
                     </div>
                 </div>
 
-                <!-- KANBAN PAGE -->
+                <!-- CATEGORIES PAGE (Todoist-style, replaces old kanban) -->
                 <div class="page" id="page-kanban">
-                    <div class="kanban-board" id="kanbanBoard"></div>
+                    <div class="cats-layout">
+                        <aside class="cats-sidebar" id="catsSidebar"></aside>
+                        <main class="cats-main">
+                            <header class="cats-header" id="catsHeader"></header>
+                            <div class="cats-list-wrap">
+                                <div class="cats-list" id="catsList"></div>
+                            </div>
+                        </main>
+                    </div>
                 </div>
 
                 <!-- FUNNEL PAGE -->
@@ -3238,8 +3633,10 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Статус</label>
-                        <select id="taskStatus" class="form-select dynamic-status-select">
+                        <select id="taskStatus" class="form-select">
                             <option value="new" selected>Новая</option>
+                            <option value="in_progress">В работе</option>
+                            <option value="done">Выполнена</option>
                         </select>
                     </div>
                 </div>
@@ -3267,6 +3664,10 @@
                     <select id="taskAssignee" class="form-select">
                         <option value="">Не назначена</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Категории</label>
+                    <div id="taskCategoriesPicker" class="cat-multi-select"></div>
                 </div>
                 <button type="button" class="watcher-toggle-btn" id="watcherToggleBtn">+ Добавить наблюдателей</button>
                 <div id="taskWatchersGroup" class="checkbox-group" style="display: none; margin-top: 12px;"></div>
@@ -3400,7 +3801,10 @@ function deadlineInfo(deadline) {
 }
 
 function statusName(s) {
-    return getStageLabel(s);
+    const map = {new: 'Новая', in_progress: 'В работе', done: 'Выполнена', cancelled: 'Отменена'};
+    if (map[s]) return map[s];
+    // Fallback for legacy stages
+    try { return getStageLabel(s); } catch(e) { return s; }
 }
 
 function priorityName(p) {
@@ -4332,615 +4736,403 @@ async function renderDashboard() {
 // 6. KANBAN BOARD
 // =================================
 
+// ============================================================
+// CATEGORIES VIEW (Todoist-style) — replaces old kanban
+// ============================================================
+
+// State for categories view
+let catsTreeState = {
+    selectedCategoryId: null,     // null/'all' | 'none' | 'done' | number
+    expandedIds: new Set(),
+    allCategories: [],
+};
+
+async function loadCategories() {
+    const resp = await apiCall('/api/categories');
+    catsTreeState.allCategories = Array.isArray(resp) ? resp : [];
+    return catsTreeState.allCategories;
+}
+
+function buildCategoryTree(cats) {
+    const byParent = new Map();
+    cats.forEach(c => {
+        const p = c.parent_id == null ? 0 : c.parent_id;
+        if (!byParent.has(p)) byParent.set(p, []);
+        byParent.get(p).push(c);
+    });
+    return byParent;
+}
+
+function _catsEscape(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function _catsPlural(n, forms) {
+    n = Math.abs(n) % 100;
+    const n1 = n % 10;
+    if (n > 10 && n < 20) return forms[2];
+    if (n1 > 1 && n1 < 5) return forms[1];
+    if (n1 === 1) return forms[0];
+    return forms[2];
+}
+
 async function renderKanban() {
-    const board = document.getElementById('kanbanBoard');
-    board.innerHTML = '';
+    const sidebar = document.getElementById('catsSidebar');
+    const header = document.getElementById('catsHeader');
+    const list = document.getElementById('catsList');
+    if (!sidebar || !header || !list) return;
 
-    if (kanbanDeptFilter) {
-        // Load department-specific stages
-        const deptStages = await apiCall('/api/stages?department_id=' + kanbanDeptFilter);
-        if (deptStages && deptStages.length) {
-            allStages = deptStages;
-        } else {
-            const stagesData = await apiCall('/api/stages');
-            if (stagesData && stagesData.length) allStages = stagesData;
+    await loadCategories();
+    const cats = catsTreeState.allCategories;
+    const byParent = buildCategoryTree(cats);
+    const sel = catsTreeState.selectedCategoryId;
+
+    // Totals for virtual views
+    const activeTasks = allTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled');
+    const total = activeTasks.length;
+    const noneCount = activeTasks.filter(t => !t.categories || t.categories.length === 0).length;
+    const doneCount = allTasks.filter(t => t.status === 'done').length;
+
+    const canManage = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
+
+    // -------- Sidebar --------
+    let sbHtml = '';
+    sbHtml += '<div class="cat-tree-section">Виды</div>';
+    sbHtml += _catBuiltinItemHTML('all', 'Все задачи', '#3b82f6', total, (sel === null || sel === 'all'), 'inbox');
+    sbHtml += _catBuiltinItemHTML('none', 'Без категории', '#94a3b8', noneCount, sel === 'none', 'empty');
+    sbHtml += _catBuiltinItemHTML('done', 'Выполненные', '#10b981', doneCount, sel === 'done', 'check');
+
+    sbHtml += '<div class="cat-tree-section" style="margin-top:10px;">Категории</div>';
+
+    function renderBranch(parentId) {
+        const children = byParent.get(parentId) || [];
+        let html = '';
+        for (const c of children) {
+            const hasKids = byParent.has(c.id) && byParent.get(c.id).length > 0;
+            const expanded = catsTreeState.expandedIds.has(c.id);
+            html += _catCustomItemHTML(c, hasKids, expanded, sel === c.id, canManage);
+            if (hasKids && expanded) {
+                html += '<div class="cat-tree-children">' + renderBranch(c.id) + '</div>';
+            }
         }
+        return html;
+    }
+    sbHtml += renderBranch(0);
+    if (cats.length === 0) {
+        sbHtml += '<div style="padding:8px 10px;color:#94a3b8;font-size:12px;">Нет категорий</div>';
+    }
+    if (canManage) {
+        sbHtml += '<button class="cat-add-btn" onclick="showCategoryModal()">+ Новая категория</button>';
+    }
+    sidebar.innerHTML = sbHtml;
+
+    // -------- Header --------
+    let headerTitle, headerSub, headerColor = '#3b82f6';
+    if (sel === null || sel === 'all') {
+        headerTitle = 'Все задачи';
+        headerSub = total + ' ' + _catsPlural(total, ['активная задача','активные задачи','активных задач']);
+    } else if (sel === 'none') {
+        headerTitle = 'Без категории';
+        headerSub = noneCount + ' ' + _catsPlural(noneCount, ['задача','задачи','задач']);
+        headerColor = '#94a3b8';
+    } else if (sel === 'done') {
+        headerTitle = 'Выполненные';
+        headerSub = doneCount + ' ' + _catsPlural(doneCount, ['задача','задачи','задач']);
+        headerColor = '#10b981';
     } else {
-        // "All departments" — global stages + unique department stages merged by key
-        const globalStages = await apiCall('/api/stages') || [];
-        const mergedMap = new Map();
-        globalStages.forEach(s => mergedMap.set(s.key, {...s}));
-
-        // Add unique stages from each department (by key)
-        const departments = await apiCall('/api/departments') || [];
-        for (const dept of departments) {
-            const deptStages = await apiCall('/api/stages?department_id=' + dept.id) || [];
-            deptStages.forEach(ds => {
-                if (!mergedMap.has(ds.key)) {
-                    mergedMap.set(ds.key, {...ds});
-                }
-            });
-        }
-        allStages = Array.from(mergedMap.values()).sort((a,b) => a.sort_order - b.sort_order);
+        const cur = cats.find(x => x.id === sel);
+        headerTitle = cur ? cur.name : 'Категория';
+        headerColor = cur ? cur.color : '#3b82f6';
+        const c = activeTasks.filter(t => (t.categories || []).some(tc => tc.id === sel)).length;
+        headerSub = c + ' ' + _catsPlural(c, ['задача','задачи','задач']);
     }
 
-    const statuses = getStageKeys();
-    const statusConfig = getStageConfig();
+    const isCustomCat = typeof sel === 'number';
+    header.innerHTML =
+        '<div>' +
+            '<div class="cats-header-title"><span class="cat-tree-item-dot" style="background:' + headerColor + '"></span>' + _catsEscape(headerTitle) + '</div>' +
+            '<div class="cats-header-sub">' + headerSub + '</div>' +
+        '</div>' +
+        '<div class="cats-toolbar">' +
+            (sel !== 'done' ? '<button onclick="showTaskForm()"><span style="font-size:16px;line-height:1;">+</span> Новая задача</button>' : '') +
+            (isCustomCat && canManage ? '<button class="secondary" onclick="showCategoryModal(' + sel + ')">Редактировать</button>' : '') +
+        '</div>';
 
-    // === Department switcher (for admin) ===
-    let deptSwitcher = document.getElementById('kanbanDeptSwitcher');
-    if (!deptSwitcher) {
-        deptSwitcher = document.createElement('div');
-        deptSwitcher.id = 'kanbanDeptSwitcher';
-        board.parentNode.insertBefore(deptSwitcher, board);
+    // -------- Task list --------
+    const tasks = _filterTasksForCategories(sel);
+    if (tasks.length === 0) {
+        list.innerHTML = '<div class="cats-empty">' +
+            '<div class="cats-empty-icon">📭</div>' +
+            '<div>Здесь пока нет задач</div>' +
+            (sel !== 'done' ? '<div style="margin-top:14px;"><button onclick="showTaskForm()" style="padding:10px 18px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Создать задачу</button></div>' : '') +
+            '</div>';
+    } else {
+        list.innerHTML = tasks.map(t => _catTaskRowHTML(t)).join('');
     }
-    deptSwitcher.innerHTML = '';
-    if (currentUser && currentUser.role === 'admin') {
-        const departments = await apiCall('/api/departments') || [];
-        const switcherHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-            <button onclick="setKanbanDept(null)" class="${!kanbanDeptFilter ? 'active' : ''}" style="padding:8px 16px;border-radius:8px;border:1px solid ${!kanbanDeptFilter ? '#3b82f6' : '#e2e8f0'};background:${!kanbanDeptFilter ? '#3b82f6' : '#fff'};color:${!kanbanDeptFilter ? '#fff' : '#64748b'};cursor:pointer;font-size:13px;font-weight:600;">Все отделы</button>
-            ${departments.map(d => `<button onclick="setKanbanDept(${d.id})" style="padding:8px 16px;border-radius:8px;border:1px solid ${kanbanDeptFilter === d.id ? d.color : '#e2e8f0'};background:${kanbanDeptFilter === d.id ? d.color : '#fff'};color:${kanbanDeptFilter === d.id ? '#fff' : '#64748b'};cursor:pointer;font-size:13px;font-weight:600;">${d.name}</button>`).join('')}
-        </div>`;
-        deptSwitcher.innerHTML = switcherHTML;
-    }
-
-    // === Bitrix24-style stage tabs above kanban ===
-    let stagesBar = document.getElementById('kanbanStagesBar');
-    if (!stagesBar) {
-        stagesBar = document.createElement('div');
-        stagesBar.id = 'kanbanStagesBar';
-        board.parentNode.insertBefore(stagesBar, board);
-    }
-    const allFiltered = getFilteredTasks();
-    // Match the board's exact layout: same gap, flex distribution, overflow behavior
-    stagesBar.style.cssText = 'display:flex;gap:16px;margin-bottom:0;padding:0 0 8px 0;overflow-x:auto;align-items:stretch;';
-    // Use IDENTICAL width rules as the columns below so tabs align one-to-one.
-    // No max-width cap — columns and tabs always stretch to fill available width
-    // (prevents the "right side is empty" problem in compact mode).
-    const _tabColMin = kanbanCardSize === 'small' ? 240 : (kanbanCardSize === 'large' ? 340 : 280);
-    stagesBar.innerHTML = statuses.map((status, idx) => {
-        const cfg = statusConfig[status];
-        const count = allFiltered.filter(t => t.status === status).length;
-        const isLast = idx === statuses.length - 1;
-        const tabSizing = 'min-width:' + _tabColMin + 'px;';
-        return `
-            <div class="kanban-stage-tab" data-stage="${status}"
-                 ondragover="event.preventDefault();this.style.background='${cfg.color}';this.style.color='white';"
-                 ondragleave="this.style.background='';this.style.color='';"
-                 ondrop="event.preventDefault();this.style.background='';this.style.color='';handleKanbanDrop(event,'${status}')"
-                 style="${tabSizing}flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;cursor:pointer;position:relative;transition:all 0.2s;font-size:13px;font-weight:600;color:#64748b;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);box-sizing:border-box;"
-                 onmouseenter="this.style.background='${cfg.color}12';this.style.color='${cfg.color}'"
-                 onmouseleave="this.style.background='white';this.style.color='#64748b'">
-                <div style="width:10px;height:10px;border-radius:50%;background:${cfg.color};flex-shrink:0;"></div>
-                <span>${cfg.label}</span>
-                <span style="background:${cfg.color}18;color:${cfg.color};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;">${count}</span>
-                ${!isLast ? '<svg style="position:absolute;right:-12px;top:50%;transform:translateY(-50%);z-index:1;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
-            </div>
-        `;
-    }).join('');
-
-    // Sync horizontal scroll between stages bar and board (only bind once per render cycle)
-    if (!stagesBar._scrollSynced) {
-        stagesBar._scrollSynced = true;
-        let _syncLock = false;
-        stagesBar.addEventListener('scroll', function() {
-            if (_syncLock) return;
-            _syncLock = true;
-            board.scrollLeft = stagesBar.scrollLeft;
-            requestAnimationFrame(function() { _syncLock = false; });
-        });
-        board.addEventListener('scroll', function() {
-            if (_syncLock) return;
-            _syncLock = true;
-            stagesBar.scrollLeft = board.scrollLeft;
-            requestAnimationFrame(function() { _syncLock = false; });
-        });
-    }
-
-    // Toolbar: filters, size, select mode + edit stages button
-    let toolbar = document.getElementById('kanbanToolbar');
-    if (!toolbar) {
-        toolbar = document.createElement('div');
-        toolbar.id = 'kanbanToolbar';
-        toolbar.style.cssText = 'display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;';
-        board.parentNode.insertBefore(toolbar, board);
-    }
-    toolbar.innerHTML = '';
-
-    // ------- Kanban search input -------
-    const searchWrap = document.createElement('div');
-    searchWrap.style.cssText = 'position:relative;display:flex;align-items:center;';
-    searchWrap.innerHTML = '<svg style="position:absolute;left:10px;color:#94a3b8;pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.id = 'kanbanSearchInput';
-    searchInput.placeholder = 'Поиск в канбане...';
-    searchInput.value = kanbanFilters.search || '';
-    searchInput.style.cssText = 'padding:7px 12px 7px 30px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;min-width:180px;background:white;';
-    searchInput.addEventListener('input', function(e) {
-        kanbanFilters.search = e.target.value;
-        // Debounce rerender
-        clearTimeout(window._kanbanSearchT);
-        window._kanbanSearchT = setTimeout(() => renderKanban(), 250);
-    });
-    searchWrap.appendChild(searchInput);
-    toolbar.appendChild(searchWrap);
-
-    // ------- Assignee filter dropdown -------
-    const assigneeSelect = document.createElement('select');
-    assigneeSelect.id = 'kanbanAssigneeFilter';
-    assigneeSelect.style.cssText = 'padding:7px 10px;border:1px solid ' + (kanbanFilters.assignee ? '#3b82f6' : '#e2e8f0') + ';border-radius:8px;font-size:12px;background:' + (kanbanFilters.assignee ? '#eff6ff' : 'white') + ';color:#334155;cursor:pointer;outline:none;font-weight:600;';
-    let assigneeOpts = '<option value="">👤 Все исполнители</option>';
-    allUsers.forEach(u => {
-        assigneeOpts += '<option value="' + u.id + '"' + (kanbanFilters.assignee === u.id ? ' selected' : '') + '>' + u.full_name + '</option>';
-    });
-    assigneeSelect.innerHTML = assigneeOpts;
-    assigneeSelect.addEventListener('change', function(e) {
-        setKanbanFilter('assignee', e.target.value ? parseInt(e.target.value) : null);
-    });
-    toolbar.appendChild(assigneeSelect);
-
-    // ------- Priority filter dropdown -------
-    const prioritySelect = document.createElement('select');
-    prioritySelect.id = 'kanbanPriorityFilter';
-    prioritySelect.style.cssText = 'padding:7px 10px;border:1px solid ' + (kanbanFilters.priority ? '#3b82f6' : '#e2e8f0') + ';border-radius:8px;font-size:12px;background:' + (kanbanFilters.priority ? '#eff6ff' : 'white') + ';color:#334155;cursor:pointer;outline:none;font-weight:600;';
-    prioritySelect.innerHTML =
-        '<option value="">⚡ Любой приоритет</option>' +
-        '<option value="high"' + (kanbanFilters.priority === 'high' ? ' selected' : '') + '>🔴 Высокий</option>' +
-        '<option value="medium"' + (kanbanFilters.priority === 'medium' ? ' selected' : '') + '>🟡 Средний</option>' +
-        '<option value="low"' + (kanbanFilters.priority === 'low' ? ' selected' : '') + '>🟢 Низкий</option>';
-    prioritySelect.addEventListener('change', function(e) {
-        setKanbanFilter('priority', e.target.value || null);
-    });
-    toolbar.appendChild(prioritySelect);
-
-    // ------- Overdue toggle -------
-    const overdueBtn = document.createElement('button');
-    overdueBtn.id = 'kanbanOverdueBtn';
-    overdueBtn.innerHTML = '⏰ Просроченные';
-    overdueBtn.style.cssText = 'padding:7px 12px;border:1px solid ' + (kanbanFilters.overdue ? '#ef4444' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanFilters.overdue ? '#fef2f2' : 'white') + ';color:' + (kanbanFilters.overdue ? '#ef4444' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
-    overdueBtn.onclick = function() { setKanbanFilter('overdue', !kanbanFilters.overdue); };
-    toolbar.appendChild(overdueBtn);
-
-    // ------- Reset filters (only if any active) -------
-    if (_kanbanActiveFilterCount() > 0) {
-        const resetBtn = document.createElement('button');
-        resetBtn.innerHTML = '✕ Сбросить (' + _kanbanActiveFilterCount() + ')';
-        resetBtn.style.cssText = 'padding:7px 12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#94a3b8;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
-        resetBtn.onmouseenter = function() { this.style.color = '#ef4444'; this.style.borderColor = '#ef4444'; };
-        resetBtn.onmouseleave = function() { this.style.color = '#94a3b8'; this.style.borderColor = '#e2e8f0'; };
-        resetBtn.onclick = resetKanbanFilters;
-        toolbar.appendChild(resetBtn);
-    }
-
-    // ------- Spacer -------
-    const spacer = document.createElement('div');
-    spacer.style.cssText = 'flex:1;min-width:0;';
-    toolbar.appendChild(spacer);
-
-    // ------- Card size switcher -------
-    const sizeLabel = document.createElement('span');
-    sizeLabel.textContent = 'Размер:';
-    sizeLabel.style.cssText = 'font-size:12px;color:#64748b;font-weight:600;margin-right:2px;';
-    toolbar.appendChild(sizeLabel);
-    const sizeGroup = document.createElement('div');
-    sizeGroup.style.cssText = 'display:flex;align-items:center;gap:0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:white;box-shadow:0 1px 2px rgba(0,0,0,0.04);';
-    const sizeOpts = [
-        { key: 'small',  label: 'Компакт',  icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>', title: 'Компактные карточки — только название' },
-        { key: 'medium', label: 'Обычный',  icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/></svg>', title: 'Средние карточки — стандартный вид' },
-        { key: 'large',  label: 'Подробно', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>', title: 'Подробные карточки — вся информация' }
-    ];
-    sizeOpts.forEach((opt, i) => {
-        const b = document.createElement('button');
-        b.title = opt.title;
-        b.innerHTML = opt.icon + '<span style="margin-left:5px;">' + opt.label + '</span>';
-        const active = kanbanCardSize === opt.key;
-        const borderLeft = i > 0 ? 'border-left:1px solid #e2e8f0;' : '';
-        b.style.cssText = 'padding:7px 11px;border:none;' + borderLeft + 'background:' + (active ? '#3b82f6' : 'white') + ';color:' + (active ? 'white' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;';
-        b.onmouseenter = function() { if (!active) { this.style.background = '#f8fafc'; this.style.color = '#3b82f6'; } };
-        b.onmouseleave = function() { if (!active) { this.style.background = 'white'; this.style.color = '#64748b'; } };
-        b.onclick = function() { setKanbanCardSize(opt.key); };
-        sizeGroup.appendChild(b);
-    });
-    toolbar.appendChild(sizeGroup);
-
-    const selectBtn = document.createElement('button');
-    selectBtn.id = 'kanbanSelectBtn';
-    selectBtn.onclick = toggleKanbanSelectMode;
-    selectBtn.style.cssText = 'padding:7px 14px;border:1px solid ' + (kanbanSelectMode ? '#ef4444' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanSelectMode ? '#fef2f2' : 'white') + ';color:' + (kanbanSelectMode ? '#ef4444' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
-    selectBtn.textContent = kanbanSelectMode ? '✕ Отменить' : '☑ Выбрать';
-    toolbar.appendChild(selectBtn);
-
-    // Notice banner if any tasks have unknown status (fix for "Sales shows 0 tasks")
-    const _knownStages = new Set(statuses);
-    const _orphanCount = getFilteredTasks().filter(t => !_knownStages.has(t.status) && t.status !== 'cancelled').length;
-    let orphanBanner = document.getElementById('kanbanOrphanBanner');
-    if (_orphanCount > 0) {
-        if (!orphanBanner) {
-            orphanBanner = document.createElement('div');
-            orphanBanner.id = 'kanbanOrphanBanner';
-            board.parentNode.insertBefore(orphanBanner, board);
-        }
-        orphanBanner.style.cssText = 'background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:10px 14px;border-radius:10px;margin-bottom:10px;font-size:12px;display:flex;align-items:center;gap:8px;';
-        orphanBanner.innerHTML = '⚠️ <span>Найдено <b>' + _orphanCount + '</b> задач(и) со статусом, не относящимся к этапам ' + (kanbanDeptFilter ? 'текущего отдела' : 'этой воронки') + '. Они показаны в первой колонке — перетащите их в нужный этап, чтобы всё привести в порядок.</span>';
-    } else if (orphanBanner) {
-        orphanBanner.remove();
-    }
-
-    // Воронки можно настраивать только в конкретном отделе, не во "Все отделы"
-    const canEditStages = kanbanDeptFilter && (hasPermission('manage_kanban') ||
-        (currentUser && currentUser.role === 'head' && currentUser.department_id === kanbanDeptFilter));
-    if (!kanbanDeptFilter && kanbanEditMode) { kanbanEditMode = false; }
-    if (canEditStages) {
-        const editBtn = document.createElement('button');
-        editBtn.id = 'kanbanEditBtn';
-        editBtn.onclick = () => { kanbanEditMode = !kanbanEditMode; renderKanban(); };
-        editBtn.style.cssText = 'padding:6px 14px;border:1px solid ' + (kanbanEditMode ? '#3b82f6' : '#e2e8f0') + ';border-radius:8px;background:' + (kanbanEditMode ? '#eff6ff' : 'white') + ';color:' + (kanbanEditMode ? '#3b82f6' : '#64748b') + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;';
-        editBtn.textContent = kanbanEditMode ? '✕ Готово' : '⚙ Настроить этапы';
-        toolbar.appendChild(editBtn);
-    }
-
-    // Compute "orphan" tasks — tasks whose status doesn't match any known stage for the current view.
-    // These would otherwise silently disappear ("Sales shows 0 tasks" bug).
-    const knownStageKeys = new Set(statuses);
-    const orphanTasks = getFilteredTasks().filter(t => !knownStageKeys.has(t.status) && t.status !== 'cancelled');
-
-    statuses.forEach((status, colIdx) => {
-        const cfg = statusConfig[status];
-        // First column absorbs orphan tasks so nothing disappears
-        let tasks = getFilteredTasks().filter(t => t.status === status);
-        if (colIdx === 0 && orphanTasks.length > 0) {
-            tasks = tasks.concat(orphanTasks);
-        }
-        const stageObj = allStages.find(s => s.key === status);
-
-        const col = document.createElement('div');
-        col.className = 'kanban-column';
-        // Column width: min-width varies by mode, no max-width cap.
-        // Columns always stretch via flex:1 to fill available width — this keeps
-        // the right side from being empty when the workflow has few stages.
-        var _colMin = kanbanCardSize === 'small' ? 240 : (kanbanCardSize === 'large' ? 340 : 280);
-        const colSizing = 'min-width:' + _colMin + 'px;';
-        col.style.cssText = `background:${cfg.bg}; border-radius:12px; ${colSizing} flex:1; display:flex; flex-direction:column; border:1px solid ${cfg.color}22; overflow:hidden; min-height:300px;`;
-        col.setAttribute('data-status', status);
-        col.addEventListener('dragover', e => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            col.classList.add('drag-over');
-        });
-        col.addEventListener('dragleave', (e) => {
-            // Only remove if leaving the column itself
-            if (e.target === col || !col.contains(e.relatedTarget)) {
-                col.classList.remove('drag-over');
-            }
-        });
-        col.addEventListener('drop', e => {
-            col.classList.remove('drag-over');
-            handleKanbanDrop(e, status);
-        });
-
-        // Column header — colored bar like Bitrix24
-        const header = document.createElement('div');
-        header.style.cssText = `background:${cfg.color}; color:white; padding:14px 16px; display:flex; align-items:center; justify-content:space-between;`;
-        const canManageKanban = hasPermission('manage_kanban');
-        const showEditControls = canManageKanban && kanbanEditMode;
-        const canDeleteStage = showEditControls && allStages.length > 2;
-        const canMoveLeft = showEditControls && colIdx > 0;
-        const canMoveRight = showEditControls && colIdx < statuses.length - 1;
-        const arrowBtnStyle = 'width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.4);background:transparent;color:rgba(255,255,255,0.7);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;line-height:1;padding:0;';
-        header.innerHTML = `
-            <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:18px;">${cfg.icon}</span>
-                <span style="font-weight:700;font-size:15px;letter-spacing:0.3px;">${cfg.label}</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:4px;">
-                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;">${tasks.length}</span>
-                ${canMoveLeft ? `<button class="kanban-move-btn" data-dir="left" data-stage-id="${stageObj ? stageObj.id : ''}" style="${arrowBtnStyle}" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Переместить влево">◀</button>` : ''}
-                ${canMoveRight ? `<button class="kanban-move-btn" data-dir="right" data-stage-id="${stageObj ? stageObj.id : ''}" style="${arrowBtnStyle}" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Переместить вправо">▶</button>` : ''}
-                ${canDeleteStage ? `<button onclick="event.stopPropagation();showDeleteStageModal('${status}')" style="${arrowBtnStyle}" onmouseenter="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.7)'" title="Удалить этап">&times;</button>` : ''}
-            </div>
-        `;
-        // Attach move handlers (only present in edit mode)
-        header.querySelectorAll('.kanban-move-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const dir = btn.getAttribute('data-dir');
-                const stageId = parseInt(btn.getAttribute('data-stage-id'));
-                if (!stageId) return;
-                const idx = allStages.findIndex(s => s.id === stageId);
-                if (idx < 0) return;
-                const newOrder = allStages.map(s => s.id);
-                if (dir === 'left' && idx > 0) { [newOrder[idx], newOrder[idx-1]] = [newOrder[idx-1], newOrder[idx]]; }
-                else if (dir === 'right' && idx < newOrder.length - 1) { [newOrder[idx], newOrder[idx+1]] = [newOrder[idx+1], newOrder[idx]]; }
-                else return;
-                const result = await apiCall('/api/stages/reorder', {method:'POST', body: JSON.stringify({order: newOrder})});
-                if (result && result.ok) {
-                    renderKanban();
-                } else { showToast(result?.error || 'Ошибка', 'error'); }
-            });
-        });
-        col.appendChild(header);
-
-        // Cards area
-        const cardsContainer = document.createElement('div');
-        var _cgap = kanbanCardSize === 'small' ? '5px' : (kanbanCardSize === 'large' ? '14px' : '10px');
-        var _cpad = kanbanCardSize === 'small' ? '8px' : (kanbanCardSize === 'large' ? '14px' : '12px');
-        cardsContainer.style.cssText = 'display:flex;flex-direction:column;gap:' + _cgap + ';padding:' + _cpad + ';flex:1;min-height:60px;';
-
-        if (tasks.length === 0) {
-            const empty = document.createElement('div');
-            empty.style.cssText = 'text-align:center;padding:24px 12px;color:#94a3b8;font-size:13px;border:2px dashed #cbd5e1;border-radius:8px;';
-            empty.textContent = 'Перетащите задачу сюда';
-            cardsContainer.appendChild(empty);
-        }
-
-        tasks.forEach(task => {
-            const assignee = allUsers.find(u => u.id === task.assigned_to);
-            const deadline = deadlineInfo(task.deadline);
-            const dept = allDepartments.find(d => d.id === task.department_id);
-
-            // Check if overdue
-            const now = new Date();
-            const dl = task.deadline ? new Date(task.deadline) : null;
-            const isOverdue = dl && dl < now && task.status !== 'done' && task.status !== 'cancelled';
-            const isUrgent = task.priority === 'high' && deadline.class === 'deadline-soon';
-
-            const card = document.createElement('div');
-            card.className = 'kanban-card kanban-card-' + kanbanCardSize;
-            card.draggable = !kanbanSelectMode;
-            card.setAttribute('data-task-id', task.id);
-            const cardBorder = isOverdue ? '2px solid #ef4444' : (isUrgent ? '2px solid #f59e0b' : '1px solid #e8ecf1');
-            const cardShadow = isOverdue ? '0 0 12px rgba(239,68,68,0.3)' : (isUrgent ? '0 0 8px rgba(245,158,11,0.2)' : '0 1px 4px rgba(0,0,0,0.06)');
-            // Padding per size (small much tighter, large much more generous)
-            var _cardPad = kanbanCardSize === 'small' ? '6px 9px 6px' : (kanbanCardSize === 'large' ? '18px 18px 16px' : '12px 14px 12px');
-            var _cardRadius = kanbanCardSize === 'small' ? '7px' : (kanbanCardSize === 'large' ? '12px' : '10px');
-            card.style.cssText = `background:white;border-radius:${_cardRadius};padding:${_cardPad};cursor:${kanbanSelectMode ? 'pointer' : 'grab'};transition:box-shadow 0.2s,transform 0.15s,border 0.2s;box-shadow:${cardShadow};border:${cardBorder};`;
-            let wasDragged = false;
-            card.addEventListener('dragstart', e => {
-                wasDragged = true;
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', task.id);
-                // Delay class add so the drag image doesn't pick up the transform
-                requestAnimationFrame(function() { card.classList.add('dragging'); });
-                document.body.classList.add('kanban-dragging-active');
-            });
-            card.addEventListener('dragend', () => {
-                card.classList.remove('dragging');
-                document.body.classList.remove('kanban-dragging-active');
-                // Clear column highlights that may be lingering
-                document.querySelectorAll('.kanban-column.drag-over').forEach(c => c.classList.remove('drag-over'));
-                setTimeout(() => { wasDragged = false; }, 100);
-            });
-            card.addEventListener('click', function(e) {
-                if (kanbanSelectMode && e.target !== this.querySelector('.kanban-select-cb')) {
-                    const cb = this.querySelector('.kanban-select-cb');
-                    if (cb) { cb.checked = !cb.checked; toggleKanbanSelect(task.id, cb); }
-                } else if (!wasDragged && !kanbanSelectMode) {
-                    showTaskDetail(task.id);
-                }
-            });
-            card.addEventListener('mouseenter', () => { card.style.boxShadow = isOverdue ? '0 0 16px rgba(239,68,68,0.5)' : (isUrgent ? '0 0 12px rgba(245,158,11,0.4)' : '0 4px 16px rgba(0,0,0,0.1)'); card.style.transform = 'translateY(-2px)'; });
-            card.addEventListener('mouseleave', () => { card.style.boxShadow = cardShadow; card.style.transform = 'none'; });
-
-            const pCfg = {high:{c:'#ef4444',bg:'#fef2f2',l:'Высокий'},medium:{c:'#f59e0b',bg:'#fffbeb',l:'Средний'},low:{c:'#22c55e',bg:'#f0fdf4',l:'Низкий'}};
-            // For done tasks, always show green regardless of priority
-            let p = task.status === 'done' ? {c:'#22c55e',bg:'#f0fdf4',l:'Готово'} : (pCfg[task.priority] || pCfg.medium);
-
-            // Compute subtasks info once (used by medium/large)
-            const _subs = allTasks.filter(x => x.parent_task_id === task.id);
-            const _subsDone = _subs.filter(s => s.status === 'done').length;
-
-            // Short relative "created" label used in the detailed view footer
-            const _createdLabel = (function() {
-                if (!task.created_at) return '';
-                const d = new Date(task.created_at);
-                const diffMs = Date.now() - d.getTime();
-                const day = 86400000;
-                if (diffMs < day) return 'сегодня';
-                if (diffMs < 2 * day) return 'вчера';
-                const days = Math.floor(diffMs / day);
-                if (days < 7) return days + ' дн. назад';
-                if (days < 30) return Math.floor(days / 7) + ' нед. назад';
-                if (days < 365) return Math.floor(days / 30) + ' мес. назад';
-                return Math.floor(days / 365) + ' г. назад';
-            })();
-
-            if (kanbanCardSize === 'small') {
-                // === COMPACT — "СКАН" режим ===
-                // Цель: увидеть как можно больше задач одним взглядом.
-                // Показываем ТОЛЬКО: точка приоритета, название в одну строку, аватарка.
-                // Никаких описаний, дедлайнов, кнопок, счётчиков — минимум.
-                card.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-                        ${kanbanSelectMode ? `<input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:14px;height:14px;cursor:pointer;accent-color:#ef4444;flex-shrink:0;">` : ''}
-                        <span style="width:6px;height:6px;border-radius:50%;background:${p.c};flex-shrink:0;${isOverdue ? 'animation: pulse 2s infinite;' : ''}" title="${p.l}"></span>
-                        <span class="kanban-card-title" style="font-weight:600;font-size:13px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.35;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${task.title.replace(/"/g, '&quot;')}">${task.title}</span>
-                        ${isOverdue ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3" style="flex-shrink:0;" title="Просрочено"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' : ''}
-                        ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 20, assignee.avatar_url) : '<div style="width:20px;height:20px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:9px;color:#cbd5e1;flex-shrink:0;">?</div>'}
-                    </div>
-                `;
-            } else if (kanbanCardSize === 'large') {
-                // === LARGE — "ОБЗОР" режим ===
-                // Цель: увидеть ВСЮ информацию о задаче, чтобы принимать решения не открывая её.
-                // Показываем: название, полное описание (до 4 строк), приоритет текстом, отдел,
-                // дедлайн, прогресс подзадач (с bar), автора, исполнителя с полным именем,
-                // номер задачи, когда создана. Кнопки действий всегда видны.
-                const _subsPct = _subs.length ? Math.round((_subsDone / _subs.length) * 100) : 0;
-                const _creator = allUsers.find(u => u.id === task.created_by);
-                card.innerHTML = `
-                    <!-- Header: title + quick actions -->
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                                <span style="background:${p.bg};color:${p.c};padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0;">${p.l}</span>
-                                ${dept ? `<span style="background:${dept.color || '#94a3b8'}22;color:${dept.color || '#64748b'};padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;flex-shrink:0;">${dept.name}</span>` : ''}
-                                <span style="color:#cbd5e1;font-size:11px;font-weight:600;margin-left:auto;flex-shrink:0;">#${task.id}</span>
-                            </div>
-                            <div class="kanban-card-title" style="font-weight:700;font-size:15px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.35;">${task.title}</div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
-                            ${task.status !== 'done' ? `<button onclick="event.stopPropagation();quickCompleteTask(${task.id})" title="Завершить задачу" style="width:28px;height:28px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#f0fdf4';this.style.color='#22c55e'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
-                            <button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:28px;height:28px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-                        </div>
-                    </div>
-                    ${kanbanSelectMode ? `<div style="margin-bottom:10px;"><input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:18px;height:18px;cursor:pointer;accent-color:#ef4444;"></div>` : ''}
-                    <!-- Description (up to 4 lines) -->
-                    ${task.description ? `<div class="kanban-card-desc" style="font-size:13px;color:#64748b;margin-bottom:12px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">${task.description.substring(0, 280)}</div>` : '<div style="font-size:12px;color:#cbd5e1;font-style:italic;margin-bottom:12px;">Без описания</div>'}
-                    <!-- Subtasks progress bar (only if there are subtasks) -->
-                    ${_subs.length ? `
-                        <div style="margin-bottom:12px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px;">
-                                <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Подзадачи</span>
-                                <span>${_subsDone} из ${_subs.length}</span>
-                            </div>
-                            <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
-                                <div style="height:100%;width:${_subsPct}%;background:linear-gradient(90deg,#3b82f6,#06b6d4);border-radius:3px;transition:width 0.3s;"></div>
-                            </div>
-                        </div>
-                    ` : ''}
-                    <!-- Deadline chip -->
-                    ${deadline.text ? `<div style="margin-bottom:12px;display:inline-flex;align-items:center;gap:6px;background:#f8fafc;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;color:var(--${deadline.class});"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${deadline.text}</div>` : ''}
-                    <!-- Footer: assignee + creator info -->
-                    <div style="display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid #f1f5f9;">
-                        ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 32, assignee.avatar_url) : '<div style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:13px;color:#cbd5e1;">?</div>'}
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-size:13px;color:#1e293b;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${assignee ? assignee.full_name : 'Не назначен'}</div>
-                            <div style="font-size:10px;color:#94a3b8;">${_creator ? 'от ' + _creator.full_name.split(' ')[0] : ''}${_creator && _createdLabel ? ' • ' : ''}${_createdLabel}</div>
-                        </div>
-                        ${assignee ? onlineDotHtml(assignee.id) : ''}
-                    </div>
-                `;
-            } else {
-                // === MEDIUM — "РАБОТА" режим ===
-                // Цель: ежедневная работа с задачами — видно главное, но ничего лишнего.
-                // Показываем: точка приоритета, название (до 2 строк), чипы дедлайна/подзадач,
-                // аватар + имя исполнителя. БЕЗ описания, БЕЗ отдела (он виден по столбцу),
-                // БЕЗ номера задачи. Кнопки действий — только при hover.
-                card.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
-                        <div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;">
-                            ${kanbanSelectMode ? `<input type="checkbox" class="kanban-select-cb" ${kanbanSelectedIds.has(task.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleKanbanSelect(${task.id},this)" style="width:16px;height:16px;cursor:pointer;accent-color:#ef4444;flex-shrink:0;margin-top:3px;">` : ''}
-                            <span style="width:8px;height:8px;border-radius:50%;background:${p.c};flex-shrink:0;margin-top:5px;${isOverdue ? 'animation: pulse 2s infinite;' : ''}" title="${p.l}"></span>
-                            <span class="kanban-card-title" style="font-weight:600;font-size:13px;color:${task.priority === 'high' ? '#ef4444' : '#1e293b'};line-height:1.4;flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${task.title}</span>
-                        </div>
-                        <div class="kanban-card-actions" style="display:flex;align-items:center;gap:2px;flex-shrink:0;opacity:0;transition:opacity 0.15s;">
-                            ${task.status !== 'done' ? `<button onclick="event.stopPropagation();quickCompleteTask(${task.id})" title="Завершить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;padding:0;" onmouseenter="this.style.background='#f0fdf4';this.style.color='#22c55e'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
-                            <button onclick="event.stopPropagation();deleteTaskQuick(${task.id},'${task.title.replace(/'/g, "\\'")}')" title="Удалить задачу" style="width:22px;height:22px;border:none;background:none;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;padding:0;" onmouseenter="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseleave="this.style.background='none';this.style.color='#cbd5e1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-                        </div>
-                    </div>
-                    ${(deadline.text || _subs.length) ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-                        ${deadline.text ? `<span style="color:var(--${deadline.class});font-size:11px;font-weight:600;display:flex;align-items:center;gap:3px;background:#f8fafc;padding:3px 8px;border-radius:5px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${deadline.text}</span>` : ''}
-                        ${_subs.length ? `<span title="Подзадачи" style="background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>${_subsDone}/${_subs.length}</span>` : ''}
-                    </div>` : ''}
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 24, assignee.avatar_url) : '<div style="width:24px;height:24px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;color:#cbd5e1;">?</div>'}
-                        <span style="font-size:12px;color:#64748b;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${assignee ? assignee.full_name.split(' ')[0] : 'Не назначен'}</span>
-                        ${assignee ? onlineDotHtml(assignee.id) : ''}
-                    </div>
-                `;
-            }
-
-            cardsContainer.appendChild(card);
-        });
-
-        // Quick task creation at TOP of column
-        const quickAdd = document.createElement('div');
-        quickAdd.style.cssText = 'padding:8px 12px 0;';
-        quickAdd.innerHTML = `
-            <div class="quick-task-btn" onclick="toggleQuickTask(this, '${status}')" style="display:flex;align-items:center;gap:8px;padding:10px;border:2px dashed #cbd5e1;border-radius:8px;cursor:pointer;color:#94a3b8;font-size:13px;transition:all 0.2s;text-align:center;justify-content:center;" onmouseenter="this.style.borderColor='${cfg.color}';this.style.color='${cfg.color}'" onmouseleave="this.style.borderColor='#cbd5e1';this.style.color='#94a3b8'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Быстрая задача
-            </div>
-            <div class="quick-task-form" style="display:none;margin-top:8px;">
-                <input type="text" placeholder="Название задачи..." style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;" onkeydown="if(event.key==='Enter')submitQuickTask(this,'${status}')">
-                <select class="qt-dept" style="width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;margin-bottom:6px;box-sizing:border-box;">
-                    <option value="">Отдел *</option>
-                    ${allDepartments.map(d => '<option value="'+d.id+'"'+((kanbanDeptFilter ? kanbanDeptFilter==d.id : currentUser.department_id==d.id)?' selected':'')+'>'+d.name+'</option>').join('')}
-                </select>
-                <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
-                    <div class="date-picker-custom qt-deadline-date"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" style="width:28px;" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" style="width:28px;" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" style="width:44px;" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"><button type="button" class="dp-cal-btn" onclick="toggleCalendarPopup(this)" tabindex="-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></div>
-                    <div class="time-picker-custom qt-deadline-time" style="flex-shrink:0;">
-                      <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" style="width:32px;" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
-                      <span>:</span>
-                      <input type="text" inputmode="numeric" maxlength="2" class="tp-minutes" placeholder="ММ" style="width:32px;" oninput="tpInput(this,'m')" onkeydown="tpKey(this,'m',event)" onblur="tpBlur(this)">
-                    </div>
-                </div>
-                <div style="display:flex;gap:8px;">
-                    <button onclick="submitQuickTask(this,'${status}')" style="flex:1;padding:8px;background:${cfg.color};color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Создать</button>
-                    <button onclick="this.closest('.quick-task-form').style.display='none';this.closest('.quick-task-form').previousElementSibling.style.display='flex'" style="padding:8px 12px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Отмена</button>
-                </div>
-            </div>
-        `;
-        col.appendChild(quickAdd);
-
-        col.appendChild(cardsContainer);
-
-        board.appendChild(col);
-    });
-
-    // "+ Новый этап" column (admin only, edit mode only, specific department only)
-    if (hasPermission('manage_kanban') && kanbanEditMode && kanbanDeptFilter) {
-        const addCol = document.createElement('div');
-        addCol.style.cssText = 'min-width:200px;max-width:200px;border-radius:12px;border:2px dashed #3b82f6;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s;flex-shrink:0;background:#eff6ff;animation:fadeIn 0.3s ease-out;';
-        addCol.onmouseenter = function() { this.style.background='#dbeafe'; this.style.borderColor='#2563eb'; };
-        addCol.onmouseleave = function() { this.style.background='#eff6ff'; this.style.borderColor='#3b82f6'; };
-        addCol.onclick = () => showAddStageKanbanModal();
-        addCol.innerHTML = '<div style="text-align:center;color:#3b82f6;"><div style="font-size:28px;margin-bottom:6px;">+</div><div style="font-size:13px;font-weight:600;">Новый этап</div></div>';
-        board.appendChild(addCol);
-    }
-
-    // Board always uses overflow-x:auto — flex:1 still stretches columns when there's
-    // room, and scrolls horizontally only when total min-widths exceed the viewport.
-    board.style.cssText = 'display:flex;gap:16px;overflow-x:auto;padding:4px 0 12px 0;';
 }
 
-async function handleKanbanDrop(e, newStatus) {
-    e.preventDefault();
-    const taskId = parseInt(e.dataTransfer.getData('text/plain') || e.target.closest('[data-task-id]')?.getAttribute('data-task-id'));
-    if (!taskId) return;
+function _filterTasksForCategories(sel) {
+    let out = allTasks.slice();
+    if (selectedDepartment) {
+        out = out.filter(t => t.department_id === selectedDepartment);
+    }
+    if (sel === null || sel === undefined || sel === 'all') {
+        out = out.filter(t => t.status !== 'done' && t.status !== 'cancelled');
+    } else if (sel === 'none') {
+        out = out.filter(t => t.status !== 'done' && t.status !== 'cancelled' && (!t.categories || t.categories.length === 0));
+    } else if (sel === 'done') {
+        out = out.filter(t => t.status === 'done');
+    } else {
+        out = out.filter(t => t.status !== 'done' && t.status !== 'cancelled' && (t.categories || []).some(c => c.id === sel));
+    }
+    out.sort((a, b) => {
+        const order = {'in_progress':0, 'new':1, 'done':2, 'cancelled':3};
+        const oa = order[a.status] != null ? order[a.status] : 9;
+        const ob = order[b.status] != null ? order[b.status] : 9;
+        if (oa !== ob) return oa - ob;
+        if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
+        if (a.deadline) return -1;
+        if (b.deadline) return 1;
+        return (b.created_at || '').localeCompare(a.created_at || '');
+    });
+    return out;
+}
 
-    // Optimistic UI update — instantly move the card
+function _catBuiltinItemHTML(key, label, color, count, active, iconName) {
+    const iconMap = {
+        inbox: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+        empty: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+        check: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+    };
+    const icon = iconMap[iconName] || '';
+    return '<div class="cat-tree-item ' + (active ? 'active' : '') + '" onclick="selectCategory(\'' + key + '\')">' +
+        '<span class="cat-tree-item-caret empty"></span>' +
+        '<span class="cat-tree-item-icon" style="color:' + color + '">' + icon + '</span>' +
+        '<span class="cat-tree-item-label">' + _catsEscape(label) + '</span>' +
+        '<span class="cat-tree-item-count">' + count + '</span>' +
+        '</div>';
+}
+
+function _catCustomItemHTML(c, hasKids, expanded, active, canManage) {
+    const caret = hasKids ? (expanded ? '▾' : '▸') : '';
+    const clickCaret = hasKids ? ('event.stopPropagation();toggleCategoryExpand(' + c.id + ')') : '';
+    const count = c.task_count || 0;
+    let actionsHtml = '';
+    if (canManage) {
+        actionsHtml =
+            '<div class="cat-tree-item-actions">' +
+                '<button title="Подкатегория" onclick="event.stopPropagation();showCategoryModal(null,' + c.id + ')">+</button>' +
+                '<button title="Редактировать" onclick="event.stopPropagation();showCategoryModal(' + c.id + ')">✎</button>' +
+                '<button title="Удалить" onclick="event.stopPropagation();deleteCategory(' + c.id + ')">✕</button>' +
+            '</div>';
+    }
+    return '<div class="cat-tree-item ' + (active ? 'active' : '') + '" onclick="selectCategory(' + c.id + ')">' +
+        '<span class="cat-tree-item-caret ' + (hasKids ? '' : 'empty') + '" onclick="' + clickCaret + '">' + caret + '</span>' +
+        '<span class="cat-tree-item-dot" style="background:' + (c.color || '#3b82f6') + '"></span>' +
+        '<span class="cat-tree-item-label">' + _catsEscape(c.name) + '</span>' +
+        '<span class="cat-tree-item-count">' + count + '</span>' +
+        actionsHtml +
+        '</div>';
+}
+
+function _catTaskRowHTML(t) {
+    const status = t.status || 'new';
+    const isDone = status === 'done';
+    const checkClass = 'cat-task-check ' +
+        (isDone ? 'done' : (status === 'in_progress' ? 'in-progress' : '')) +
+        ' priority-' + (t.priority || 'medium');
+    const checkIcon = isDone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+    const desc = (t.description && t.description.trim())
+        ? '<div class="cat-task-desc">' + _catsEscape(t.description) + '</div>'
+        : '';
+
+    const meta = [];
+    if (t.deadline) {
+        const info = deadlineInfo(t.deadline);
+        const cls = info && info.overdue && !isDone ? 'cat-task-meta-chip overdue' : 'cat-task-meta-chip';
+        meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
+    }
+    if (t.categories && t.categories.length > 0) {
+        t.categories.forEach(c => {
+            meta.push('<span class="cat-task-meta-chip cat-task-meta-cat" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
+        });
+    }
+    if (t.department_id) {
+        const dept = (allDepartments || []).find(d => d.id === t.department_id);
+        if (dept) meta.push('<span class="cat-task-meta-chip">' + _catsEscape(dept.name) + '</span>');
+    }
+
+    let assignee = '';
+    if (t.assigned_to) {
+        const user = (allUsers || []).find(u => u.id === t.assigned_to);
+        if (user) {
+            assignee = '<div class="cat-task-assignee">' + avatarHTML(user.full_name, null, 22, user.avatar) + '</div>';
+        }
+    }
+
+    // Click cycle: new → in_progress → done → new
+    const nextStatus = isDone ? 'new' : (status === 'in_progress' ? 'done' : 'in_progress');
+
+    return '<div class="cat-task-row ' + (isDone ? 'done' : '') + '" data-task-id="' + t.id + '" onclick="showTaskDetail(' + t.id + ')">' +
+        '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Кликните для смены статуса">' + checkIcon + '</div>' +
+        '<div class="cat-task-body">' +
+            '<div class="cat-task-title">' + _catsEscape(t.title) + '</div>' +
+            desc +
+            (meta.length > 0 ? '<div class="cat-task-meta">' + meta.join('') + '</div>' : '') +
+        '</div>' +
+        assignee +
+        '</div>';
+}
+
+function selectCategory(key) {
+    if (typeof key === 'string' && /^\d+$/.test(key)) key = parseInt(key);
+    catsTreeState.selectedCategoryId = (key === 'all') ? null : key;
+    renderKanban();
+}
+
+function toggleCategoryExpand(id) {
+    if (catsTreeState.expandedIds.has(id)) catsTreeState.expandedIds.delete(id);
+    else catsTreeState.expandedIds.add(id);
+    renderKanban();
+}
+
+async function toggleTaskState(taskId, newStatus) {
     const task = allTasks.find(t => t.id === taskId);
-    if (task) {
-        task.status = newStatus;
-
-        // Check if detail modal is open for this task
-        const detailOpen = detailTaskId === taskId;
-
-        // Update kanban view and await completion
-        await renderKanban();
-
-        // If detail modal is open for this task, update it
-        if (detailOpen) {
-            // Force reload task details with updated data
-            showTaskDetail(detailTaskId);
-        }
+    if (!task) return;
+    const oldStatus = task.status;
+    task.status = newStatus;
+    renderKanban();
+    const resp = await apiCall('/api/tasks/' + taskId, {method:'PUT', body:JSON.stringify({status: newStatus})});
+    if (!resp || resp.error) {
+        task.status = oldStatus;
+        renderKanban();
+        showToast('Ошибка обновления', 'error');
+        return;
     }
-
-    // Send to server in background
-    apiCall('/api/tasks/' + taskId, {method: 'PUT', body: JSON.stringify({status: newStatus})}).then(resp => {
-        if (!resp || resp.error) {
-            // Revert on error
-            loadTasks();
-        } else {
-            // If task is marked as done, trigger gamification rewards
-            if (newStatus === 'done') {
-                apiCall('/api/gamification/check', {
-                    method: 'POST',
-                    body: JSON.stringify({task_id: taskId})
-                }).then(gamResp => {
-                    if (gamResp && !gamResp.error) {
-                        showToast('🎉 Награды за завершение получены!', 'success');
-                        // Refresh leaderboard/achievements if it's currently displayed
-                        if (currentPage === 'leaderboard') {
-                            renderLeaderboard();
-                        }
-                    }
-                });
-            }
-        }
-    });
+    if (newStatus === 'done') {
+        apiCall('/api/gamification/check', {method:'POST', body:JSON.stringify({task_id: taskId})}).then(g => {
+            if (g && !g.error) showToast('🎉 +10 км!', 'success');
+        });
+    }
 }
+
+async function deleteCategory(id) {
+    const cat = catsTreeState.allCategories.find(c => c.id === id);
+    if (!cat) return;
+    if (!confirm('Удалить категорию «' + cat.name + '»?\nВсе подкатегории также будут удалены. Задачи останутся, но потеряют связь с этой категорией.')) return;
+    const resp = await apiCall('/api/categories/' + id, {method:'DELETE'});
+    if (resp && resp.ok) {
+        showToast('Категория удалена', 'success');
+        if (catsTreeState.selectedCategoryId === id) catsTreeState.selectedCategoryId = null;
+        await loadTasks();
+        renderKanban();
+    } else {
+        showToast('Ошибка: ' + ((resp && resp.error) || '—'), 'error');
+    }
+}
+
+function showCategoryModal(editId = null, parentIdPreset = null) {
+    const cats = catsTreeState.allCategories;
+    const existing = editId ? cats.find(c => c.id === editId) : null;
+    const modalTitle = existing ? 'Редактировать категорию' : (parentIdPreset ? 'Новая подкатегория' : 'Новая категория');
+    const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
+    let pickedColor = existing ? existing.color : '#3b82f6';
+    const currentParent = existing ? existing.parent_id : parentIdPreset;
+    const depts = allDepartments || [];
+    const currentDept = existing ? existing.department_id : null;
+
+    // Forbid picking self or own descendants as parent
+    const exclude = new Set();
+    if (editId) {
+        const byParent = buildCategoryTree(cats);
+        (function collect(id) {
+            exclude.add(id);
+            (byParent.get(id) || []).forEach(k => collect(k.id));
+        })(editId);
+    }
+    let parentOpts = '<option value="">— (корневая)</option>';
+    cats.filter(c => !exclude.has(c.id)).forEach(c => {
+        parentOpts += '<option value="' + c.id + '"' + (currentParent === c.id ? ' selected' : '') + '>' + _catsEscape(c.name) + '</option>';
+    });
+
+    let deptOpts = '<option value="">— (общая)</option>';
+    depts.forEach(d => {
+        deptOpts += '<option value="' + d.id + '"' + (currentDept === d.id ? ' selected' : '') + '>' + _catsEscape(d.name) + '</option>';
+    });
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML =
+        '<div style="background:#fff;border-radius:14px;padding:24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">' +
+            '<h3 style="margin:0 0 16px;font-size:18px;color:#0f172a;">' + modalTitle + '</h3>' +
+            '<div style="margin-bottom:12px;">' +
+                '<label style="font-size:12px;color:#64748b;font-weight:600;">Название</label>' +
+                '<input id="catModalName" type="text" value="' + _catsEscape(existing ? existing.name : '') + '" placeholder="Например: Продажи" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;" autofocus>' +
+            '</div>' +
+            '<div style="margin-bottom:12px;">' +
+                '<label style="font-size:12px;color:#64748b;font-weight:600;">Цвет</label>' +
+                '<div class="cat-edit-color-row" id="catModalColors">' +
+                    colors.map(col => '<div class="cat-edit-color-swatch ' + (col === pickedColor ? 'selected' : '') + '" data-color="' + col + '" style="background:' + col + ';"></div>').join('') +
+                '</div>' +
+            '</div>' +
+            '<div style="margin-bottom:12px;">' +
+                '<label style="font-size:12px;color:#64748b;font-weight:600;">Родительская категория</label>' +
+                '<select id="catModalParent" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">' + parentOpts + '</select>' +
+            '</div>' +
+            (currentUser && currentUser.role === 'admin' ? '<div style="margin-bottom:16px;">' +
+                '<label style="font-size:12px;color:#64748b;font-weight:600;">Отдел</label>' +
+                '<select id="catModalDept" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">' + deptOpts + '</select>' +
+            '</div>' : '') +
+            '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+                '<button id="catModalCancel" style="padding:10px 16px;background:#f1f5f9;color:#334155;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Отмена</button>' +
+                '<button id="catModalSave" style="padding:10px 16px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Сохранить</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(modal);
+
+    modal.querySelectorAll('.cat-edit-color-swatch').forEach(sw => {
+        sw.addEventListener('click', () => {
+            modal.querySelectorAll('.cat-edit-color-swatch').forEach(s => s.classList.remove('selected'));
+            sw.classList.add('selected');
+            pickedColor = sw.dataset.color;
+        });
+    });
+
+    const close = () => modal.remove();
+    modal.querySelector('#catModalCancel').onclick = close;
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+    modal.querySelector('#catModalSave').onclick = async () => {
+        const name = modal.querySelector('#catModalName').value.trim();
+        if (!name) { showToast('Введите название', 'error'); return; }
+        const parentVal = modal.querySelector('#catModalParent').value;
+        const deptEl = modal.querySelector('#catModalDept');
+        const payload = {
+            name,
+            color: pickedColor,
+            parent_id: parentVal ? parseInt(parentVal) : null,
+        };
+        if (deptEl) payload.department_id = deptEl.value ? parseInt(deptEl.value) : null;
+        let resp;
+        if (editId) {
+            resp = await apiCall('/api/categories/' + editId, {method:'PUT', body:JSON.stringify(payload)});
+        } else {
+            resp = await apiCall('/api/categories', {method:'POST', body:JSON.stringify(payload)});
+        }
+        if (resp && resp.ok) {
+            showToast(editId ? 'Категория обновлена' : 'Категория создана', 'success');
+            close();
+            await loadTasks();
+            renderKanban();
+        } else {
+            showToast('Ошибка: ' + ((resp && resp.error) || '—'), 'error');
+        }
+    };
+}
+
+// Stub kept for compat with any existing references elsewhere
+async function handleKanbanDrop() { /* deprecated: no drag-drop in categories view */ }
 
 async function deleteTaskQuick(taskId, taskTitle) {
     if (!confirm(`Удалить задачу «${taskTitle}»?`)) return;
@@ -5433,6 +5625,36 @@ async function showTaskForm(taskId = null) {
         }
     }
 
+    // Populate categories picker
+    try {
+        await loadCategories();
+        const picker = document.getElementById('taskCategoriesPicker');
+        if (picker) {
+            const cats = catsTreeState.allCategories || [];
+            const editingTask = taskId ? allTasks.find(t => t.id === taskId) : null;
+            // Preset from currently selected category in view if creating new
+            const preset = new Set();
+            if (editingTask && editingTask.categories) {
+                editingTask.categories.forEach(c => preset.add(c.id));
+            } else if (typeof catsTreeState.selectedCategoryId === 'number') {
+                preset.add(catsTreeState.selectedCategoryId);
+            }
+            if (cats.length === 0) {
+                picker.innerHTML = '<div style="color:#94a3b8;font-size:12px;padding:6px;">Категорий ещё нет. Создайте их во вкладке «Категории».</div>';
+            } else {
+                picker.innerHTML = cats.map(c => {
+                    const sel = preset.has(c.id) ? 'selected' : '';
+                    return '<span class="cat-multi-chip ' + sel + '" data-cat-id="' + c.id + '" style="border-color:' + c.color + ';">' +
+                        '<span class="cat-tree-item-dot" style="width:8px;height:8px;background:' + c.color + ';"></span>' +
+                        _catsEscape(c.name) + '</span>';
+                }).join('');
+                picker.querySelectorAll('.cat-multi-chip').forEach(chip => {
+                    chip.addEventListener('click', () => chip.classList.toggle('selected'));
+                });
+            }
+        }
+    } catch (e) { console.warn('categories picker:', e); }
+
     modal.style.display = 'flex';
 
     // Populate watchers checkbox group
@@ -5513,7 +5735,15 @@ async function saveTask() {
         return;
     }
 
-    const payload = {title, description, status, priority, department_id, deadline: deadline || null, assigned_to};
+    // Collect selected categories from picker
+    const catPicker = document.getElementById('taskCategoriesPicker');
+    const category_ids = catPicker
+        ? Array.from(catPicker.querySelectorAll('.cat-multi-chip.selected'))
+            .map(el => parseInt(el.getAttribute('data-cat-id')))
+            .filter(x => !isNaN(x))
+        : [];
+
+    const payload = {title, description, status, priority, department_id, deadline: deadline || null, assigned_to, category_ids};
     console.log('saveTask payload:', JSON.stringify(payload));
 
     let resp;
@@ -8232,6 +8462,22 @@ function skipTut() {
 
 // ============ CHANGELOG / UPDATE HISTORY ============
 var CHANGELOG_DATA = [
+    {
+        version: '2.6.0',
+        date: '10 апреля 2026',
+        time: '20:00',
+        title: 'Категории вместо канбана (Todoist-style)',
+        type: 'major',
+        changes: [
+            { type: 'new', text: 'Новый раздел «Категории» — задачи группируются по категориям с деревом подкатегорий' },
+            { type: 'new', text: 'Можно задавать задаче сразу несколько категорий (как теги в Todoist)' },
+            { type: 'new', text: 'Три состояния задачи: Новая → В работе → Выполнена. Клик по кружку — переключить' },
+            { type: 'new', text: 'Виды «Все задачи», «Без категории» и «Выполненные» в сайдбаре' },
+            { type: 'new', text: 'Админ и руководители отделов управляют категориями (создание, редактирование, удаление, подкатегории)' },
+            { type: 'improve', text: 'Выполненные задачи автоматически скрываются из основного списка, их можно посмотреть во вкладке «Выполненные»' },
+            { type: 'remove', text: 'Старая канбан-доска с кастомными этапами заменена новым видом категорий' }
+        ]
+    },
     {
         version: '2.5.0',
         date: '10 апреля 2026',
