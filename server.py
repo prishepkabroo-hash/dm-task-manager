@@ -222,6 +222,32 @@ def init_db():
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'member'")
 
+    # Migrate: add parent_task_id column to tasks (for subtasks)
+    try:
+        c.execute("SELECT parent_task_id FROM tasks LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER DEFAULT NULL")
+
+    # Migrate: add sort_order column to tasks (for subtask reordering)
+    try:
+        c.execute("SELECT sort_order FROM tasks LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0")
+
+    # Migrate: add attachment columns to comments (files, voice)
+    try:
+        c.execute("SELECT attachment_data FROM comments LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE comments ADD COLUMN attachment_data TEXT DEFAULT NULL")
+    try:
+        c.execute("SELECT attachment_name FROM comments LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE comments ADD COLUMN attachment_name TEXT DEFAULT NULL")
+    try:
+        c.execute("SELECT attachment_type FROM comments LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE comments ADD COLUMN attachment_type TEXT DEFAULT NULL")
+
     # Migrate: create task_messages table if missing
     try:
         c.execute("SELECT 1 FROM task_messages LIMIT 1")
@@ -391,12 +417,12 @@ def init_db():
     # Seed default permissions if empty
     if c.execute("SELECT COUNT(*) FROM role_permissions").fetchone()[0] == 0:
         default_perms = {
-            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments','view_feedback'],
-            'head': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','messenger','leaderboard'],
-            'member': ['create_tasks','assign_tasks','comments','messenger','leaderboard']
+            'admin': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','leaderboard','switch_car','manage_kanban','view_all_departments','view_feedback'],
+            'head': ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','leaderboard'],
+            'member': ['create_tasks','assign_tasks','comments','leaderboard']
         }
         for role, perms in default_perms.items():
-            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','messenger','leaderboard','switch_car','manage_kanban','view_all_departments','view_feedback']
+            all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','leaderboard','switch_car','manage_kanban','view_all_departments','view_feedback']
             for p in all_perms:
                 allowed = 1 if p in perms else 0
                 c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (?,?,?)", (role, p, allowed))
@@ -1046,33 +1072,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json([dict(c) for c in r])
 
-        if path.startswith("/api/tasks/") and "/messages" in path:
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
-            conn = get_db()
-            r = conn.execute(
-                "SELECT m.*, u_sender.full_name as sender_name, u_sender.avatar_color as sender_avatar, "
-                "u_recipient.full_name as recipient_name, u_recipient.avatar_color as recipient_avatar "
-                "FROM task_messages m "
-                "JOIN users u_sender ON m.sender_id = u_sender.id "
-                "JOIN users u_recipient ON m.recipient_id = u_recipient.id "
-                "WHERE m.task_id = ? AND (m.sender_id = ? OR m.recipient_id = ?) "
-                "ORDER BY m.created_at ASC", (task_id, u["id"], u["id"])
-            ).fetchall()
-            conn.close()
-            return self._json([dict(m) for m in r])
-
-        if path == "/api/messages/unread":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            conn = get_db()
-            count = conn.execute(
-                "SELECT COUNT(*) FROM task_messages WHERE recipient_id=? AND is_read=0", (u["id"],)
-            ).fetchone()[0]
-            conn.close()
-            return self._json({"unread": count})
-
         if path.startswith("/api/tasks/") and "/activity" in path:
             task_id = path.split("/")[3]
             conn = get_db()
@@ -1143,138 +1142,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (u["id"],)).fetchone()[0]
             conn.close()
             return self._json({"items": [dict(n) for n in r], "unread": unread})
-
-        if path == "/api/messenger/conversations":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            conn = get_db()
-            # Get all unique users the current user has chatted with
-            conversations = conn.execute("""
-                SELECT DISTINCT
-                    CASE
-                        WHEN sender_id = ? THEN recipient_id
-                        ELSE sender_id
-                    END as user_id
-                FROM direct_messages
-                WHERE sender_id = ? OR recipient_id = ?
-            """, (u["id"], u["id"], u["id"])).fetchall()
-
-            result = []
-            for conv in conversations:
-                other_user_id = conv["user_id"]
-                user_info = conn.execute(
-                    "SELECT id, full_name, avatar_color, avatar_url FROM users WHERE id=?", (other_user_id,)
-                ).fetchone()
-                if user_info:
-                    # Get last message
-                    last_msg = conn.execute("""
-                        SELECT text, created_at FROM direct_messages
-                        WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)
-                        ORDER BY created_at DESC LIMIT 1
-                    """, (u["id"], other_user_id, other_user_id, u["id"])).fetchone()
-
-                    # Get unread count
-                    unread = conn.execute("""
-                        SELECT COUNT(*) FROM direct_messages
-                        WHERE sender_id = ? AND recipient_id = ? AND is_read = 0
-                    """, (other_user_id, u["id"])).fetchone()[0]
-
-                    result.append({
-                        "user_id": user_info["id"],
-                        "full_name": user_info["full_name"],
-                        "avatar_color": user_info["avatar_color"],
-                        "avatar_url": user_info["avatar_url"] or "",
-                        "last_message": last_msg["text"] if last_msg else None,
-                        "last_message_time": last_msg["created_at"] if last_msg else None,
-                        "unread_count": unread
-                    })
-
-            conn.close()
-            return self._json(result)
-
-        if path.startswith("/api/messenger/messages/"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            other_user_id = int(path.split("/")[4])
-            conn = get_db()
-
-            # Get messages
-            messages = conn.execute("""
-                SELECT m.*,
-                    u_sender.full_name as sender_name, u_sender.avatar_color as sender_avatar,
-                    u_recipient.full_name as recipient_name, u_recipient.avatar_color as recipient_avatar
-                FROM direct_messages m
-                JOIN users u_sender ON m.sender_id = u_sender.id
-                JOIN users u_recipient ON m.recipient_id = u_recipient.id
-                WHERE (m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)
-                ORDER BY m.created_at ASC
-            """, (u["id"], other_user_id, other_user_id, u["id"])).fetchall()
-
-            # Mark as read
-            conn.execute("""
-                UPDATE direct_messages SET is_read = 1
-                WHERE sender_id = ? AND recipient_id = ?
-            """, (other_user_id, u["id"]))
-            conn.commit()
-            conn.close()
-
-            return self._json([dict(m) for m in messages])
-
-        if path == "/api/messenger/unread":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            conn = get_db()
-            count = conn.execute(
-                "SELECT COUNT(*) FROM direct_messages WHERE recipient_id=? AND is_read=0", (u["id"],)
-            ).fetchone()[0]
-            conn.close()
-            return self._json({"unread": count})
-
-        if path == "/api/messenger/groups":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            conn = get_db()
-            groups = conn.execute("""
-                SELECT g.id, g.name, g.avatar_color, g.created_at,
-                       (SELECT text FROM group_messages WHERE group_id=g.id ORDER BY id DESC LIMIT 1) as last_message,
-                       (SELECT COUNT(*) FROM group_chat_members WHERE group_id=g.id) as member_count
-                FROM group_chats g
-                JOIN group_chat_members m ON g.id = m.group_id
-                WHERE m.user_id = ?
-                ORDER BY g.created_at DESC
-            """, (u["id"],)).fetchall()
-            conn.close()
-            return self._json([dict(g) for g in groups])
-
-        if path.startswith("/api/messenger/groups/") and path.endswith("/messages"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            gid = path.split("/")[4]
-            conn = get_db()
-            msgs = conn.execute("""
-                SELECT gm.*, u.full_name as sender_name, u.avatar_color
-                FROM group_messages gm
-                JOIN users u ON gm.sender_id = u.id
-                WHERE gm.group_id = ?
-                ORDER BY gm.id ASC
-            """, (gid,)).fetchall()
-            conn.close()
-            return self._json([dict(m) for m in msgs])
-
-        if path.startswith("/api/messenger/groups/") and path.endswith("/members"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            gid = path.split("/")[4]
-            conn = get_db()
-            members = conn.execute("""
-                SELECT u.id, u.username, u.full_name, u.avatar_color
-                FROM users u
-                JOIN group_chat_members gcm ON u.id = gcm.user_id
-                WHERE gcm.group_id = ?
-                ORDER BY u.full_name ASC
-            """, (gid,)).fetchall()
-            conn.close()
-            return self._json([dict(m) for m in members])
 
         if path == "/api/analytics":
             u = self._user()
@@ -1453,19 +1320,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"leaderboard": [dict(row) for row in leaderboard]})
 
-        if path.startswith("/api/messenger/typing/"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            partner_id = path.split("/")[-1]
-            typing_key = f"{partner_id}_{u['id']}"
-            is_typing = False
-            if typing_key in typing_status:
-                try:
-                    last = datetime.fromisoformat(typing_status[typing_key])
-                    is_typing = (datetime.now() - last).total_seconds() < 4
-                except: pass
-            return self._json({"typing": is_typing})
-
         if path == "/api/users/online":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
@@ -1560,44 +1414,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"ok": True, "avatar_url": avatar_url})
 
-        if path.startswith("/api/messenger/upload"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            content_type = self.headers.get("Content-Type", "")
-            if "multipart/form-data" not in content_type:
-                return self._json({"error": "Expected multipart/form-data"}, 400)
-            try:
-                boundary = content_type.split("boundary=")[1].strip()
-                boundary = boundary.strip('"')
-            except IndexError:
-                return self._json({"error": "Missing boundary"}, 400)
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length)
-            parts = body.split(("--" + boundary).encode())
-            file_data = None
-            filename = "upload"
-            for part in parts:
-                if b"Content-Disposition" in part:
-                    if b"filename=" in part:
-                        try:
-                            fn = part.split(b'filename="')[1].split(b'"')[0].decode()
-                            if fn: filename = fn
-                        except: pass
-                        header_end = part.index(b"\r\n\r\n") + 4
-                        file_data = part[header_end:]
-                        if file_data.endswith(b"\r\n"):
-                            file_data = file_data[:-2]
-            if not file_data:
-                return self._json({"error": "No file"}, 400)
-            upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
-            os.makedirs(upload_dir, exist_ok=True)
-            ext = os.path.splitext(filename)[1] or ".bin"
-            safe_name = f"msg_{u['id']}_{int(datetime.now().timestamp())}{ext}"
-            filepath = os.path.join(upload_dir, safe_name)
-            with open(filepath, "wb") as f:
-                f.write(file_data)
-            return self._json({"ok": True, "url": f"/static/uploads/{safe_name}"})
-
         data = self._body()
 
         if path == "/api/login":
@@ -1681,9 +1497,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not title: return self._json({"error": "Введите название задачи"}, 400)
             conn = get_db()
             c = conn.execute(
-                "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline) VALUES (?,?,?,?,?,?,?,?)",
+                "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline, parent_task_id, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (title, data.get("description", ""), data.get("status", "new"), data.get("priority", "medium"),
-                 u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None))
+                 u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None,
+                 data.get("parent_task_id") or None, int(data.get("sort_order") or 0)))
             task_id = c.lastrowid
 
             # Log task creation with details
@@ -1723,8 +1540,16 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
-            text = data.get("text", "").strip()
-            if not text: return self._json({"error": "Пустой комментарий"}, 400)
+            text = (data.get("text") or "").strip()
+            attachment_data = data.get("attachment_data") or None
+            attachment_name = data.get("attachment_name") or None
+            attachment_type = data.get("attachment_type") or None
+            # Accept comment if it has text OR an attachment
+            if not text and not attachment_data:
+                return self._json({"error": "Пустой комментарий"}, 400)
+            # Limit attachment size (base64 ~8MB raw = ~11MB encoded)
+            if attachment_data and len(attachment_data) > 12_000_000:
+                return self._json({"error": "Файл слишком большой (макс 8 МБ)"}, 400)
             conn = get_db()
 
             # Check access
@@ -1743,7 +1568,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close()
                 return self._json({"error": "Forbidden"}, 403)
 
-            conn.execute("INSERT INTO comments (task_id, user_id, text) VALUES (?,?,?)", (task_id, u["id"], text))
+            conn.execute(
+                "INSERT INTO comments (task_id, user_id, text, attachment_data, attachment_name, attachment_type) VALUES (?,?,?,?,?,?)",
+                (task_id, u["id"], text, attachment_data, attachment_name, attachment_type))
 
             # Log activity
             log_activity(conn, int(task_id), u["id"], "comment_added", text)
@@ -1767,25 +1594,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             for nid in notify_ids:
                 conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
                     (nid, task_id, "comment", f"{user_name['full_name']} прокомментировал: {task_title['title']}"))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
-        if path.startswith("/api/tasks/") and "/messages" in path:
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
-            recipient_id = data.get("recipient_id")
-            text = data.get("text", "").strip()
-            if not recipient_id or not text:
-                return self._json({"error": "Укажите получателя и текст сообщения"}, 400)
-            conn = get_db()
-            conn.execute("INSERT INTO task_messages (task_id, sender_id, recipient_id, text) VALUES (?,?,?,?)",
-                (task_id, u["id"], recipient_id, text))
-            # Create notification for recipient
-            task = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
-            user_row = conn.execute("SELECT full_name FROM users WHERE id=?", (u["id"],)).fetchone()
-            conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
-                (recipient_id, task_id, "message", f"{user_row['full_name']} отправил сообщение о задаче: {task['title']}"))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -1859,50 +1667,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
             conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (u["id"],))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
-        if path.startswith("/api/messenger/messages/"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            recipient_id = int(path.split("/")[4])
-            text = data.get("text", "").strip()
-            print(f"[MESSENGER POST] user={u['id']} -> recipient={recipient_id}, text='{text[:50]}', path={path}")
-            if not text:
-                return self._json({"error": "Empty message"}, 400)
-            conn = get_db()
-            conn.execute(
-                "INSERT INTO direct_messages (sender_id, recipient_id, text) VALUES (?,?,?)",
-                (u["id"], recipient_id, text)
-            )
-            conn.commit(); conn.close()
-            print(f"[MESSENGER POST] Message saved successfully!")
-            return self._json({"ok": True})
-
-        if path == "/api/messenger/groups":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            name = data.get("name", "").strip()
-            members = data.get("members", [])
-            if not name: return self._json({"error": "Название обязательно"}, 400)
-            conn = get_db()
-            cur = conn.execute("INSERT INTO group_chats (name, created_by) VALUES (?,?)", (name, u["id"]))
-            gid = cur.lastrowid
-            conn.execute("INSERT INTO group_chat_members (group_id, user_id) VALUES (?,?)", (gid, u["id"]))
-            for mid in members:
-                try: conn.execute("INSERT INTO group_chat_members (group_id, user_id) VALUES (?,?)", (gid, int(mid)))
-                except: pass
-            conn.commit(); conn.close()
-            return self._json({"ok": True, "id": gid})
-
-        if path.startswith("/api/messenger/groups/") and path.endswith("/messages"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            gid = path.split("/")[4]
-            text = data.get("text", "").strip()
-            if not text: return self._json({"error": "empty"}, 400)
-            conn = get_db()
-            conn.execute("INSERT INTO group_messages (group_id, sender_id, text) VALUES (?,?,?)", (gid, u["id"], text))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2270,85 +2034,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
-        if path.startswith("/api/messenger/typing/"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            typing_key = f"{u['id']}_{path.split('/')[-1]}"
-            typing_status[typing_key] = datetime.now().isoformat()
-            return self._json({"ok": True})
-
-        # Mark all messages from a partner as read
-        if path.startswith("/api/messenger/mark-read/"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            partner_id = int(path.split("/")[-1])
-            conn = get_db()
-            conn.execute("UPDATE direct_messages SET is_read=1 WHERE sender_id=? AND recipient_id=?", (partner_id, u["id"]))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
-        # Toggle reaction on message
-        if path == "/api/messenger/reactions":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            msg_type = data.get("message_type", "dm")
-            msg_id = data.get("message_id")
-            emoji = data.get("emoji", "")
-            if not msg_id or not emoji: return self._json({"error": "Missing data"}, 400)
-            conn = get_db()
-            existing = conn.execute("SELECT id FROM message_reactions WHERE message_type=? AND message_id=? AND user_id=? AND emoji=?",
-                (msg_type, msg_id, u["id"], emoji)).fetchone()
-            if existing:
-                conn.execute("DELETE FROM message_reactions WHERE id=?", (existing["id"],))
-            else:
-                conn.execute("INSERT INTO message_reactions (message_type, message_id, user_id, emoji) VALUES (?,?,?,?)",
-                    (msg_type, msg_id, u["id"], emoji))
-            conn.commit()
-            # Return updated reactions for this message
-            reactions = conn.execute("SELECT emoji, COUNT(*) as cnt, GROUP_CONCAT(user_id) as user_ids FROM message_reactions WHERE message_type=? AND message_id=? GROUP BY emoji",
-                (msg_type, msg_id)).fetchall()
-            conn.close()
-            return self._json({"ok": True, "reactions": [{"emoji": r["emoji"], "count": r["cnt"], "user_ids": r["user_ids"]} for r in reactions]})
-
-        # Get reactions for messages
-        if path == "/api/messenger/reactions/batch":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            msg_type = data.get("message_type", "dm")
-            msg_ids = data.get("message_ids", [])
-            if not msg_ids: return self._json({})
-            conn = get_db()
-            placeholders = ",".join(["?" for _ in msg_ids])
-            reactions = conn.execute(f"SELECT message_id, emoji, COUNT(*) as cnt, GROUP_CONCAT(user_id) as user_ids FROM message_reactions WHERE message_type=? AND message_id IN ({placeholders}) GROUP BY message_id, emoji",
-                [msg_type] + msg_ids).fetchall()
-            conn.close()
-            result = {}
-            for r in reactions:
-                mid = str(r["message_id"])
-                if mid not in result: result[mid] = []
-                result[mid].append({"emoji": r["emoji"], "count": r["cnt"], "user_ids": r["user_ids"]})
-            return self._json(result)
-
-        # Forward message
-        if path == "/api/messenger/forward":
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            text = data.get("text", "")
-            target_user_id = data.get("target_user_id")
-            target_group_id = data.get("target_group_id")
-            forwarded_from = data.get("forwarded_from", "")
-            if not text: return self._json({"error": "Empty"}, 400)
-            conn = get_db()
-            fwd_text = f"[fwd:{forwarded_from}]{text}"
-            if target_group_id:
-                conn.execute("INSERT INTO group_messages (group_id, sender_id, text) VALUES (?,?,?)",
-                    (target_group_id, u["id"], fwd_text))
-            elif target_user_id:
-                conn.execute("INSERT INTO direct_messages (sender_id, recipient_id, text, forwarded_from) VALUES (?,?,?,?)",
-                    (u["id"], target_user_id, fwd_text, forwarded_from))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
         self.send_response(404); self.end_headers()
 
     def do_PUT(self):
@@ -2390,7 +2075,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             old_task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
             sets, params = [], []
-            for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline"]:
+            for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline", "sort_order", "parent_task_id"]:
                 if field in data:
                     sets.append(f"{field} = ?")
                     params.append(data[field] if data[field] != "" else None)
@@ -2510,38 +2195,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json({"ok": True})
 
         # Edit direct message
-        if path.startswith("/api/messenger/messages/") and "/edit" in path:
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            msg_id = path.split("/")[4]
-            new_text = data.get("text", "").strip()
-            if not new_text: return self._json({"error": "Empty"}, 400)
-            conn = get_db()
-            msg = conn.execute("SELECT * FROM direct_messages WHERE id=?", (msg_id,)).fetchone()
-            if not msg or msg["sender_id"] != u["id"]:
-                conn.close()
-                return self._json({"error": "Forbidden"}, 403)
-            conn.execute("UPDATE direct_messages SET text=?, edited_at=CURRENT_TIMESTAMP WHERE id=?", (new_text, msg_id))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
-        # Edit group message
-        if path.startswith("/api/messenger/groups/") and "/messages/" in path and "/edit" in path:
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            parts_p = path.split("/")
-            msg_id = parts_p[6]
-            new_text = data.get("text", "").strip()
-            if not new_text: return self._json({"error": "Empty"}, 400)
-            conn = get_db()
-            msg = conn.execute("SELECT * FROM group_messages WHERE id=?", (msg_id,)).fetchone()
-            if not msg or msg["sender_id"] != u["id"]:
-                conn.close()
-                return self._json({"error": "Forbidden"}, 403)
-            conn.execute("UPDATE group_messages SET text=?, edited_at=CURRENT_TIMESTAMP WHERE id=?", (new_text, msg_id))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
         self.send_response(404); self.end_headers()
 
     def do_DELETE(self):
@@ -2622,47 +2275,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json({"ok": True})
 
         # Delete entire conversation with a user
-        if path.startswith("/api/messenger/conversations/") and path.count("/") == 4:
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            other_user_id = int(path.split("/")[4])
-            conn = get_db()
-            conn.execute(
-                "DELETE FROM direct_messages WHERE (sender_id=? AND recipient_id=?) OR (sender_id=? AND recipient_id=?)",
-                (u["id"], other_user_id, other_user_id, u["id"])
-            )
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
-        # Soft-delete direct message
-        if path.startswith("/api/messenger/messages/") and path.count("/") == 4:
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            msg_id = path.split("/")[4]
-            conn = get_db()
-            msg = conn.execute("SELECT * FROM direct_messages WHERE id=?", (msg_id,)).fetchone()
-            if not msg or msg["sender_id"] != u["id"]:
-                conn.close()
-                return self._json({"error": "Forbidden"}, 403)
-            conn.execute("UPDATE direct_messages SET is_deleted=1, text='[deleted]' WHERE id=?", (msg_id,))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
-        # Soft-delete group message
-        if path.startswith("/api/messenger/groups/") and "/messages/" in path:
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            parts_p = path.split("/")
-            msg_id = parts_p[6]
-            conn = get_db()
-            msg = conn.execute("SELECT * FROM group_messages WHERE id=?", (msg_id,)).fetchone()
-            if not msg or msg["sender_id"] != u["id"]:
-                conn.close()
-                return self._json({"error": "Forbidden"}, 403)
-            conn.execute("UPDATE group_messages SET is_deleted=1, text='[deleted]' WHERE id=?", (msg_id,))
-            conn.commit(); conn.close()
-            return self._json({"ok": True})
-
         self.send_response(404); self.end_headers()
 
 if __name__ == "__main__":
