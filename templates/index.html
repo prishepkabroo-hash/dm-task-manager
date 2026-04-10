@@ -26,6 +26,7 @@
             --blue: #3b82f6;
             --purple: #8b5cf6;
             --sidebar-width: 280px;
+            --sidebar-width-collapsed: 72px;
             --header-height: 60px;
             --priority-high: #ef4444;
             --priority-medium: #f59e0b;
@@ -59,12 +60,122 @@
             flex-direction: column;
             border-right: none;
             overflow-y: auto;
-            transition: transform 0.3s ease;
+            overflow-x: hidden;
+            transition: transform 0.3s ease, width 0.25s ease;
             z-index: 100;
+            position: relative;
         }
 
         .sidebar.visible {
             transform: translateX(0);
+        }
+
+        /* --- Main sidebar: icon-only collapsed mode (desktop) --- */
+        .sidebar.icon-only {
+            width: var(--sidebar-width-collapsed);
+        }
+        .sidebar.icon-only .sidebar-header {
+            padding: 14px 8px;
+            justify-content: center;
+            gap: 0;
+        }
+        .sidebar.icon-only .sidebar-header > div:nth-child(2),
+        .sidebar.icon-only .sidebar-header > div:nth-child(3) {
+            display: none;
+        }
+        .sidebar.icon-only .sidebar-header .sidebar-logo {
+            margin: 0 auto;
+        }
+        .sidebar.icon-only .nav-item {
+            padding: 12px 0;
+            justify-content: center;
+            border-radius: 0;
+            border-left: 3px solid transparent;
+            position: relative;
+        }
+        .sidebar.icon-only .nav-item.active {
+            border-left-color: var(--blue);
+        }
+        .sidebar.icon-only .nav-item span {
+            display: none;
+        }
+        .sidebar.icon-only .nav-item svg {
+            width: 22px;
+            height: 22px;
+        }
+        .sidebar.icon-only .sidebar-section-title {
+            display: none !important;
+        }
+        .sidebar.icon-only .departments-list {
+            padding: 0 4px;
+        }
+        .sidebar.icon-only .dept-item {
+            padding: 10px 4px;
+            margin: 4px 2px;
+            justify-content: center;
+            gap: 0;
+        }
+        .sidebar.icon-only .dept-item > :not(.dept-color) {
+            display: none;
+        }
+        .sidebar.icon-only .dept-color {
+            width: 14px;
+            height: 14px;
+        }
+        .sidebar.icon-only .sidebar-footer {
+            padding: 12px 6px;
+        }
+        .sidebar.icon-only .user-info,
+        .sidebar.icon-only .sidebar-footer > div:nth-child(2) > a > :not(svg),
+        .sidebar.icon-only .sidebar-footer > div:nth-child(2) > button > :not(svg) {
+            display: none;
+        }
+        .sidebar.icon-only .sidebar-footer > div:nth-child(2) {
+            flex-direction: column;
+        }
+        .sidebar.icon-only .sidebar-footer > div:nth-child(2) > a,
+        .sidebar.icon-only .sidebar-footer > div:nth-child(2) > button {
+            padding: 10px 0;
+            justify-content: center;
+        }
+        .sidebar.icon-only .logout-btn {
+            font-size: 0;
+            padding: 10px 0;
+            position: relative;
+        }
+        .sidebar.icon-only .logout-btn::before {
+            content: '⏻';
+            font-size: 18px;
+        }
+
+        /* Collapse toggle button — attached to the right edge of the sidebar */
+        .sidebar-collapse-btn {
+            position: absolute;
+            top: 22px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 6px rgba(15,23,42,0.12);
+            color: #475569;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            transition: transform .15s, background .15s;
+        }
+        .sidebar-collapse-btn:hover {
+            background: #eff6ff;
+            color: #2563eb;
+            transform: scale(1.1);
+        }
+        @media (max-width: 900px) {
+            .sidebar-collapse-btn { display: none; }
         }
 
         .sidebar-header {
@@ -1178,64 +1289,71 @@
         .cats-sidebar.collapsed .cat-add-btn-label {
             display: none;
         }
+        .cats-sidebar.collapsed .cats-sidebar-empty {
+            display: none !important;
+        }
 
         /* ---- Funnel / grouped sections ---- */
         .cats-funnel-group {
             background: #fff;
             border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            margin-bottom: 10px;
+            border-radius: 14px;
+            margin-bottom: 14px;
             overflow: hidden;
-            box-shadow: 0 1px 2px rgba(15,23,42,0.03);
+            box-shadow: 0 2px 8px rgba(15,23,42,0.05);
         }
         .cats-funnel-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 14px;
+            gap: 12px;
+            padding: 16px 20px;
             cursor: pointer;
             user-select: none;
-            background: linear-gradient(90deg, var(--sec-bg, #f8fafc) 0%, #ffffff 90%);
-            border-left: 4px solid var(--sec-color, #3b82f6);
+            background: linear-gradient(90deg, var(--sec-bg, #f8fafc) 0%, #ffffff 85%);
+            border-left: 5px solid var(--sec-color, #3b82f6);
+            border-bottom: 1px solid #f1f5f9;
             transition: background .15s;
         }
         .cats-funnel-header:hover {
-            background: linear-gradient(90deg, var(--sec-bg-hover, #eff6ff) 0%, #ffffff 90%);
+            background: linear-gradient(90deg, var(--sec-bg-hover, #eff6ff) 0%, #ffffff 85%);
         }
         .cats-funnel-caret {
-            width: 14px;
+            width: 16px;
             text-align: center;
-            color: #94a3b8;
-            font-size: 11px;
+            color: #64748b;
+            font-size: 13px;
             flex-shrink: 0;
         }
         .cats-funnel-dot {
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
             flex-shrink: 0;
-            box-shadow: 0 0 0 3px var(--sec-bg, rgba(59,130,246,0.15));
+            box-shadow: 0 0 0 4px var(--sec-bg, rgba(59,130,246,0.15));
         }
         .cats-funnel-title {
             flex: 1;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 700;
             color: #0f172a;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            letter-spacing: -0.01em;
         }
         .cats-funnel-count {
             font-size: 12px;
-            color: #475569;
-            background: #f1f5f9;
-            padding: 2px 10px;
+            color: #fff;
+            background: var(--sec-color, #3b82f6);
+            padding: 3px 12px;
             border-radius: 20px;
-            font-weight: 600;
+            font-weight: 700;
             flex-shrink: 0;
+            min-width: 28px;
+            text-align: center;
         }
         .cats-funnel-body {
-            padding: 4px 14px 6px;
+            padding: 6px 16px 10px;
         }
         .cats-funnel-body .cat-task-row {
             border-bottom: 1px solid #f1f5f9;
@@ -1244,7 +1362,7 @@
             border-bottom: none;
         }
         .cats-funnel-empty {
-            padding: 18px 8px;
+            padding: 22px 12px;
             text-align: center;
             font-size: 12px;
             color: #94a3b8;
@@ -3287,6 +3405,7 @@
     <div class="container" id="mainContainer">
         <!-- SIDEBAR -->
         <div class="sidebar" id="sidebar">
+            <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleMainSidebar()" title="Свернуть/развернуть меню">‹</button>
             <div class="sidebar-header" id="sidebarHeader" style="cursor:pointer;transition:all 0.2s;" onclick="openCmdMenu()" onmouseenter="this.style.background='linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.15) 100%)'" onmouseleave="this.style.background=''">
                 <div class="sidebar-logo"><img src="/static/helmet-white.png" alt="DM"></div>
                 <div style="flex:1;min-width:0;">
@@ -5053,7 +5172,7 @@ async function renderKanban() {
     sbHtml += renderBranch(0);
     if (cats.length === 0) {
         sbHtml +=
-            '<div style="padding:14px 12px;color:#64748b;font-size:12px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px;margin:4px 2px;text-align:center;line-height:1.5;">' +
+            '<div class="cats-sidebar-empty" style="padding:14px 12px;color:#64748b;font-size:12px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px;margin:4px 2px;text-align:center;line-height:1.5;">' +
                 (canManage
                     ? '<div style="font-size:22px;margin-bottom:4px;">🗂</div><b>Категорий пока нет</b><br>Создайте первую — и раскладывайте задачи по темам, клиентам или проектам.'
                     : '<div style="font-size:22px;margin-bottom:4px;">🗂</div><b>Категорий пока нет</b><br>Руководитель создаст их — и вы сможете фильтровать задачи по категориям.'
@@ -5156,71 +5275,121 @@ async function renderKanban() {
 }
 
 // Group tasks into "funnel" sections by top-level (or child) category.
-// Returns HTML string or null if no grouping applies (caller falls back to flat list).
+// ALWAYS returns HTML (never null) — every view is rendered as sections so the
+// funnel metaphor is visible even when there's only one bucket.
 function _renderCategoryFunnel(sel, cats, byParent, tasks) {
-    // Only group in these cases:
-    //  - "All tasks" / null: group by root categories + "Без категории"
-    //  - Parent category selected: group by its direct children (+ "прямо в разделе")
-    // For 'done', 'none', and leaf categories — keep flat list.
     let sections = [];
+
     if (sel === null || sel === undefined || sel === 'all') {
         const roots = byParent.get(0) || [];
-        if (roots.length === 0) return null; // no categories → nothing to group
-        for (const r of roots) {
-            const ids = _collectDescendantIds(r.id, byParent);
-            const secTasks = tasks.filter(t => (t.categories || []).some(c => ids.has(c.id)));
+        if (roots.length === 0) {
+            // No categories at all — show one big section so the funnel UI
+            // is still visible (section header + cards below).
             sections.push({
-                key: String(r.id),
-                name: r.name,
-                color: r.color || '#3b82f6',
-                icon: '',
-                tasks: secTasks
+                key: 'all',
+                name: 'Все задачи',
+                color: '#3b82f6',
+                icon: '📥',
+                tasks: tasks.slice()
+            });
+        } else {
+            for (const r of roots) {
+                const ids = _collectDescendantIds(r.id, byParent);
+                const secTasks = tasks.filter(t => (t.categories || []).some(c => ids.has(c.id)));
+                sections.push({
+                    key: String(r.id),
+                    name: r.name,
+                    color: r.color || '#3b82f6',
+                    icon: '',
+                    tasks: secTasks
+                });
+            }
+            const noCatTasks = tasks.filter(t => !t.categories || t.categories.length === 0);
+            sections.push({
+                key: 'none',
+                name: 'Без категории',
+                color: '#94a3b8',
+                icon: '📭',
+                tasks: noCatTasks
             });
         }
-        const noCatTasks = tasks.filter(t => !t.categories || t.categories.length === 0);
+    } else if (sel === 'none') {
         sections.push({
-            key: 'none',
+            key: 'none-view',
             name: 'Без категории',
             color: '#94a3b8',
-            icon: '',
-            tasks: noCatTasks
+            icon: '📭',
+            tasks: tasks.slice()
+        });
+    } else if (sel === 'done') {
+        sections.push({
+            key: 'done-view',
+            name: 'Выполненные',
+            color: '#10b981',
+            icon: '✅',
+            tasks: tasks.slice()
         });
     } else if (typeof sel === 'number') {
         const cur = cats.find(x => x.id === sel);
         const children = byParent.get(sel) || [];
-        if (!cur || children.length === 0) return null; // leaf → flat list
-        for (const ch of children) {
-            const ids = _collectDescendantIds(ch.id, byParent);
-            const secTasks = tasks.filter(t => (t.categories || []).some(c => ids.has(c.id)));
+        if (!cur) {
             sections.push({
-                key: String(ch.id),
-                name: ch.name,
-                color: ch.color || '#3b82f6',
+                key: 'unknown',
+                name: 'Категория',
+                color: '#3b82f6',
                 icon: '',
-                tasks: secTasks
+                tasks: tasks.slice()
             });
-        }
-        // Tasks directly in parent category but NOT in any of its children
-        const childIds = new Set(children.map(c => c.id));
-        const selfTasks = tasks.filter(t =>
-            (t.categories || []).some(c => c.id === sel) &&
-            !(t.categories || []).some(c => childIds.has(c.id))
-        );
-        if (selfTasks.length > 0) {
+        } else if (children.length === 0) {
+            // Leaf category — single section with that category name
             sections.push({
-                key: 'self-' + sel,
-                name: 'Прямо в «' + cur.name + '»',
+                key: String(cur.id),
+                name: cur.name,
                 color: cur.color || '#3b82f6',
-                icon: '📌',
-                tasks: selfTasks
+                icon: '',
+                tasks: tasks.slice()
             });
+        } else {
+            // Parent category — one section per direct child
+            for (const ch of children) {
+                const ids = _collectDescendantIds(ch.id, byParent);
+                const secTasks = tasks.filter(t => (t.categories || []).some(c => ids.has(c.id)));
+                sections.push({
+                    key: String(ch.id),
+                    name: ch.name,
+                    color: ch.color || '#3b82f6',
+                    icon: '',
+                    tasks: secTasks
+                });
+            }
+            // Tasks directly in parent category but NOT in any of its children
+            const childDescSet = new Set();
+            for (const ch of children) {
+                for (const id of _collectDescendantIds(ch.id, byParent)) childDescSet.add(id);
+            }
+            const selfTasks = tasks.filter(t =>
+                (t.categories || []).some(c => c.id === sel) &&
+                !(t.categories || []).some(c => childDescSet.has(c.id))
+            );
+            if (selfTasks.length > 0) {
+                sections.unshift({
+                    key: 'self-' + sel,
+                    name: 'Прямо в «' + cur.name + '»',
+                    color: cur.color || '#3b82f6',
+                    icon: '📌',
+                    tasks: selfTasks
+                });
+            }
         }
     } else {
-        return null;
+        sections.push({
+            key: 'all',
+            name: 'Задачи',
+            color: '#3b82f6',
+            icon: '',
+            tasks: tasks.slice()
+        });
     }
-
-    // If all sections are empty — let caller show its own empty state
-    if (sections.every(s => s.tasks.length === 0)) return null;
 
     const collapsedSet = catsTreeState.collapsedSections;
     return sections.map(s => _renderFunnelSectionHTML(s, collapsedSet)).join('');
@@ -8495,6 +8664,33 @@ function restartOnboarding() {
         startUserOnboarding();
     }
 }
+
+// Collapse/expand the main navigation sidebar to a compact icon-only rail
+function toggleMainSidebar() {
+    const sb = document.getElementById('sidebar');
+    const btn = document.getElementById('sidebarCollapseBtn');
+    if (!sb) return;
+    const isCollapsed = sb.classList.toggle('icon-only');
+    try { localStorage.setItem('dm_main_sidebar_collapsed', isCollapsed ? '1' : '0'); } catch(e) {}
+    if (btn) {
+        btn.textContent = isCollapsed ? '›' : '‹';
+        btn.title = isCollapsed ? 'Развернуть меню' : 'Свернуть меню';
+    }
+}
+
+// Restore main sidebar collapsed state on load
+(function _restoreMainSidebarState(){
+    try {
+        if (localStorage.getItem('dm_main_sidebar_collapsed') === '1') {
+            document.addEventListener('DOMContentLoaded', function() {
+                const sb = document.getElementById('sidebar');
+                const btn = document.getElementById('sidebarCollapseBtn');
+                if (sb) sb.classList.add('icon-only');
+                if (btn) { btn.textContent = '›'; btn.title = 'Развернуть меню'; }
+            });
+        }
+    } catch(e) {}
+})();
 
 // =================================
 // ONBOARDING SYSTEM
