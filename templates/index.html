@@ -916,13 +916,15 @@
         }
         .cats-list-wrap {
             flex: 1;
-            overflow-y: auto;
+            overflow: auto;
             padding: 8px 24px 24px;
+            min-height: 0;
         }
         .cats-list {
             display: flex;
             flex-direction: column;
             gap: 1px;
+            min-height: 100%;
         }
         .cat-tree-section {
             font-size: 11px;
@@ -1293,47 +1295,77 @@
             display: none !important;
         }
 
-        /* ---- Funnel / grouped sections — Netflix-row layout ---- */
+        /* ---- Kanban columns layout (categories as columns, cards stacked vertically) ---- */
+        .cats-funnel-wrap {
+            display: flex;
+            flex-direction: row;
+            gap: 16px;
+            align-items: flex-start;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+            min-height: 100%;
+        }
+        .cats-funnel-wrap::-webkit-scrollbar { height: 10px; }
+        .cats-funnel-wrap::-webkit-scrollbar-track { background: transparent; }
+        .cats-funnel-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; }
+        .cats-funnel-wrap::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
         .cats-funnel-group {
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            margin-bottom: 16px;
+            flex: 0 0 320px;
+            width: 320px;
+            max-height: calc(100vh - 260px);
+            min-height: 200px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-top: 4px solid var(--sec-color, #3b82f6);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 4px rgba(15,23,42,0.04);
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+        }
+        .cats-funnel-group.collapsed {
+            max-height: none;
+            min-height: 0;
+        }
+        .cats-funnel-group.collapsed .cats-funnel-body {
+            display: none;
         }
         .cats-funnel-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 14px 20px;
+            gap: 10px;
+            padding: 12px 14px;
             cursor: pointer;
             user-select: none;
-            background: linear-gradient(90deg, var(--sec-bg, #f8fafc) 0%, #ffffff 85%);
-            border-left: 5px solid var(--sec-color, #3b82f6);
-            border-bottom: 1px solid #f1f5f9;
+            background: linear-gradient(180deg, var(--sec-bg, #f8fafc) 0%, #ffffff 100%);
+            border-bottom: 1px solid #e2e8f0;
             transition: background .15s;
+            flex-shrink: 0;
         }
         .cats-funnel-header:hover {
-            background: linear-gradient(90deg, var(--sec-bg-hover, #eff6ff) 0%, #ffffff 85%);
+            background: linear-gradient(180deg, var(--sec-bg-hover, #eff6ff) 0%, #ffffff 100%);
         }
         .cats-funnel-caret {
-            width: 16px;
+            width: 14px;
             text-align: center;
             color: #64748b;
-            font-size: 13px;
+            font-size: 12px;
             flex-shrink: 0;
         }
         .cats-funnel-dot {
-            width: 14px;
-            height: 14px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
             flex-shrink: 0;
-            box-shadow: 0 0 0 4px var(--sec-bg, rgba(59,130,246,0.15));
+            box-shadow: 0 0 0 3px var(--sec-bg, rgba(59,130,246,0.15));
         }
         .cats-funnel-title {
             flex: 1;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
             color: #0f172a;
             white-space: nowrap;
@@ -1342,25 +1374,25 @@
             letter-spacing: -0.01em;
         }
         .cats-funnel-count {
-            font-size: 12px;
+            font-size: 11px;
             color: #fff;
             background: var(--sec-color, #3b82f6);
-            padding: 3px 12px;
+            padding: 2px 9px;
             border-radius: 20px;
             font-weight: 700;
             flex-shrink: 0;
-            min-width: 28px;
+            min-width: 24px;
             text-align: center;
         }
         .cats-funnel-newtask {
             border: none;
             background: rgba(15,23,42,0.05);
             color: #475569;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             line-height: 1;
             display: flex;
             align-items: center;
@@ -1372,61 +1404,53 @@
             background: var(--sec-color, #3b82f6);
             color: #fff;
         }
-        /* Horizontal scrolling row of task cards */
+        /* Vertical stack of cards inside a column */
         .cats-funnel-body {
-            padding: 14px 16px 16px;
+            padding: 10px 10px 12px;
             display: flex;
-            gap: 12px;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scroll-snap-type: x proximity;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            flex: 1;
             scrollbar-width: thin;
             scrollbar-color: #cbd5e1 transparent;
         }
-        .cats-funnel-body::-webkit-scrollbar {
-            height: 8px;
-        }
-        .cats-funnel-body::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .cats-funnel-body::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-        .cats-funnel-body::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        .cats-funnel-body::-webkit-scrollbar { width: 6px; }
+        .cats-funnel-body::-webkit-scrollbar-track { background: transparent; }
+        .cats-funnel-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .cats-funnel-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
         .cats-funnel-empty {
-            padding: 24px 12px;
+            padding: 18px 8px;
             text-align: center;
-            font-size: 12px;
+            font-size: 11px;
             color: #94a3b8;
             font-style: italic;
-            width: 100%;
+            border: 1px dashed #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
         }
-        /* Task card inside a funnel row */
+
+        /* Task card inside a funnel column */
         .cats-funnel-card {
-            flex: 0 0 260px;
-            width: 260px;
-            min-height: 120px;
-            max-height: 180px;
+            width: 100%;
             background: #fff;
             border: 1px solid #e5e7eb;
             border-left: 4px solid #cbd5e1;
             border-radius: 10px;
-            padding: 12px 14px;
+            padding: 10px 12px;
             cursor: pointer;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             transition: all .15s;
-            scroll-snap-align: start;
             position: relative;
-            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.03);
         }
         .cats-funnel-card:hover {
             box-shadow: 0 4px 14px rgba(15,23,42,0.10);
-            transform: translateY(-2px);
+            transform: translateY(-1px);
             border-color: #cbd5e1;
         }
         .cats-funnel-card.priority-urgent { border-left-color: #ef4444; }
@@ -1460,10 +1484,7 @@
             margin-top: 1px;
             transition: all .15s;
         }
-        .cats-funnel-card-check:hover {
-            border-color: #3b82f6;
-            background: #eff6ff;
-        }
+        .cats-funnel-card-check:hover { border-color: #3b82f6; background: #eff6ff; }
         .cats-funnel-card-check.in-progress {
             border-color: #3b82f6;
             position: relative;
@@ -1480,39 +1501,28 @@
             border-color: #10b981;
             color: #fff;
         }
-        .cats-funnel-card-check.done svg {
-            width: 10px;
-            height: 10px;
-        }
+        .cats-funnel-card-check.done svg { width: 10px; height: 10px; }
         .cats-funnel-card-title {
             flex: 1;
             font-size: 13px;
             font-weight: 600;
             color: #0f172a;
             line-height: 1.35;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
             word-break: break-word;
         }
         .cats-funnel-card-desc {
             font-size: 12px;
             color: #64748b;
             line-height: 1.4;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+            word-break: break-word;
         }
         .cats-funnel-card-meta {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             flex-wrap: wrap;
             font-size: 11px;
             color: #64748b;
-            margin-top: auto;
         }
         .cats-funnel-card-chip {
             display: inline-flex;
@@ -1533,18 +1543,121 @@
             align-items: center;
             justify-content: space-between;
             gap: 6px;
+            margin-top: 2px;
         }
-        /* "Add task" dashed card at the end of the row */
+
+        /* Subtask expand toggle on the card */
+        .cats-funnel-card-subbtn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #dbeafe;
+            border-radius: 14px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .cats-funnel-card-subbtn:hover {
+            background: #dbeafe;
+        }
+        .cats-funnel-card-subbtn .caret {
+            display: inline-block;
+            transition: transform .15s;
+        }
+        .cats-funnel-card-subbtn.expanded .caret {
+            transform: rotate(90deg);
+        }
+
+        .cats-funnel-subs {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 4px;
+            padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+        }
+        .cats-funnel-subrow {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 6px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #334155;
+            cursor: pointer;
+            transition: background .1s;
+        }
+        .cats-funnel-subrow:hover { background: #f1f5f9; }
+        .cats-funnel-subrow.done { color: #94a3b8; }
+        .cats-funnel-subrow.done .cats-funnel-subrow-title { text-decoration: line-through; }
+        .cats-funnel-subrow-check {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            background: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all .15s;
+        }
+        .cats-funnel-subrow-check.done {
+            background: #10b981;
+            border-color: #10b981;
+        }
+        .cats-funnel-subrow-check.in-progress {
+            border-color: #3b82f6;
+            position: relative;
+        }
+        .cats-funnel-subrow-check.in-progress::after {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #3b82f6;
+            border-radius: 50%;
+        }
+        .cats-funnel-subrow-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cats-funnel-subadd {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 6px;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #94a3b8;
+            cursor: pointer;
+            border: 1px dashed #cbd5e1;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            transition: all .15s;
+        }
+        .cats-funnel-subadd:hover {
+            color: #3b82f6;
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        /* "Add task" dashed card at the end of the column */
         .cats-funnel-addcard {
-            flex: 0 0 120px;
-            width: 120px;
-            min-height: 120px;
+            width: 100%;
+            padding: 10px;
             border: 2px dashed #cbd5e1;
             border-radius: 10px;
             background: transparent;
             color: #94a3b8;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 6px;
@@ -1552,7 +1665,6 @@
             font-size: 12px;
             font-weight: 600;
             transition: all .15s;
-            scroll-snap-align: start;
         }
         .cats-funnel-addcard:hover {
             border-color: #3b82f6;
@@ -1560,9 +1672,95 @@
             background: #eff6ff;
         }
         .cats-funnel-addcard-plus {
-            font-size: 28px;
+            font-size: 18px;
             line-height: 1;
             font-weight: 300;
+        }
+
+        /* ---- View mode density modifiers ---- */
+        /* MINIMAL: tiny cards — only title + colored priority border */
+        .cats-funnel-wrap.view-minimal .cats-funnel-card {
+            padding: 7px 10px;
+            gap: 3px;
+        }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-desc,
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-meta,
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-footer {
+            display: none;
+        }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-title {
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.3;
+        }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-check {
+            width: 14px;
+            height: 14px;
+        }
+        .cats-funnel-wrap.view-minimal .cats-funnel-body {
+            gap: 5px;
+        }
+
+        /* NORMAL: default — title, truncated desc (2 lines), meta chips, assignee */
+        .cats-funnel-wrap.view-normal .cats-funnel-card-title {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .cats-funnel-wrap.view-normal .cats-funnel-card-desc {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* DETAILED: everything visible, no clamping, more spacing, wider columns */
+        .cats-funnel-wrap.view-detailed .cats-funnel-group {
+            flex: 0 0 380px;
+            width: 380px;
+        }
+        .cats-funnel-wrap.view-detailed .cats-funnel-card {
+            padding: 14px 16px;
+            gap: 9px;
+        }
+        .cats-funnel-wrap.view-detailed .cats-funnel-card-title {
+            font-size: 14px;
+        }
+        .cats-funnel-wrap.view-detailed .cats-funnel-card-desc {
+            font-size: 12.5px;
+        }
+
+        /* View-mode switcher (segmented control) in the header toolbar */
+        .cats-view-switch {
+            display: inline-flex;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .cats-view-switch button {
+            border: none;
+            background: transparent;
+            color: #64748b;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all .15s;
+        }
+        .cats-view-switch button:hover {
+            color: #0f172a;
+        }
+        .cats-view-switch button.active {
+            background: #fff;
+            color: #0f172a;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.08);
         }
 
         @media (max-width: 900px) {
@@ -5238,10 +5436,37 @@ let catsTreeState = {
         } catch(e) {}
         return new Set();
     })(),
+    // Card view density: 'detailed' | 'normal' | 'minimal'
+    viewMode: (function(){
+        try {
+            const v = localStorage.getItem('dm_cats_view_mode');
+            if (v === 'detailed' || v === 'normal' || v === 'minimal') return v;
+        } catch(e) {}
+        return 'normal';
+    })(),
+    // Set<number>: which cards have their subtasks expanded inline
+    expandedCardIds: new Set(),
 };
 
 function _persistCollapsedSections() {
     try { localStorage.setItem('dm_cats_funnel_collapsed', JSON.stringify(Array.from(catsTreeState.collapsedSections))); } catch(e) {}
+}
+
+// Switch card density: detailed / normal / minimal
+function setCatsViewMode(mode) {
+    if (mode !== 'detailed' && mode !== 'normal' && mode !== 'minimal') return;
+    if (catsTreeState.viewMode === mode) return;
+    catsTreeState.viewMode = mode;
+    try { localStorage.setItem('dm_cats_view_mode', mode); } catch(e) {}
+    renderKanban();
+}
+
+// Expand/collapse a card's inline subtask list
+function toggleCatsCardExpand(taskId) {
+    const id = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    if (catsTreeState.expandedCardIds.has(id)) catsTreeState.expandedCardIds.delete(id);
+    else catsTreeState.expandedCardIds.add(id);
+    renderKanban();
 }
 
 async function loadCategories() {
@@ -5403,12 +5628,20 @@ async function renderKanban() {
     }
 
     const isCustomCat = typeof sel === 'number';
+    const vm = catsTreeState.viewMode || 'normal';
+    const viewSwitchHtml =
+        '<div class="cats-view-switch" title="Вид карточек">' +
+            '<button class="' + (vm === 'detailed' ? 'active' : '') + '" onclick="setCatsViewMode(\'detailed\')" title="Подробный вид">☰</button>' +
+            '<button class="' + (vm === 'normal' ? 'active' : '') + '" onclick="setCatsViewMode(\'normal\')" title="Обычный вид">▦</button>' +
+            '<button class="' + (vm === 'minimal' ? 'active' : '') + '" onclick="setCatsViewMode(\'minimal\')" title="Минимальный вид">≡</button>' +
+        '</div>';
     header.innerHTML =
         '<div>' +
             '<div class="cats-header-title"><span class="cat-tree-item-dot" style="background:' + headerColor + '"></span>' + _catsEscape(headerTitle) + '</div>' +
             '<div class="cats-header-sub">' + headerSub + '</div>' +
         '</div>' +
         '<div class="cats-toolbar">' +
+            viewSwitchHtml +
             (sel !== 'done' ? '<button onclick="showTaskForm()"><span style="font-size:16px;line-height:1;">+</span> Новая задача</button>' : '') +
             (isCustomCat && canManage ? '<button class="secondary" onclick="showCategoryModal(' + sel + ')">Редактировать</button>' : '') +
         '</div>';
@@ -5588,7 +5821,10 @@ function _renderCategoryFunnel(sel, cats, byParent, tasks) {
     }
 
     const collapsedSet = catsTreeState.collapsedSections;
-    return sections.map(s => _renderFunnelSectionHTML(s, collapsedSet)).join('');
+    const vm = catsTreeState.viewMode || 'normal';
+    return '<div class="cats-funnel-wrap view-' + vm + '">' +
+        sections.map(s => _renderFunnelSectionHTML(s, collapsedSet)).join('') +
+    '</div>';
 }
 
 function _renderFunnelSectionHTML(sec, collapsedSet) {
@@ -5596,41 +5832,46 @@ function _renderFunnelSectionHTML(sec, collapsedSet) {
     const bg = _catHexToRgba(sec.color, 0.09);
     const bgHover = _catHexToRgba(sec.color, 0.14);
     const caret = isCollapsed ? '▸' : '▾';
-    const bodyStyle = isCollapsed ? 'display:none;' : '';
     const iconPart = sec.icon
         ? '<span style="font-size:16px;line-height:1;">' + sec.icon + '</span>'
         : '<span class="cats-funnel-dot" style="background:' + sec.color + '"></span>';
 
-    // Horizontal row of task cards (Netflix-style) + trailing "+" add-card.
+    // Vertical stack of cards + trailing "+" add-card at the bottom.
     const cardsHtml = sec.tasks.map(t => _catFunnelCardHTML(t, sec.color)).join('');
     const addCardHtml =
         '<div class="cats-funnel-addcard" onclick="event.stopPropagation();showTaskForm()" title="Новая задача">' +
             '<span class="cats-funnel-addcard-plus">+</span>' +
-            '<span class="cats-funnel-addcard-label">Новая задача</span>' +
+            '<span>Новая задача</span>' +
         '</div>';
     const emptyHtml = sec.tasks.length === 0
         ? '<div class="cats-funnel-empty">Пока нет задач</div>'
         : '';
     const body = emptyHtml + cardsHtml + addCardHtml;
 
-    return '<div class="cats-funnel-group">' +
-        '<div class="cats-funnel-header" style="--sec-color:' + sec.color + ';--sec-bg:' + bg + ';--sec-bg-hover:' + bgHover + ';" ' +
-            'onclick="toggleCatsSection(\'' + sec.key + '\')">' +
+    const groupClass = 'cats-funnel-group' + (isCollapsed ? ' collapsed' : '');
+
+    return '<div class="' + groupClass + '" style="--sec-color:' + sec.color + ';--sec-bg:' + bg + ';--sec-bg-hover:' + bgHover + ';">' +
+        '<div class="cats-funnel-header" onclick="toggleCatsSection(\'' + sec.key + '\')">' +
             '<span class="cats-funnel-caret">' + caret + '</span>' +
             iconPart +
             '<span class="cats-funnel-title">' + _catsEscape(sec.name) + '</span>' +
             '<span class="cats-funnel-count">' + sec.tasks.length + '</span>' +
             '<button class="cats-funnel-newtask" onclick="event.stopPropagation();showTaskForm()" title="Новая задача">+</button>' +
         '</div>' +
-        '<div class="cats-funnel-body" style="' + bodyStyle + '">' + body + '</div>' +
+        '<div class="cats-funnel-body">' + body + '</div>' +
     '</div>';
 }
 
+// Render a single task card inside a kanban column.
+// View-mode density is handled via CSS on the wrapping .cats-funnel-wrap
+// (.view-detailed / .view-normal / .view-minimal).
 function _catFunnelCardHTML(t, secColor) {
     const status = t.status || 'new';
     const isDone = status === 'done';
     const inProgress = status === 'in_progress';
     const prio = t.priority || 'medium';
+    const vm = catsTreeState.viewMode || 'normal';
+
     const checkClass = 'cats-funnel-card-check' +
         (isDone ? ' done' : '') +
         (inProgress ? ' in-progress' : '');
@@ -5643,29 +5884,68 @@ function _catFunnelCardHTML(t, secColor) {
         ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
         : '';
 
+    // Build meta chips (deadline, subtasks, categories, department)
     const meta = [];
     if (t.deadline) {
         const info = deadlineInfo(t.deadline);
         const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
         meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
     }
-    const subs = allTasks.filter(s => s.parent_task_id === t.id);
-    if (subs.length > 0) {
-        const sdone = subs.filter(s => s.status === 'done').length;
-        meta.push('<span class="cats-funnel-card-chip" style="background:#e0f2fe;color:#0369a1;">☑ ' + sdone + '/' + subs.length + '</span>');
-    }
-    if (t.categories && t.categories.length > 0) {
-        t.categories.slice(0, 2).forEach(c => {
+    // Show category chips only in detailed view (in normal view the column header already says which category this is)
+    if (vm === 'detailed' && t.categories && t.categories.length > 0) {
+        t.categories.slice(0, 3).forEach(c => {
             meta.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
         });
     }
+    if (vm === 'detailed' && t.department_id) {
+        const dept = (allDepartments || []).find(d => d.id === t.department_id);
+        if (dept) meta.push('<span class="cats-funnel-card-chip">' + _catsEscape(dept.name) + '</span>');
+    }
 
+    // Subtasks (inline expand)
+    const subs = allTasks.filter(s => s.parent_task_id === t.id);
+    const hasSubs = subs.length > 0;
+    const sdone = subs.filter(s => s.status === 'done').length;
+    const isExpanded = catsTreeState.expandedCardIds.has(t.id);
+
+    let subBtnHtml = '';
+    if (hasSubs) {
+        subBtnHtml =
+            '<button class="cats-funnel-card-subbtn' + (isExpanded ? ' expanded' : '') + '" ' +
+                'onclick="event.stopPropagation();toggleCatsCardExpand(' + t.id + ')" ' +
+                'title="' + (isExpanded ? 'Свернуть подзадачи' : 'Показать подзадачи') + '">' +
+                '<span class="caret">▸</span>' +
+                '<span>' + sdone + '/' + subs.length + ' подзадач</span>' +
+            '</button>';
+    }
+
+    // Assignee avatar (footer)
     let assigneeHtml = '';
     if (t.assigned_to) {
         const user = (allUsers || []).find(u => u.id === t.assigned_to);
         if (user) {
             assigneeHtml = '<div class="cats-funnel-card-assignee">' + avatarHTML(user.full_name, null, 22, user.avatar) + '</div>';
         }
+    }
+
+    // Inline subtask rows (only when expanded)
+    let subsHtml = '';
+    if (hasSubs && isExpanded) {
+        const rows = subs.map(s => _catFunnelSubRowHTML(s)).join('');
+        subsHtml = '<div class="cats-funnel-subs">' + rows +
+            '<button class="cats-funnel-subadd" onclick="event.stopPropagation();showTaskDetail(' + t.id + ')" title="Открыть задачу и добавить подзадачу">' +
+                '<span>+</span><span>Добавить подзадачу</span>' +
+            '</button>' +
+        '</div>';
+    }
+
+    // Footer row: assignee + optional subtask toggle
+    let footerHtml = '';
+    if (assigneeHtml || subBtnHtml) {
+        footerHtml = '<div class="cats-funnel-card-footer">' +
+            (subBtnHtml || '<span></span>') +
+            (assigneeHtml || '') +
+        '</div>';
     }
 
     return '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + '" data-task-id="' + t.id + '" onclick="showTaskDetail(' + t.id + ')">' +
@@ -5675,7 +5955,26 @@ function _catFunnelCardHTML(t, secColor) {
         '</div>' +
         descHtml +
         (meta.length > 0 ? '<div class="cats-funnel-card-meta">' + meta.join('') + '</div>' : '') +
-        (assigneeHtml ? '<div class="cats-funnel-card-footer">' + assigneeHtml + '</div>' : '') +
+        footerHtml +
+        subsHtml +
+    '</div>';
+}
+
+// Compact inline row for a single subtask shown inside an expanded card
+function _catFunnelSubRowHTML(s) {
+    const status = s.status || 'new';
+    const isDone = status === 'done';
+    const inProgress = status === 'in_progress';
+    const checkClass = 'cats-funnel-subrow-check' +
+        (isDone ? ' done' : '') +
+        (inProgress ? ' in-progress' : '');
+    const checkIcon = isDone
+        ? '<svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="#fff" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '';
+    const nextStatus = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
+    return '<div class="cats-funnel-subrow ' + (isDone ? 'done' : '') + '" onclick="event.stopPropagation();showTaskDetail(' + s.id + ')">' +
+        '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + s.id + ',\'' + nextStatus + '\')">' + checkIcon + '</div>' +
+        '<div class="cats-funnel-subrow-title">' + _catsEscape(s.title) + '</div>' +
     '</div>';
 }
 
