@@ -4428,26 +4428,6 @@ function _doNavigate(page) {
     else if (page === 'feedback') renderFeedbackPage();
     else if (page === 'profile') renderProfile();
     else if (page === 'admin') renderAdmin();
-
-    // AUTO-LAUNCH: показываем обучение при первом входе в новый раздел «Категории».
-    // Версионный ключ: если мы выпускаем новую версию обучения — поднимаем номер,
-    // и ВСЕ пользователи увидят туториал заново.
-    try {
-        if (page === 'kanban') {
-            var _catsTutKey = 'dm_onboarding_categories_v2';
-            if (!localStorage.getItem(_catsTutKey)) {
-                // Даём DOM прорисоваться и отрендерить сайдбар/задачи
-                setTimeout(function(){
-                    try {
-                        if (currentPage === 'kanban' && typeof startPageTut === 'function') {
-                            startPageTut('kanban', 'detailed');
-                            localStorage.setItem(_catsTutKey, '1');
-                        }
-                    } catch(e) { console.warn('cats tut auto-launch failed', e); }
-                }, 700);
-            }
-        }
-    } catch(e) {}
 }
 
 // =================================
@@ -8918,35 +8898,42 @@ function _tutShow() {
     // Position card near target or bottom-center
     var cardW = 440;
     var cardH = 280;
-    var cardPos = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);';
-    if (targetEl) {
-        var rect = targetEl.getBoundingClientRect();
-        var vw = window.innerWidth;
-        var vh = window.innerHeight;
-        var pad = 20;
-        // Try right of target
-        if (rect.right + pad + cardW + pad < vw) {
-            var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
-            cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.right + pad) + 'px;';
-        }
-        // Try left of target
-        else if (rect.left - pad - cardW > 0) {
-            var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
-            cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.left - pad - cardW) + 'px;';
-        }
-        // Try below target
-        else if (rect.bottom + pad + cardH < vh) {
-            var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
-            cardPos = 'position:fixed;top:' + (rect.bottom + pad) + 'px;left:' + cLeft + 'px;';
-        }
-        // Try above target
-        else if (rect.top - pad - cardH > 0) {
-            var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
-            cardPos = 'position:fixed;top:' + (rect.top - pad - cardH) + 'px;left:' + cLeft + 'px;';
-        }
-        // Fallback: center of screen
-        else {
-            cardPos = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);';
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    var pad = 20;
+    // Последний шаг — всегда по центру экрана, чтобы кнопка «Завершить» точно
+    // помещалась в viewport и не уезжала за край.
+    var cardPos;
+    if (isLastOverall) {
+        cardPos = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);';
+    } else {
+        cardPos = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);';
+        if (targetEl) {
+            var rect = targetEl.getBoundingClientRect();
+            // Try right of target
+            if (rect.right + pad + cardW + pad < vw) {
+                var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
+                cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.right + pad) + 'px;';
+            }
+            // Try left of target
+            else if (rect.left - pad - cardW > 0) {
+                var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
+                cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.left - pad - cardW) + 'px;';
+            }
+            // Try below target
+            else if (rect.bottom + pad + cardH < vh) {
+                var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
+                cardPos = 'position:fixed;top:' + (rect.bottom + pad) + 'px;left:' + cLeft + 'px;';
+            }
+            // Try above target
+            else if (rect.top - pad - cardH > 0) {
+                var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
+                cardPos = 'position:fixed;top:' + (rect.top - pad - cardH) + 'px;left:' + cLeft + 'px;';
+            }
+            // Fallback: center of screen
+            else {
+                cardPos = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);';
+            }
         }
     }
 
@@ -8968,6 +8955,29 @@ function _tutShow() {
         '</div>';
 
     document.body.appendChild(card);
+
+    // Пост-рендер: замеряем реальную высоту карточки и если она вылезает за экран —
+    // поджимаем позицию. Это спасает случаи, когда контент шага длиннее cardH=280
+    // и кнопки уезжают ниже viewport (особенно последний слайд).
+    try {
+        requestAnimationFrame(function(){
+            var r = card.getBoundingClientRect();
+            var realH = r.height;
+            var realW = r.width;
+            var overflowBottom = r.bottom > vh - 8;
+            var overflowTop = r.top < 8;
+            var overflowRight = r.right > vw - 8;
+            var overflowLeft = r.left < 8;
+            if (overflowBottom || overflowTop || overflowRight || overflowLeft) {
+                // Ставим по центру экрана, очищая transform от прежних значений.
+                card.style.top = Math.max(8, (vh - realH) / 2) + 'px';
+                card.style.left = Math.max(8, (vw - realW) / 2) + 'px';
+                card.style.bottom = 'auto';
+                card.style.right = 'auto';
+                card.style.transform = 'none';
+            }
+        });
+    } catch(e) {}
 }
 
 // Spotlight overlay — blocks clicks, darkens screen, highlights target
