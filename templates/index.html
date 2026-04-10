@@ -1293,12 +1293,12 @@
             display: none !important;
         }
 
-        /* ---- Funnel / grouped sections ---- */
+        /* ---- Funnel / grouped sections — Netflix-row layout ---- */
         .cats-funnel-group {
             background: #fff;
             border: 1px solid #e5e7eb;
             border-radius: 14px;
-            margin-bottom: 14px;
+            margin-bottom: 16px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(15,23,42,0.05);
         }
@@ -1306,7 +1306,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 16px 20px;
+            padding: 14px 20px;
             cursor: pointer;
             user-select: none;
             background: linear-gradient(90deg, var(--sec-bg, #f8fafc) 0%, #ffffff 85%);
@@ -1352,21 +1352,217 @@
             min-width: 28px;
             text-align: center;
         }
+        .cats-funnel-newtask {
+            border: none;
+            background: rgba(15,23,42,0.05);
+            color: #475569;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all .15s;
+        }
+        .cats-funnel-newtask:hover {
+            background: var(--sec-color, #3b82f6);
+            color: #fff;
+        }
+        /* Horizontal scrolling row of task cards */
         .cats-funnel-body {
-            padding: 6px 16px 10px;
+            padding: 14px 16px 16px;
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x proximity;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
         }
-        .cats-funnel-body .cat-task-row {
-            border-bottom: 1px solid #f1f5f9;
+        .cats-funnel-body::-webkit-scrollbar {
+            height: 8px;
         }
-        .cats-funnel-body .cat-task-row:last-child {
-            border-bottom: none;
+        .cats-funnel-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .cats-funnel-body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .cats-funnel-body::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
         .cats-funnel-empty {
-            padding: 22px 12px;
+            padding: 24px 12px;
             text-align: center;
             font-size: 12px;
             color: #94a3b8;
             font-style: italic;
+            width: 100%;
+        }
+        /* Task card inside a funnel row */
+        .cats-funnel-card {
+            flex: 0 0 260px;
+            width: 260px;
+            min-height: 120px;
+            max-height: 180px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 12px 14px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all .15s;
+            scroll-snap-align: start;
+            position: relative;
+            overflow: hidden;
+        }
+        .cats-funnel-card:hover {
+            box-shadow: 0 4px 14px rgba(15,23,42,0.10);
+            transform: translateY(-2px);
+            border-color: #cbd5e1;
+        }
+        .cats-funnel-card.priority-urgent { border-left-color: #ef4444; }
+        .cats-funnel-card.priority-high { border-left-color: #f59e0b; }
+        .cats-funnel-card.priority-medium { border-left-color: #3b82f6; }
+        .cats-funnel-card.priority-low { border-left-color: #94a3b8; }
+        .cats-funnel-card.done {
+            background: #f8fafc;
+            opacity: 0.75;
+        }
+        .cats-funnel-card.done .cats-funnel-card-title {
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+        .cats-funnel-card-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .cats-funnel-card-check {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            background: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+            transition: all .15s;
+        }
+        .cats-funnel-card-check:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .cats-funnel-card-check.in-progress {
+            border-color: #3b82f6;
+            position: relative;
+        }
+        .cats-funnel-card-check.in-progress::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #3b82f6;
+            border-radius: 50%;
+        }
+        .cats-funnel-card-check.done {
+            background: #10b981;
+            border-color: #10b981;
+            color: #fff;
+        }
+        .cats-funnel-card-check.done svg {
+            width: 10px;
+            height: 10px;
+        }
+        .cats-funnel-card-title {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+        }
+        .cats-funnel-card-desc {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .cats-funnel-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 11px;
+            color: #64748b;
+            margin-top: auto;
+        }
+        .cats-funnel-card-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 7px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .cats-funnel-card-chip.overdue {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .cats-funnel-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        /* "Add task" dashed card at the end of the row */
+        .cats-funnel-addcard {
+            flex: 0 0 120px;
+            width: 120px;
+            min-height: 120px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            background: transparent;
+            color: #94a3b8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all .15s;
+            scroll-snap-align: start;
+        }
+        .cats-funnel-addcard:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background: #eff6ff;
+        }
+        .cats-funnel-addcard-plus {
+            font-size: 28px;
+            line-height: 1;
+            font-weight: 300;
         }
 
         @media (max-width: 900px) {
@@ -5405,12 +5601,17 @@ function _renderFunnelSectionHTML(sec, collapsedSet) {
         ? '<span style="font-size:16px;line-height:1;">' + sec.icon + '</span>'
         : '<span class="cats-funnel-dot" style="background:' + sec.color + '"></span>';
 
-    let body;
-    if (sec.tasks.length === 0) {
-        body = '<div class="cats-funnel-empty">Пока нет задач</div>';
-    } else {
-        body = sec.tasks.map(t => _catTaskRowHTML(t)).join('');
-    }
+    // Horizontal row of task cards (Netflix-style) + trailing "+" add-card.
+    const cardsHtml = sec.tasks.map(t => _catFunnelCardHTML(t, sec.color)).join('');
+    const addCardHtml =
+        '<div class="cats-funnel-addcard" onclick="event.stopPropagation();showTaskForm()" title="Новая задача">' +
+            '<span class="cats-funnel-addcard-plus">+</span>' +
+            '<span class="cats-funnel-addcard-label">Новая задача</span>' +
+        '</div>';
+    const emptyHtml = sec.tasks.length === 0
+        ? '<div class="cats-funnel-empty">Пока нет задач</div>'
+        : '';
+    const body = emptyHtml + cardsHtml + addCardHtml;
 
     return '<div class="cats-funnel-group">' +
         '<div class="cats-funnel-header" style="--sec-color:' + sec.color + ';--sec-bg:' + bg + ';--sec-bg-hover:' + bgHover + ';" ' +
@@ -5419,8 +5620,62 @@ function _renderFunnelSectionHTML(sec, collapsedSet) {
             iconPart +
             '<span class="cats-funnel-title">' + _catsEscape(sec.name) + '</span>' +
             '<span class="cats-funnel-count">' + sec.tasks.length + '</span>' +
+            '<button class="cats-funnel-newtask" onclick="event.stopPropagation();showTaskForm()" title="Новая задача">+</button>' +
         '</div>' +
         '<div class="cats-funnel-body" style="' + bodyStyle + '">' + body + '</div>' +
+    '</div>';
+}
+
+function _catFunnelCardHTML(t, secColor) {
+    const status = t.status || 'new';
+    const isDone = status === 'done';
+    const inProgress = status === 'in_progress';
+    const prio = t.priority || 'medium';
+    const checkClass = 'cats-funnel-card-check' +
+        (isDone ? ' done' : '') +
+        (inProgress ? ' in-progress' : '');
+    const checkIcon = isDone
+        ? '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '';
+    const nextStatus = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
+
+    const descHtml = (t.description && t.description.trim())
+        ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
+        : '';
+
+    const meta = [];
+    if (t.deadline) {
+        const info = deadlineInfo(t.deadline);
+        const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
+        meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
+    }
+    const subs = allTasks.filter(s => s.parent_task_id === t.id);
+    if (subs.length > 0) {
+        const sdone = subs.filter(s => s.status === 'done').length;
+        meta.push('<span class="cats-funnel-card-chip" style="background:#e0f2fe;color:#0369a1;">☑ ' + sdone + '/' + subs.length + '</span>');
+    }
+    if (t.categories && t.categories.length > 0) {
+        t.categories.slice(0, 2).forEach(c => {
+            meta.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
+        });
+    }
+
+    let assigneeHtml = '';
+    if (t.assigned_to) {
+        const user = (allUsers || []).find(u => u.id === t.assigned_to);
+        if (user) {
+            assigneeHtml = '<div class="cats-funnel-card-assignee">' + avatarHTML(user.full_name, null, 22, user.avatar) + '</div>';
+        }
+    }
+
+    return '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + '" data-task-id="' + t.id + '" onclick="showTaskDetail(' + t.id + ')">' +
+        '<div class="cats-funnel-card-head">' +
+            '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Сменить статус">' + checkIcon + '</div>' +
+            '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
+        '</div>' +
+        descHtml +
+        (meta.length > 0 ? '<div class="cats-funnel-card-meta">' + meta.join('') + '</div>' : '') +
+        (assigneeHtml ? '<div class="cats-funnel-card-footer">' + assigneeHtml + '</div>' : '') +
     '</div>';
 }
 
