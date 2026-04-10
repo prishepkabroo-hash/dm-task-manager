@@ -1314,8 +1314,8 @@
         .cats-funnel-wrap::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         .cats-funnel-group {
-            flex: 0 0 320px;
-            width: 320px;
+            flex: 0 0 300px;
+            width: 300px;
             max-height: calc(100vh - 260px);
             min-height: 200px;
             background: #f8fafc;
@@ -1326,13 +1326,26 @@
             flex-direction: column;
             box-shadow: 0 1px 4px rgba(15,23,42,0.04);
             overflow: hidden;
+            position: relative;
+            transition: background .15s, border-color .15s, box-shadow .15s, transform .15s;
         }
         .cats-funnel-group.collapsed {
             max-height: none;
             min-height: 0;
         }
-        .cats-funnel-group.collapsed .cats-funnel-body {
+        .cats-funnel-group.collapsed .cats-funnel-body,
+        .cats-funnel-group.collapsed .cats-funnel-quick-add {
             display: none;
+        }
+        /* Drop target highlight during drag */
+        .cats-funnel-group.drop-target {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.18), 0 8px 24px rgba(59,130,246,0.12);
+            transform: translateY(-2px);
+        }
+        .cats-funnel-group.drop-target .cats-funnel-header {
+            background: #dbeafe;
         }
         .cats-funnel-header {
             display: flex;
@@ -1384,25 +1397,31 @@
             min-width: 24px;
             text-align: center;
         }
-        .cats-funnel-newtask {
+        /* Quick-add bar — full-width button just below the column header */
+        .cats-funnel-quick-add {
+            width: 100%;
+            background: #fff;
             border: none;
-            background: rgba(15,23,42,0.05);
-            color: #475569;
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
             cursor: pointer;
-            font-size: 16px;
-            line-height: 1;
             display: flex;
             align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
+            gap: 6px;
             transition: all .15s;
+            flex-shrink: 0;
         }
-        .cats-funnel-newtask:hover {
-            background: var(--sec-color, #3b82f6);
-            color: #fff;
+        .cats-funnel-quick-add:hover {
+            background: var(--sec-bg, #eff6ff);
+            color: var(--sec-color, #3b82f6);
+        }
+        .cats-funnel-quick-add-plus {
+            font-size: 16px;
+            line-height: 1;
+            font-weight: 400;
         }
         /* Vertical stack of cards inside a column */
         .cats-funnel-body {
@@ -1440,11 +1459,11 @@
             border-left: 4px solid #cbd5e1;
             border-radius: 10px;
             padding: 10px 12px;
-            cursor: pointer;
+            cursor: grab;
             display: flex;
             flex-direction: column;
             gap: 6px;
-            transition: all .15s;
+            transition: box-shadow .15s, transform .15s, opacity .15s, border-color .15s;
             position: relative;
             box-shadow: 0 1px 2px rgba(15,23,42,0.03);
         }
@@ -1452,6 +1471,13 @@
             box-shadow: 0 4px 14px rgba(15,23,42,0.10);
             transform: translateY(-1px);
             border-color: #cbd5e1;
+        }
+        .cats-funnel-card:active { cursor: grabbing; }
+        .cats-funnel-card.dragging {
+            opacity: 0.35;
+            transform: rotate(1.5deg) scale(1.02);
+            box-shadow: 0 16px 40px rgba(15,23,42,0.22);
+            cursor: grabbing;
         }
         .cats-funnel-card.priority-urgent { border-left-color: #ef4444; }
         .cats-funnel-card.priority-high { border-left-color: #f59e0b; }
@@ -1678,20 +1704,31 @@
         }
 
         /* ---- View mode density modifiers ---- */
-        /* MINIMAL: tiny cards — only title + colored priority border */
+
+        /* MINIMAL: narrow columns (220px), tiny cards — only title + priority */
+        .cats-funnel-wrap.view-minimal .cats-funnel-group {
+            flex: 0 0 220px;
+            width: 220px;
+        }
         .cats-funnel-wrap.view-minimal .cats-funnel-card {
             padding: 7px 10px;
             gap: 3px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-card-desc,
         .cats-funnel-wrap.view-minimal .cats-funnel-card-meta,
-        .cats-funnel-wrap.view-minimal .cats-funnel-card-footer {
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-footer,
+        .cats-funnel-wrap.view-minimal .cats-funnel-subs,
+        .cats-funnel-wrap.view-minimal .cats-funnel-quick-add-label {
             display: none;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-card-title {
             font-size: 12px;
             font-weight: 500;
             line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-card-check {
             width: 14px;
@@ -1699,9 +1736,21 @@
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-body {
             gap: 5px;
+            padding: 8px 8px 10px;
+        }
+        .cats-funnel-wrap.view-minimal .cats-funnel-header {
+            padding: 10px 12px;
+        }
+        .cats-funnel-wrap.view-minimal .cats-funnel-addcard {
+            padding: 7px;
+            font-size: 11px;
         }
 
-        /* NORMAL: default — title, truncated desc (2 lines), meta chips, assignee */
+        /* NORMAL: 300px columns — truncated title (2 lines) and desc (2 lines), core chips */
+        .cats-funnel-wrap.view-normal .cats-funnel-group {
+            flex: 0 0 300px;
+            width: 300px;
+        }
         .cats-funnel-wrap.view-normal .cats-funnel-card-title {
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -1714,21 +1763,61 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
+        /* In normal mode only show subtask list when explicitly expanded */
+        .cats-funnel-wrap.view-normal .cats-funnel-subs {
+            /* visible by default; hidden via JS when not expanded */
+        }
 
-        /* DETAILED: everything visible, no clamping, more spacing, wider columns */
+        /* DETAILED: wider 400px columns, full info, no clamping, subtasks always visible */
         .cats-funnel-wrap.view-detailed .cats-funnel-group {
-            flex: 0 0 380px;
-            width: 380px;
+            flex: 0 0 400px;
+            width: 400px;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card {
             padding: 14px 16px;
-            gap: 9px;
+            gap: 10px;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card-title {
             font-size: 14px;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card-desc {
             font-size: 12.5px;
+        }
+        /* Detailed view always reveals the subtask section (no expand click needed) */
+        .cats-funnel-wrap.view-detailed .cats-funnel-card-subbtn {
+            display: none;
+        }
+
+        /* + Новая воронка — dashed column at the right end */
+        .cats-funnel-addcol {
+            flex: 0 0 240px;
+            width: 240px;
+            min-height: 140px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            background: transparent;
+            color: #94a3b8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all .15s;
+            padding: 20px;
+            text-align: center;
+        }
+        .cats-funnel-addcol:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background: #eff6ff;
+        }
+        .cats-funnel-addcol-plus {
+            font-size: 36px;
+            line-height: 1;
+            font-weight: 300;
         }
 
         /* View-mode switcher (segmented control) in the header toolbar */
@@ -5822,9 +5911,28 @@ function _renderCategoryFunnel(sel, cats, byParent, tasks) {
 
     const collapsedSet = catsTreeState.collapsedSections;
     const vm = catsTreeState.viewMode || 'normal';
+    const canManage = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
+    const addColHtml = canManage
+        ? '<div class="cats-funnel-addcol" onclick="showCategoryModal()" title="Создать новую категорию-воронку">' +
+              '<span class="cats-funnel-addcol-plus">+</span>' +
+              '<span>Новая воронка</span>' +
+          '</div>'
+        : '';
     return '<div class="cats-funnel-wrap view-' + vm + '">' +
         sections.map(s => _renderFunnelSectionHTML(s, collapsedSet)).join('') +
+        addColHtml +
     '</div>';
+}
+
+// Resolve a section key back to a category id (or null)
+function _catSectionCategoryId(secKey) {
+    if (typeof secKey !== 'string') return null;
+    if (secKey.startsWith('self-')) {
+        const n = parseInt(secKey.slice(5));
+        return isNaN(n) ? null : n;
+    }
+    const n = parseInt(secKey);
+    return isNaN(n) ? null : n;
 }
 
 function _renderFunnelSectionHTML(sec, collapsedSet) {
@@ -5836,36 +5944,50 @@ function _renderFunnelSectionHTML(sec, collapsedSet) {
         ? '<span style="font-size:16px;line-height:1;">' + sec.icon + '</span>'
         : '<span class="cats-funnel-dot" style="background:' + sec.color + '"></span>';
 
+    // Pre-fill category id for quick-add (null for non-category sections)
+    const presetCatId = _catSectionCategoryId(sec.key);
+    const presetArg = presetCatId === null ? 'null' : String(presetCatId);
+
     // Vertical stack of cards + trailing "+" add-card at the bottom.
-    const cardsHtml = sec.tasks.map(t => _catFunnelCardHTML(t, sec.color)).join('');
+    const cardsHtml = sec.tasks.map(t => _catFunnelCardHTML(t, sec.color, sec.key)).join('');
     const addCardHtml =
-        '<div class="cats-funnel-addcard" onclick="event.stopPropagation();showTaskForm()" title="Новая задача">' +
+        '<div class="cats-funnel-addcard" onclick="event.stopPropagation();showTaskForm(null,' + presetArg + ')" title="Новая задача">' +
             '<span class="cats-funnel-addcard-plus">+</span>' +
             '<span>Новая задача</span>' +
         '</div>';
     const emptyHtml = sec.tasks.length === 0
-        ? '<div class="cats-funnel-empty">Пока нет задач</div>'
+        ? '<div class="cats-funnel-empty">Пока нет задач — перетащите сюда или создайте новую</div>'
         : '';
     const body = emptyHtml + cardsHtml + addCardHtml;
 
     const groupClass = 'cats-funnel-group' + (isCollapsed ? ' collapsed' : '');
 
-    return '<div class="' + groupClass + '" style="--sec-color:' + sec.color + ';--sec-bg:' + bg + ';--sec-bg-hover:' + bgHover + ';">' +
+    // Quick-add bar (sits between header and body, not inside the clickable header)
+    const quickAddHtml =
+        '<button class="cats-funnel-quick-add" onclick="event.stopPropagation();showTaskForm(null,' + presetArg + ')" title="Добавить задачу в воронку">' +
+            '<span class="cats-funnel-quick-add-plus">+</span>' +
+            '<span class="cats-funnel-quick-add-label">Добавить задачу</span>' +
+        '</button>';
+
+    return '<div class="' + groupClass + '" data-sec-key="' + sec.key + '" ' +
+            'ondragover="catSecDragOver(event)" ondragleave="catSecDragLeave(event)" ondrop="catSecDrop(event,\'' + sec.key + '\')" ' +
+            'style="--sec-color:' + sec.color + ';--sec-bg:' + bg + ';--sec-bg-hover:' + bgHover + ';">' +
         '<div class="cats-funnel-header" onclick="toggleCatsSection(\'' + sec.key + '\')">' +
             '<span class="cats-funnel-caret">' + caret + '</span>' +
             iconPart +
             '<span class="cats-funnel-title">' + _catsEscape(sec.name) + '</span>' +
             '<span class="cats-funnel-count">' + sec.tasks.length + '</span>' +
-            '<button class="cats-funnel-newtask" onclick="event.stopPropagation();showTaskForm()" title="Новая задача">+</button>' +
         '</div>' +
+        quickAddHtml +
         '<div class="cats-funnel-body">' + body + '</div>' +
     '</div>';
 }
 
 // Render a single task card inside a kanban column.
-// View-mode density is handled via CSS on the wrapping .cats-funnel-wrap
-// (.view-detailed / .view-normal / .view-minimal).
-function _catFunnelCardHTML(t, secColor) {
+// View-mode density is handled mostly via CSS on the wrapping .cats-funnel-wrap
+// (.view-detailed / .view-normal / .view-minimal). Detailed view also forces
+// the inline subtask list to always be visible.
+function _catFunnelCardHTML(t, secColor, secKey) {
     const status = t.status || 'new';
     const isDone = status === 'done';
     const inProgress = status === 'in_progress';
@@ -5891,7 +6013,7 @@ function _catFunnelCardHTML(t, secColor) {
         const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
         meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
     }
-    // Show category chips only in detailed view (in normal view the column header already says which category this is)
+    // Show category chips only in detailed view (in narrower views the column header already says which category this is)
     if (vm === 'detailed' && t.categories && t.categories.length > 0) {
         t.categories.slice(0, 3).forEach(c => {
             meta.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
@@ -5902,18 +6024,22 @@ function _catFunnelCardHTML(t, secColor) {
         if (dept) meta.push('<span class="cats-funnel-card-chip">' + _catsEscape(dept.name) + '</span>');
     }
 
-    // Subtasks (inline expand)
+    // Subtasks
     const subs = allTasks.filter(s => s.parent_task_id === t.id);
     const hasSubs = subs.length > 0;
     const sdone = subs.filter(s => s.status === 'done').length;
-    const isExpanded = catsTreeState.expandedCardIds.has(t.id);
+    // Detailed view always shows the inline subtask section.
+    // Normal view shows it only when explicitly expanded (via the chip).
+    // Minimal view never shows it.
+    const isExpanded = vm === 'detailed' ? true : (vm === 'normal' && catsTreeState.expandedCardIds.has(t.id));
 
     let subBtnHtml = '';
-    if (hasSubs) {
+    if (hasSubs && vm === 'normal') {
+        const expandedCls = catsTreeState.expandedCardIds.has(t.id) ? ' expanded' : '';
         subBtnHtml =
-            '<button class="cats-funnel-card-subbtn' + (isExpanded ? ' expanded' : '') + '" ' +
+            '<button class="cats-funnel-card-subbtn' + expandedCls + '" ' +
                 'onclick="event.stopPropagation();toggleCatsCardExpand(' + t.id + ')" ' +
-                'title="' + (isExpanded ? 'Свернуть подзадачи' : 'Показать подзадачи') + '">' +
+                'title="' + (catsTreeState.expandedCardIds.has(t.id) ? 'Свернуть подзадачи' : 'Показать подзадачи') + '">' +
                 '<span class="caret">▸</span>' +
                 '<span>' + sdone + '/' + subs.length + ' подзадач</span>' +
             '</button>';
@@ -5928,15 +6054,19 @@ function _catFunnelCardHTML(t, secColor) {
         }
     }
 
-    // Inline subtask rows (only when expanded)
+    // Inline subtask rows
     let subsHtml = '';
-    if (hasSubs && isExpanded) {
-        const rows = subs.map(s => _catFunnelSubRowHTML(s)).join('');
-        subsHtml = '<div class="cats-funnel-subs">' + rows +
+    if (isExpanded) {
+        const rowsHtml = hasSubs
+            ? subs.map(s => _catFunnelSubRowHTML(s)).join('')
+            : '';
+        // Always show "+ Добавить подзадачу" button in this section so the user
+        // can add subtasks (especially relevant in detailed view when there are none yet).
+        const addBtn =
             '<button class="cats-funnel-subadd" onclick="event.stopPropagation();showTaskDetail(' + t.id + ')" title="Открыть задачу и добавить подзадачу">' +
-                '<span>+</span><span>Добавить подзадачу</span>' +
-            '</button>' +
-        '</div>';
+                '<span>+</span><span>' + (hasSubs ? 'Добавить подзадачу' : 'Добавить подзадачу') + '</span>' +
+            '</button>';
+        subsHtml = '<div class="cats-funnel-subs">' + rowsHtml + addBtn + '</div>';
     }
 
     // Footer row: assignee + optional subtask toggle
@@ -5948,7 +6078,14 @@ function _catFunnelCardHTML(t, secColor) {
         '</div>';
     }
 
-    return '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + '" data-task-id="' + t.id + '" onclick="showTaskDetail(' + t.id + ')">' +
+    const safeKey = (secKey || '').replace(/'/g, "\\'");
+
+    return '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + '" ' +
+            'data-task-id="' + t.id + '" data-from-key="' + safeKey + '" ' +
+            'draggable="true" ' +
+            'ondragstart="catCardDragStart(event,' + t.id + ',\'' + safeKey + '\')" ' +
+            'ondragend="catCardDragEnd(event)" ' +
+            'onclick="showTaskDetail(' + t.id + ')">' +
         '<div class="cats-funnel-card-head">' +
             '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Сменить статус">' + checkIcon + '</div>' +
             '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
@@ -5976,6 +6113,126 @@ function _catFunnelSubRowHTML(s) {
         '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + s.id + ',\'' + nextStatus + '\')">' + checkIcon + '</div>' +
         '<div class="cats-funnel-subrow-title">' + _catsEscape(s.title) + '</div>' +
     '</div>';
+}
+
+// =================================
+// Drag and drop between funnel columns (Bitrix-24 style)
+// =================================
+let _catDragState = { taskId: null, fromKey: null, cardEl: null };
+
+function catCardDragStart(ev, taskId, fromKey) {
+    _catDragState.taskId = taskId;
+    _catDragState.fromKey = fromKey;
+    _catDragState.cardEl = ev.currentTarget;
+    try {
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', String(taskId));
+    } catch(e) {}
+    // Apply dragging style on next frame so the browser captures the
+    // drag image *before* the opacity drop, otherwise the ghost is invisible.
+    requestAnimationFrame(function(){
+        if (_catDragState.cardEl) _catDragState.cardEl.classList.add('dragging');
+    });
+}
+
+function catCardDragEnd(ev) {
+    if (_catDragState.cardEl) {
+        _catDragState.cardEl.classList.remove('dragging');
+    }
+    document.querySelectorAll('.cats-funnel-group.drop-target').forEach(function(el){
+        el.classList.remove('drop-target');
+    });
+    _catDragState.taskId = null;
+    _catDragState.fromKey = null;
+    _catDragState.cardEl = null;
+}
+
+function catSecDragOver(ev) {
+    if (_catDragState.taskId == null) return;
+    ev.preventDefault();
+    try { ev.dataTransfer.dropEffect = 'move'; } catch(e) {}
+    const group = ev.currentTarget;
+    if (!group.classList.contains('drop-target')) {
+        group.classList.add('drop-target');
+    }
+}
+
+function catSecDragLeave(ev) {
+    const group = ev.currentTarget;
+    // Only remove the highlight when the cursor truly leaves the column
+    // (not when it crosses an internal child boundary).
+    if (ev.relatedTarget && group.contains(ev.relatedTarget)) return;
+    group.classList.remove('drop-target');
+}
+
+function catSecDrop(ev, toKey) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const group = ev.currentTarget;
+    group.classList.remove('drop-target');
+    const taskId = _catDragState.taskId;
+    const fromKey = _catDragState.fromKey;
+    if (taskId == null) return;
+    if (fromKey === toKey) return;
+    moveTaskBetweenSections(taskId, fromKey, toKey);
+}
+
+// Optimistic move: update local state, re-render immediately, then call the API.
+// On failure, revert and re-render.
+async function moveTaskBetweenSections(taskId, fromKey, toKey) {
+    const task = allTasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Build the patch payload based on the destination section key
+    const payload = {};
+    if (toKey === 'none' || toKey === 'none-view') {
+        payload.category_ids = [];
+        if (task.status === 'done' || task.status === 'cancelled') payload.status = 'new';
+    } else if (toKey === 'done-view') {
+        payload.status = 'done';
+    } else if (typeof toKey === 'string' && toKey.indexOf('self-') === 0) {
+        const catId = parseInt(toKey.slice(5));
+        if (isNaN(catId)) return;
+        payload.category_ids = [catId];
+        if (task.status === 'done' || task.status === 'cancelled') payload.status = 'new';
+    } else {
+        const catId = parseInt(toKey);
+        if (isNaN(catId)) return;
+        payload.category_ids = [catId];
+        if (task.status === 'done' || task.status === 'cancelled') payload.status = 'new';
+    }
+
+    // Snapshot for rollback
+    const prevCats = task.categories ? task.categories.slice() : [];
+    const prevStatus = task.status;
+
+    // Optimistic local update
+    if (payload.category_ids) {
+        const allCats = catsTreeState.allCategories || [];
+        task.categories = payload.category_ids.map(function(id){
+            const cat = allCats.find(function(c){ return c.id === id; });
+            return cat ? { id: cat.id, name: cat.name, color: cat.color } : null;
+        }).filter(Boolean);
+    }
+    if (payload.status) task.status = payload.status;
+
+    // Re-render immediately for instant visual feedback
+    renderKanban();
+
+    // Persist to server
+    const resp = await apiCall('/api/tasks/' + taskId, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+    });
+    if (!resp || resp.error) {
+        // Rollback
+        task.categories = prevCats;
+        task.status = prevStatus;
+        renderKanban();
+        showToast('Не удалось переместить задачу', 'error');
+    } else {
+        showToast('Задача перемещена', 'success');
+    }
 }
 
 function _filterTasksForCategories(sel) {
@@ -6691,7 +6948,7 @@ async function submitListQuickTask() {
 // 9. TASK FORM (CREATE/EDIT)
 // =================================
 
-async function showTaskForm(taskId = null) {
+async function showTaskForm(taskId = null, presetCategoryId = null) {
     const modal = document.getElementById('taskModal');
     const titleSpan = document.getElementById('taskModalTitle');
     const form = document.getElementById('taskForm');
@@ -6747,10 +7004,12 @@ async function showTaskForm(taskId = null) {
         if (picker) {
             const cats = catsTreeState.allCategories || [];
             const editingTask = taskId ? allTasks.find(t => t.id === taskId) : null;
-            // Preset from currently selected category in view if creating new
+            // Preset from explicit param (quick add from a column), then from view selection
             const preset = new Set();
             if (editingTask && editingTask.categories) {
                 editingTask.categories.forEach(c => preset.add(c.id));
+            } else if (typeof presetCategoryId === 'number' && !isNaN(presetCategoryId)) {
+                preset.add(presetCategoryId);
             } else if (typeof catsTreeState.selectedCategoryId === 'number') {
                 preset.add(catsTreeState.selectedCategoryId);
             }
