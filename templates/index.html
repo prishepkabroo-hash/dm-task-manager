@@ -148,31 +148,61 @@
             font-size: 18px;
         }
 
-        /* Collapse toggle button — attached to the right edge of the sidebar */
+        /* Collapse toggle — clean rail tab attached to the sidebar's right edge */
         .sidebar-collapse-btn {
             position: absolute;
-            top: 22px;
-            right: -12px;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 6px rgba(15,23,42,0.12);
-            color: #475569;
-            font-size: 13px;
-            line-height: 1;
+            top: 50%;
+            right: -14px;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 56px;
+            padding: 0;
+            border: none;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-radius: 0 14px 14px 0;
+            box-shadow: 2px 4px 14px rgba(37, 99, 235, 0.28);
+            color: #fff;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 200;
-            transition: transform .15s, background .15s;
+            opacity: 0;
+            transition: opacity .2s ease, right .2s ease, box-shadow .2s ease, background .2s ease;
+        }
+        /* Reveal on sidebar hover — unobtrusive when not needed */
+        .sidebar:hover .sidebar-collapse-btn,
+        .sidebar-collapse-btn:hover,
+        .sidebar-collapse-btn:focus-visible {
+            opacity: 1;
+            right: -18px;
         }
         .sidebar-collapse-btn:hover {
-            background: #eff6ff;
-            color: #2563eb;
-            transform: scale(1.1);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            box-shadow: 3px 6px 18px rgba(37, 99, 235, 0.42);
+        }
+        .sidebar-collapse-btn:active {
+            transform: translateY(-50%) scale(0.94);
+        }
+        /* Keep the button always visible when the sidebar is collapsed,
+           so the user has a clear way to expand it back */
+        .sidebar.icon-only .sidebar-collapse-btn {
+            opacity: 1;
+            right: -18px;
+        }
+        .sidebar-collapse-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 2.5;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: transform .25s ease;
+        }
+        /* Chevron flips when the sidebar is collapsed */
+        .sidebar.icon-only .sidebar-collapse-btn svg {
+            transform: rotate(180deg);
         }
         @media (max-width: 900px) {
             .sidebar-collapse-btn { display: none; }
@@ -3888,7 +3918,7 @@
     <div class="container" id="mainContainer">
         <!-- SIDEBAR -->
         <div class="sidebar" id="sidebar">
-            <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleMainSidebar()" title="Свернуть/развернуть меню">‹</button>
+            <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleMainSidebar()" title="Свернуть меню" aria-label="Свернуть меню"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
             <div class="sidebar-header" id="sidebarHeader" style="cursor:pointer;transition:all 0.2s;" onclick="openCmdMenu()" onmouseenter="this.style.background='linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.15) 100%)'" onmouseleave="this.style.background=''">
                 <div class="sidebar-logo"><img src="/static/helmet-white.png" alt="DM"></div>
                 <div style="flex:1;min-width:0;">
@@ -9486,8 +9516,8 @@ function toggleMainSidebar() {
     const isCollapsed = sb.classList.toggle('icon-only');
     try { localStorage.setItem('dm_main_sidebar_collapsed', isCollapsed ? '1' : '0'); } catch(e) {}
     if (btn) {
-        btn.textContent = isCollapsed ? '›' : '‹';
         btn.title = isCollapsed ? 'Развернуть меню' : 'Свернуть меню';
+        btn.setAttribute('aria-label', isCollapsed ? 'Развернуть меню' : 'Свернуть меню');
     }
 }
 
@@ -9499,7 +9529,7 @@ function toggleMainSidebar() {
                 const sb = document.getElementById('sidebar');
                 const btn = document.getElementById('sidebarCollapseBtn');
                 if (sb) sb.classList.add('icon-only');
-                if (btn) { btn.textContent = '›'; btn.title = 'Развернуть меню'; }
+                if (btn) { btn.title = 'Развернуть меню'; btn.setAttribute('aria-label', 'Развернуть меню'); }
             });
         }
     } catch(e) {}
