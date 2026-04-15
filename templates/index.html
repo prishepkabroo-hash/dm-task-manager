@@ -1786,8 +1786,13 @@
             flex: 0 0 220px;
             width: 220px;
         }
+        /* ═══ MINIMAL: узкие колонки, однострочные карточки ═══ */
+        .cats-funnel-wrap.view-minimal .cats-funnel-group {
+            flex: 0 0 240px;
+            width: 240px;
+        }
         .cats-funnel-wrap.view-minimal .cats-funnel-card {
-            padding: 5px 8px;
+            padding: 4px 8px;
             gap: 0;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-quick-add-label {
@@ -1801,45 +1806,51 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-head {
+            align-items: center;
+        }
         .cats-funnel-wrap.view-minimal .cats-funnel-card-check {
             width: 14px;
             height: 14px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-body {
-            gap: 3px;
-            padding: 6px 6px 8px;
+            gap: 2px;
+            padding: 4px 6px 6px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-header {
-            padding: 10px 12px;
+            padding: 8px 10px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-addcard {
-            padding: 5px;
+            padding: 4px;
             font-size: 11px;
         }
 
-        /* NORMAL: 300px columns — truncated title (2 lines) and desc (2 lines), core chips */
+        /* ═══ NORMAL: средние колонки, название+описание+дедлайн+аватар ═══ */
         .cats-funnel-wrap.view-normal .cats-funnel-group {
             flex: 0 0 300px;
             width: 300px;
         }
+        .cats-funnel-wrap.view-normal .cats-funnel-card {
+            padding: 10px 12px;
+            gap: 6px;
+        }
         .cats-funnel-wrap.view-normal .cats-funnel-card-title {
+            font-size: 13px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
         .cats-funnel-wrap.view-normal .cats-funnel-card-desc {
+            font-size: 12px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
-        }
-        /* In normal mode only show subtask list when explicitly expanded */
-        .cats-funnel-wrap.view-normal .cats-funnel-subs {
-            /* visible by default; hidden via JS when not expanded */
+            color: var(--text-secondary, #64748b);
         }
 
-        /* DETAILED: wider 400px columns, full info, no clamping, subtasks always visible */
+        /* ═══ DETAILED: широкие колонки, вся информация ═══ */
         .cats-funnel-wrap.view-detailed .cats-funnel-group {
             flex: 0 0 400px;
             width: 400px;
@@ -1853,10 +1864,6 @@
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card-desc {
             font-size: 12.5px;
-        }
-        /* Detailed view always reveals the subtask section (no expand click needed) */
-        .cats-funnel-wrap.view-detailed .cats-funnel-card-subbtn {
-            display: none;
         }
 
         /* + Новая воронка — dashed column at the right end */
@@ -1923,10 +1930,92 @@
             box-shadow: 0 1px 3px rgba(15,23,42,0.08);
         }
 
+        /* ── Панель фильтров категорий ── */
+        .cats-filter-panel {
+            background: var(--bg-main, #f8fafc);
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            animation: catsFilterSlide 0.2s ease;
+        }
+        @keyframes catsFilterSlide {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .cats-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .cats-filter-select {
+            padding: 7px 12px;
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 8px;
+            font-size: 13px;
+            background: #fff;
+            color: var(--text-primary, #1e293b);
+            cursor: pointer;
+            min-width: 140px;
+            transition: border-color 0.2s;
+        }
+        .cats-filter-select:focus {
+            outline: none;
+            border-color: var(--blue, #3b82f6);
+        }
+        .cats-filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary, #64748b);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .cats-filter-checkbox input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--blue, #3b82f6);
+        }
+        .cats-filter-search {
+            padding: 7px 12px;
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 8px;
+            font-size: 13px;
+            background: #fff;
+            color: var(--text-primary, #1e293b);
+            flex: 1;
+            min-width: 150px;
+            transition: border-color 0.2s;
+        }
+        .cats-filter-search:focus {
+            outline: none;
+            border-color: var(--blue, #3b82f6);
+        }
+        .cats-filter-reset {
+            padding: 7px 14px;
+            border: none;
+            border-radius: 8px;
+            background: #fee2e2;
+            color: #dc2626;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .cats-filter-reset:hover {
+            background: #fecaca;
+        }
+
         @media (max-width: 900px) {
             .cats-layout { flex-direction: column; height: auto; }
             .cats-sidebar { width: 100%; max-height: 260px; }
             .cats-sidebar.collapsed { width: 100%; max-height: 70px; }
+            .cats-filter-row { flex-direction: column; }
+            .cats-filter-select, .cats-filter-search { width: 100%; min-width: auto; }
         }
         /* Category edit modal */
         .cat-edit-color-row {
@@ -5597,6 +5686,94 @@ let catsTreeState = {
     expandedCardIds: new Set(),
 };
 
+// ═══ ФИЛЬТРЫ КАТЕГОРИЙ ═══
+var catsFilterState = {
+    _open: false,       // панель фильтров открыта
+    assignee: null,     // id исполнителя
+    department: null,   // id отдела
+    priority: null,     // 'high' | 'medium' | 'low'
+    overdue: false,     // только просроченные
+    search: '',         // текст поиска
+};
+
+function toggleCatsFilterPanel() {
+    catsFilterState._open = !catsFilterState._open;
+    renderFunnel();
+}
+
+function setCatsFilter(key, value) {
+    catsFilterState[key] = value;
+    renderFunnel();
+}
+
+function resetCatsFilters() {
+    catsFilterState.assignee = null;
+    catsFilterState.department = null;
+    catsFilterState.priority = null;
+    catsFilterState.overdue = false;
+    catsFilterState.search = '';
+    renderFunnel();
+}
+
+function _catsActiveFilterCount() {
+    let c = 0;
+    if (catsFilterState.assignee) c++;
+    if (catsFilterState.department) c++;
+    if (catsFilterState.priority) c++;
+    if (catsFilterState.overdue) c++;
+    if (catsFilterState.search) c++;
+    return c;
+}
+
+function _renderCatsFilterPanel() {
+    if (!catsFilterState._open) return '';
+
+    // Список исполнителей
+    const users = (allUsers || []).slice();
+    users.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    let userOpts = '<option value="">Все исполнители</option>';
+    users.forEach(u => {
+        const sel = catsFilterState.assignee === u.id ? ' selected' : '';
+        userOpts += '<option value="' + u.id + '"' + sel + '>' + _catsEscape(u.full_name || u.username) + '</option>';
+    });
+
+    // Список отделов
+    const depts = (allDepartments || []).slice();
+    depts.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    let deptOpts = '<option value="">Все отделы</option>';
+    depts.forEach(d => {
+        const sel = catsFilterState.department === d.id ? ' selected' : '';
+        deptOpts += '<option value="' + d.id + '"' + sel + '>' + _catsEscape(d.name) + '</option>';
+    });
+
+    // Приоритеты
+    const prios = [
+        { val: '', label: 'Любой приоритет' },
+        { val: 'high', label: 'Высокий' },
+        { val: 'medium', label: 'Средний' },
+        { val: 'low', label: 'Низкий' },
+    ];
+    let prioOpts = '';
+    prios.forEach(p => {
+        const sel = (catsFilterState.priority || '') === p.val ? ' selected' : '';
+        prioOpts += '<option value="' + p.val + '"' + sel + '>' + p.label + '</option>';
+    });
+
+    const overdueChecked = catsFilterState.overdue ? ' checked' : '';
+    const activeCount = _catsActiveFilterCount();
+
+    return '<div class="cats-filter-panel">' +
+        '<div class="cats-filter-row">' +
+            '<select class="cats-filter-select" onchange="setCatsFilter(\'assignee\', this.value ? parseInt(this.value) : null)">' + userOpts + '</select>' +
+            '<select class="cats-filter-select" onchange="setCatsFilter(\'department\', this.value ? parseInt(this.value) : null)">' + deptOpts + '</select>' +
+            '<select class="cats-filter-select" onchange="setCatsFilter(\'priority\', this.value || null)">' + prioOpts + '</select>' +
+            '<label class="cats-filter-checkbox"><input type="checkbox"' + overdueChecked + ' onchange="setCatsFilter(\'overdue\', this.checked)"> Просроченные</label>' +
+            '<input type="text" class="cats-filter-search" placeholder="Поиск по названию..." value="' + _catsEscape(catsFilterState.search) + '" oninput="setCatsFilter(\'search\', this.value)">' +
+            (activeCount > 0 ? '<button class="cats-filter-reset" onclick="resetCatsFilters()">Сбросить (' + activeCount + ')</button>' : '') +
+        '</div>' +
+    '</div>';
+}
+
 function _persistCollapsedSections() {
     try { localStorage.setItem('dm_cats_funnel_collapsed', JSON.stringify(Array.from(catsTreeState.collapsedSections))); } catch(e) {}
 }
@@ -5791,9 +5968,20 @@ async function renderKanban() {
         '</div>' +
         '<div class="cats-toolbar">' +
             viewSwitchHtml +
+            '<button class="secondary' + (catsFilterState._open ? ' active' : '') + '" onclick="toggleCatsFilterPanel()" title="Фильтры">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
+                'Фильтры' + (_catsActiveFilterCount() > 0 ? ' <span style="background:#ef4444;color:#fff;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;margin-left:4px;">' + _catsActiveFilterCount() + '</span>' : '') +
+            '</button>' +
+            '<button class="secondary" onclick="toggleKanbanSelectMode()" title="Массовый выбор">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>' +
+                'Выбрать' +
+            '</button>' +
             (sel !== 'done' ? '<button onclick="showTaskForm()"><span style="font-size:16px;line-height:1;">+</span> Новая задача</button>' : '') +
             (isCustomCat && canManage ? '<button class="secondary" onclick="showCategoryModal(' + sel + ')">Редактировать</button>' : '') +
         '</div>';
+
+    // -------- Filter panel --------
+    header.innerHTML += _renderCatsFilterPanel();
 
     // -------- Task list --------
     const tasks = _filterTasksForCategories(sel);
@@ -6379,6 +6567,30 @@ function _filterTasksForCategories(sel) {
     } else {
         out = out.filter(t => t.status !== 'done' && t.status !== 'cancelled' && (t.categories || []).some(c => c.id === sel));
     }
+
+    // ═══ Применяем фильтры категорий ═══
+    if (catsFilterState.assignee) {
+        out = out.filter(t => t.assigned_to === catsFilterState.assignee);
+    }
+    if (catsFilterState.department) {
+        out = out.filter(t => t.department_id === catsFilterState.department);
+    }
+    if (catsFilterState.priority) {
+        out = out.filter(t => t.priority === catsFilterState.priority);
+    }
+    if (catsFilterState.overdue) {
+        const now = new Date();
+        out = out.filter(t => {
+            if (!t.deadline) return false;
+            if (t.status === 'done' || t.status === 'cancelled') return false;
+            return new Date(t.deadline) < now;
+        });
+    }
+    if (catsFilterState.search) {
+        const sq = catsFilterState.search.toLowerCase();
+        out = out.filter(t => (t.title || '').toLowerCase().includes(sq) || (t.description || '').toLowerCase().includes(sq));
+    }
+
     out.sort((a, b) => {
         const order = {'in_progress':0, 'new':1, 'done':2, 'cancelled':3};
         const oa = order[a.status] != null ? order[a.status] : 9;
