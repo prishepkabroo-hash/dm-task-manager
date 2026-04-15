@@ -75,16 +75,28 @@
             width: var(--sidebar-width-collapsed);
         }
         .sidebar.icon-only .sidebar-header {
-            padding: 14px 8px;
+            padding: 10px 8px;
+            justify-content: center;
+            gap: 0;
+            flex-direction: column;
+            align-items: center;
+        }
+        /* В icon-only: прячем текстовый блок с названием, оставляем логотип и кнопку */
+        .sidebar.icon-only .sidebar-header > div:first-child {
             justify-content: center;
             gap: 0;
         }
-        .sidebar.icon-only .sidebar-header > div:nth-child(2),
-        .sidebar.icon-only .sidebar-header > div:nth-child(3) {
+        .sidebar.icon-only .sidebar-header > div:first-child > div:not(.sidebar-logo) {
             display: none;
         }
         .sidebar.icon-only .sidebar-header .sidebar-logo {
             margin: 0 auto;
+        }
+        /* Кнопка сворачивания — всегда видна, в icon-only по центру под логотипом */
+        .sidebar.icon-only .sidebar-collapse-btn {
+            width: 36px;
+            height: 36px;
+            margin: 6px auto 0;
         }
         .sidebar.icon-only .nav-item {
             padding: 12px 0;
@@ -199,6 +211,47 @@
         }
         @media (max-width: 900px) {
             .sidebar-collapse-btn { display: none; }
+        }
+
+        /* ── Кликабельная правая грань свёрнутого сайдбара ── */
+        .sidebar-expand-edge {
+            display: none;
+        }
+        .sidebar.icon-only .sidebar-expand-edge {
+            display: block;
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 6px;
+            height: 100%;
+            cursor: pointer;
+            z-index: 210;
+            background: transparent;
+            transition: background .2s ease, box-shadow .2s ease, width .2s ease;
+        }
+        .sidebar.icon-only .sidebar-expand-edge:hover {
+            width: 8px;
+            background: linear-gradient(180deg, rgba(59,130,246,0.6) 0%, rgba(139,92,246,0.4) 50%, rgba(59,130,246,0.6) 100%);
+            box-shadow: 0 0 12px rgba(59,130,246,0.4), inset 0 0 6px rgba(59,130,246,0.2);
+        }
+        .sidebar.icon-only .sidebar-expand-edge::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 40px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.15);
+            transition: background .2s ease, height .2s ease;
+        }
+        .sidebar.icon-only .sidebar-expand-edge:hover::after {
+            background: rgba(255,255,255,0.7);
+            height: 60px;
+        }
+        @media (max-width: 900px) {
+            .sidebar-expand-edge { display: none !important; }
         }
 
         .sidebar-header {
@@ -3911,6 +3964,7 @@
     <div class="container" id="mainContainer">
         <!-- SIDEBAR -->
         <div class="sidebar" id="sidebar">
+            <div class="sidebar-expand-edge" id="sidebarExpandEdge" onclick="toggleMainSidebar()" title="Развернуть меню"></div>
             <div class="sidebar-header" id="sidebarHeader">
                 <div style="flex:1;min-width:0;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="openCmdMenu()" onmouseenter="this.parentElement.style.background='linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.15) 100%)'" onmouseleave="this.parentElement.style.background=''">
                     <div class="sidebar-logo"><img src="/static/helmet-white.png" alt="DM"></div>
