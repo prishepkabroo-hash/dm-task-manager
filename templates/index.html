@@ -1528,234 +1528,104 @@
         }
 
         /* Task card inside a funnel column */
+        /* ══════════ CARD — Linear/ClickUp inspired ══════════ */
         .cats-funnel-card {
             width: 100%;
             background: #fff;
-            border: 1px solid #e5e7eb;
-            border-left: 4px solid #cbd5e1;
-            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid #cbd5e1;
+            border-radius: 8px;
             padding: 10px 12px;
             cursor: grab;
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            transition: box-shadow .15s, transform .15s, opacity .15s, border-color .15s;
+            gap: 8px;
+            transition: box-shadow .15s, transform .1s, border-color .15s;
             position: relative;
-            box-shadow: 0 1px 2px rgba(15,23,42,0.03);
+            box-shadow: 0 1px 3px rgba(15,23,42,0.04);
         }
         .cats-funnel-card:hover {
-            box-shadow: 0 4px 14px rgba(15,23,42,0.10);
+            box-shadow: 0 3px 12px rgba(15,23,42,0.08);
             transform: translateY(-1px);
-            border-color: #cbd5e1;
         }
         .cats-funnel-card:active { cursor: grabbing; }
-        .cats-funnel-card.dragging {
-            opacity: 0.35;
-            transform: rotate(1.5deg) scale(1.02);
-            box-shadow: 0 16px 40px rgba(15,23,42,0.22);
-            cursor: grabbing;
-        }
-        .cats-funnel-card.priority-critical { border-left-color: #ef4444; }
-        .cats-funnel-card.priority-urgent { border-left-color: #ef4444; }
-        .cats-funnel-card.priority-high { border-left-color: #f97316; }
-        .cats-funnel-card.priority-medium { border-left-color: #3b82f6; }
-        .cats-funnel-card.priority-low { border-left-color: #22c55e; }
-        .cats-funnel-card.selected {
-            border-color: #3b82f6;
-            background: #eff6ff;
-            box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
-        }
-        .cats-funnel-card.done {
-            background: #f8fafc;
-            opacity: 0.75;
-        }
-        .cats-funnel-card.done .cats-funnel-card-title {
-            text-decoration: line-through;
-            color: #94a3b8;
-        }
-        .cats-funnel-card-head {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-        }
+        .cats-funnel-card.dragging { opacity:.3; transform:rotate(1deg) scale(1.02); box-shadow:0 12px 32px rgba(15,23,42,.18); cursor:grabbing; }
+        .cats-funnel-card.priority-critical { border-left-color: #dc2626; }
+        .cats-funnel-card.priority-urgent  { border-left-color: #dc2626; }
+        .cats-funnel-card.priority-high    { border-left-color: #f97316; }
+        .cats-funnel-card.priority-medium  { border-left-color: #3b82f6; }
+        .cats-funnel-card.priority-low     { border-left-color: #94a3b8; }
+        .cats-funnel-card.selected { outline:2px solid #3b82f6; outline-offset:-1px; background:#f0f7ff; }
+        .cats-funnel-card.done { background:#fafbfc; opacity:.7; }
+        .cats-funnel-card.done .cats-funnel-card-title { text-decoration:line-through; color:#94a3b8; }
+
+        /* ── head row: checkbox + title + assignee avatar ── */
+        .cats-funnel-card-head { display:flex; align-items:center; gap:8px; }
         .cats-funnel-card-check {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 2px solid #cbd5e1;
-            background: #fff;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-top: 1px;
-            transition: all .15s;
+            width:16px; height:16px; border-radius:50%; border:1.5px solid #cbd5e1;
+            background:#fff; cursor:pointer; display:flex; align-items:center;
+            justify-content:center; flex-shrink:0; transition:all .12s;
         }
-        .cats-funnel-card-check:hover { border-color: #3b82f6; background: #eff6ff; }
-        .cats-funnel-card-check.in-progress {
-            border-color: #3b82f6;
-            position: relative;
-        }
-        .cats-funnel-card-check.in-progress::after {
-            content: '';
-            width: 8px;
-            height: 8px;
-            background: #3b82f6;
-            border-radius: 50%;
-        }
-        .cats-funnel-card-check.done {
-            background: #10b981;
-            border-color: #10b981;
-            color: #fff;
-        }
-        .cats-funnel-card-check.done svg { width: 10px; height: 10px; }
-        .cats-funnel-card-title {
-            flex: 1;
-            font-size: 13px;
-            font-weight: 600;
-            color: #0f172a;
-            line-height: 1.35;
-            word-break: break-word;
-        }
-        .cats-funnel-card-desc {
-            font-size: 12px;
-            color: #64748b;
-            line-height: 1.4;
-            word-break: break-word;
-        }
-        .cats-funnel-card-meta {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            flex-wrap: wrap;
-            font-size: 11px;
-            color: #64748b;
-        }
+        .cats-funnel-card-check:hover { border-color:#3b82f6; background:#eff6ff; }
+        .cats-funnel-card-check.in-progress { border-color:#3b82f6; position:relative; }
+        .cats-funnel-card-check.in-progress::after { content:''; width:7px; height:7px; background:#3b82f6; border-radius:50%; }
+        .cats-funnel-card-check.done { background:#10b981; border-color:#10b981; }
+        .cats-funnel-card-check.done svg { width:9px; height:9px; }
+        .cats-funnel-card-title { flex:1; font-size:13px; font-weight:600; color:#1e293b; line-height:1.35; word-break:break-word; min-width:0; }
+        .cats-funnel-card-avatar { flex-shrink:0; }
+
+        /* ── description ── */
+        .cats-funnel-card-desc { font-size:12px; color:#64748b; line-height:1.45; word-break:break-word; }
+
+        /* ── meta row: chips ── */
+        .cats-funnel-card-meta { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
         .cats-funnel-card-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            padding: 2px 7px;
-            background: #f1f5f9;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: 500;
+            display:inline-flex; align-items:center; gap:2px;
+            padding:2px 8px; background:#f1f5f9; border-radius:4px;
+            font-size:11px; font-weight:500; color:#475569; line-height:1.5;
+            white-space:nowrap;
         }
-        .cats-funnel-card-chip.overdue {
-            background: #fee2e2;
-            color: #b91c1c;
-        }
-        .cats-funnel-card-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 6px;
-            margin-top: 2px;
-        }
+        .cats-funnel-card-chip.overdue { background:#fef2f2; color:#dc2626; font-weight:600; }
+        .cats-funnel-card-chip.prio { font-weight:600; }
 
-        /* Subtask expand toggle on the card */
+        /* ── footer row: subtask toggle + icons ── */
+        .cats-funnel-card-footer { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:auto; }
+
+        /* ── subtask expand button ── */
         .cats-funnel-card-subbtn {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 8px;
-            background: #eff6ff;
-            color: #1d4ed8;
-            border: 1px solid #dbeafe;
-            border-radius: 14px;
-            font-size: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all .15s;
+            display:inline-flex; align-items:center; gap:4px; padding:2px 8px;
+            background:#f8fafc; color:#64748b; border:1px solid #e2e8f0;
+            border-radius:4px; font-size:11px; font-weight:500; cursor:pointer; transition:all .12s;
         }
-        .cats-funnel-card-subbtn:hover {
-            background: #dbeafe;
-        }
-        .cats-funnel-card-subbtn .caret {
-            display: inline-block;
-            transition: transform .15s;
-        }
-        .cats-funnel-card-subbtn.expanded .caret {
-            transform: rotate(90deg);
-        }
+        .cats-funnel-card-subbtn:hover { background:#eff6ff; color:#3b82f6; border-color:#bfdbfe; }
+        .cats-funnel-card-subbtn .caret { display:inline-block; transition:transform .12s; font-size:9px; }
+        .cats-funnel-card-subbtn.expanded .caret { transform:rotate(90deg); }
 
-        .cats-funnel-subs {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            margin-top: 4px;
-            padding-top: 8px;
-            border-top: 1px dashed #e2e8f0;
-        }
+        /* ── subtask list ── */
+        .cats-funnel-subs { display:flex; flex-direction:column; gap:2px; padding-top:6px; border-top:1px solid #f1f5f9; }
         .cats-funnel-subrow {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            padding: 5px 6px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #334155;
-            cursor: pointer;
-            transition: background .1s;
+            display:flex; align-items:center; gap:6px; padding:4px 6px;
+            border-radius:4px; font-size:12px; color:#334155; cursor:pointer; transition:background .1s;
         }
-        .cats-funnel-subrow:hover { background: #f1f5f9; }
-        .cats-funnel-subrow.done { color: #94a3b8; }
-        .cats-funnel-subrow.done .cats-funnel-subrow-title { text-decoration: line-through; }
+        .cats-funnel-subrow:hover { background:#f8fafc; }
+        .cats-funnel-subrow.done { color:#94a3b8; }
+        .cats-funnel-subrow.done .cats-funnel-subrow-title { text-decoration:line-through; }
         .cats-funnel-subrow-check {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            border: 2px solid #cbd5e1;
-            background: #fff;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: all .15s;
+            width:13px; height:13px; border-radius:50%; border:1.5px solid #cbd5e1;
+            background:#fff; cursor:pointer; display:flex; align-items:center;
+            justify-content:center; flex-shrink:0; transition:all .12s;
         }
-        .cats-funnel-subrow-check.done {
-            background: #10b981;
-            border-color: #10b981;
-        }
-        .cats-funnel-subrow-check.in-progress {
-            border-color: #3b82f6;
-            position: relative;
-        }
-        .cats-funnel-subrow-check.in-progress::after {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: #3b82f6;
-            border-radius: 50%;
-        }
-        .cats-funnel-subrow-title {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+        .cats-funnel-subrow-check.done { background:#10b981; border-color:#10b981; }
+        .cats-funnel-subrow-check.in-progress { border-color:#3b82f6; position:relative; }
+        .cats-funnel-subrow-check.in-progress::after { content:''; width:5px; height:5px; background:#3b82f6; border-radius:50%; }
+        .cats-funnel-subrow-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .cats-funnel-subadd {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 6px;
-            border-radius: 6px;
-            font-size: 11px;
-            color: #94a3b8;
-            cursor: pointer;
-            border: 1px dashed #cbd5e1;
-            background: transparent;
-            width: 100%;
-            text-align: left;
-            transition: all .15s;
+            display:flex; align-items:center; gap:4px; padding:4px 6px;
+            border-radius:4px; font-size:11px; color:#94a3b8; cursor:pointer;
+            border:1px dashed #e2e8f0; background:transparent; width:100%; text-align:left; transition:all .12s;
         }
-        .cats-funnel-subadd:hover {
-            color: #3b82f6;
-            border-color: #3b82f6;
-            background: #eff6ff;
-        }
+        .cats-funnel-subadd:hover { color:#3b82f6; border-color:#93c5fd; background:#f0f7ff; }
+        .cats-funnel-card-assignee { display:flex; align-items:center; }
 
         /* "Add task" dashed card at the end of the column */
         .cats-funnel-addcard {
@@ -1785,103 +1655,30 @@
             font-weight: 300;
         }
 
-        /* ---- View mode density modifiers ---- */
+        /* ══════════ View-mode density ══════════ */
 
-        /* MINIMAL: narrow columns (220px), tiny cards — only title + priority */
-        .cats-funnel-wrap.view-minimal .cats-funnel-group {
-            flex: 0 0 220px;
-            width: 220px;
-        }
-        /* ═══ MINIMAL: узкие колонки, однострочные карточки ═══ */
-        .cats-funnel-wrap.view-minimal .cats-funnel-group {
-            flex: 0 0 240px;
-            width: 240px;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-card {
-            padding: 4px 8px;
-            gap: 0;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-quick-add-label {
-            display: none;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-card-title {
-            font-size: 12px;
-            font-weight: 500;
-            line-height: 1.3;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-card-head {
-            align-items: center;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-card-check {
-            width: 14px;
-            height: 14px;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-body {
-            gap: 2px;
-            padding: 4px 6px 6px;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-header {
-            padding: 8px 10px;
-        }
-        .cats-funnel-wrap.view-minimal .cats-funnel-addcard {
-            padding: 4px;
-            font-size: 11px;
-        }
+        /* ── MINIMAL: compact single-line cards (Linear-style) ── */
+        .cats-funnel-wrap.view-minimal .cats-funnel-group { flex:0 0 260px; width:260px; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card { padding:5px 10px; gap:0; border-radius:6px; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-head { align-items:center; gap:6px; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-check { width:14px; height:14px; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-card-title { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-quick-add-label { display:none; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-body { gap:2px; padding:4px 6px 6px; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-header { padding:8px 10px; }
+        .cats-funnel-wrap.view-minimal .cats-funnel-addcard { padding:4px; font-size:11px; }
 
-        /* ═══ NORMAL: средние колонки, название+описание+дедлайн+аватар ═══ */
-        .cats-funnel-wrap.view-normal .cats-funnel-group {
-            flex: 0 0 320px;
-            width: 320px;
-        }
-        .cats-funnel-wrap.view-normal .cats-funnel-card {
-            padding: 10px 12px;
-            gap: 6px;
-        }
-        .cats-funnel-wrap.view-normal .cats-funnel-card-title {
-            font-size: 13px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        .cats-funnel-wrap.view-normal .cats-funnel-card-desc {
-            font-size: 12px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            color: var(--text-secondary, #64748b);
-        }
+        /* ── NORMAL: medium cards (Asana-style) ── */
+        .cats-funnel-wrap.view-normal .cats-funnel-group { flex:0 0 300px; width:300px; }
+        .cats-funnel-wrap.view-normal .cats-funnel-card { padding:10px 12px; gap:6px; }
+        .cats-funnel-wrap.view-normal .cats-funnel-card-title { font-size:13px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .cats-funnel-wrap.view-normal .cats-funnel-card-desc { font-size:12px; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; color:#64748b; }
 
-        /* ═══ DETAILED: колонки на всю ширину, но не шире 600px ═══ */
-        .cats-funnel-wrap.view-detailed {
-            flex-wrap: wrap;
-        }
-        .cats-funnel-wrap.view-detailed .cats-funnel-group {
-            flex: 1 1 420px;
-            min-width: 380px;
-            max-width: 600px;
-            width: auto;
-        }
-        .cats-funnel-wrap.view-detailed .cats-funnel-card {
-            padding: 12px 14px;
-            gap: 6px;
-        }
-        .cats-funnel-wrap.view-detailed .cats-funnel-card-title {
-            font-size: 14px;
-            font-weight: 600;
-        }
-        .cats-funnel-wrap.view-detailed .cats-funnel-card-desc {
-            font-size: 12.5px;
-            line-height: 1.4;
-        }
-        .cats-funnel-wrap.view-detailed .cats-funnel-card-meta {
-            flex-wrap: wrap;
-            gap: 4px;
-        }
+        /* ── DETAILED: wide cards (ClickUp-style) ── */
+        .cats-funnel-wrap.view-detailed .cats-funnel-group { flex:0 0 420px; width:420px; }
+        .cats-funnel-wrap.view-detailed .cats-funnel-card { padding:12px 14px; gap:8px; }
+        .cats-funnel-wrap.view-detailed .cats-funnel-card-title { font-size:14px; }
+        .cats-funnel-wrap.view-detailed .cats-funnel-card-desc { font-size:12px; line-height:1.45; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
 
         /* + Новая воронка — dashed column at the right end */
         .cats-funnel-addcol {
@@ -6259,245 +6056,169 @@ function _catFunnelCardHTML(t, secColor, secKey) {
     const prio = t.priority || 'medium';
     const vm = catsTreeState.viewMode || 'normal';
 
-    const checkClass = 'cats-funnel-card-check' +
-        (isDone ? ' done' : '') +
-        (inProgress ? ' in-progress' : '');
-    const checkIcon = isDone
-        ? '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>'
-        : '';
-    const nextStatus = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
-
+    const checkCls = 'cats-funnel-card-check' + (isDone ? ' done' : '') + (inProgress ? ' in-progress' : '');
+    const checkIcon = isDone ? '<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+    const nextSt = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
     const safeKey = (secKey || '').replace(/'/g, "\\'");
-    const isSelected = kanbanSelectMode && kanbanSelectedIds.has(t.id);
-    const cardOpen = '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + (isSelected ? ' selected' : '') + '" ' +
-            'data-task-id="' + t.id + '" data-from-key="' + safeKey + '" ' +
-            'draggable="true" ' +
-            'ondragstart="catCardDragStart(event,' + t.id + ',\'' + safeKey + '\')" ' +
-            'ondragend="catCardDragEnd(event)" ' +
-            'onclick="' + (kanbanSelectMode ? 'event.stopPropagation();toggleKanbanSelect(' + t.id + ')' : 'showTaskDetail(' + t.id + ')') + '">';
-    const selectCheckbox = kanbanSelectMode
-        ? '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation();toggleKanbanSelect(' + t.id + ')" style="width:16px;height:16px;cursor:pointer;accent-color:#3b82f6;flex-shrink:0;">'
-        : '';
-    const checkBtn = '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Сменить статус">' + checkIcon + '</div>';
+    const isSel = kanbanSelectMode && kanbanSelectedIds.has(t.id);
 
-    // ═══ MINIMAL: только чекбокс + название + дедлайн-точка + подзадачи (число) ═══
+    const cardOpen = '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + (isSel ? ' selected' : '') + '" ' +
+        'data-task-id="' + t.id + '" data-from-key="' + safeKey + '" draggable="true" ' +
+        'ondragstart="catCardDragStart(event,' + t.id + ',\'' + safeKey + '\')" ondragend="catCardDragEnd(event)" ' +
+        'onclick="' + (kanbanSelectMode ? 'event.stopPropagation();toggleKanbanSelect(' + t.id + ')' : 'showTaskDetail(' + t.id + ')') + '">';
+    const selCb = kanbanSelectMode
+        ? '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onclick="event.stopPropagation();toggleKanbanSelect(' + t.id + ')" style="width:14px;height:14px;cursor:pointer;accent-color:#3b82f6;flex-shrink:0;">'
+        : '';
+    const checkBtn = '<div class="' + checkCls + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextSt + '\')" title="Сменить статус">' + checkIcon + '</div>';
+
+    // helpers
+    const subs = allTasks.filter(s => s.parent_task_id === t.id);
+    const hasSubs = subs.length > 0;
+    const sdone = subs.filter(s => s.status === 'done').length;
+    const prioColors = {critical:'#dc2626',urgent:'#dc2626',high:'#f97316',medium:'#3b82f6',low:'#94a3b8'};
+    const prioIcons = {critical:'🔴',urgent:'🔴',high:'🟠',medium:'🔵',low:'⚪'};
+
+    // assignee avatar (always small circle, rightmost)
+    let avatarHt = '';
+    if (t.assigned_to) {
+        const u = (allUsers || []).find(u => u.id === t.assigned_to);
+        if (u) avatarHt = '<div class="cats-funnel-card-avatar">' + avatarHTML(u.full_name, null, vm === 'detailed' ? 26 : 22, u.avatar) + '</div>';
+    }
+
+    // deadline text with time
+    function dlText() {
+        if (!t.deadline) return '';
+        const hasTime = t.deadline.includes('T') && !t.deadline.endsWith('T00:00');
+        return formatDate(t.deadline) + (hasTime ? ' ' + formatTime(t.deadline) : '');
+    }
+
+    // ══════ MINIMAL ══════
+    // Single line: [checkbox] [check] title ... deadline-dot subtask-count avatar
     if (vm === 'minimal') {
-        let rightBits = '';
-        // Подзадачи — компактный счётчик
-        const subs = allTasks.filter(s => s.parent_task_id === t.id);
-        if (subs.length > 0) {
-            const sdone = subs.filter(s => s.status === 'done').length;
-            rightBits += '<span class="cats-funnel-card-chip" style="font-size:10px;padding:1px 5px;margin-left:auto;flex-shrink:0;">' + sdone + '/' + subs.length + '</span>';
-        }
-        // Дедлайн — только точка-индикатор
+        let right = '';
+        if (hasSubs) right += '<span style="font-size:10px;color:#64748b;flex-shrink:0;margin-left:auto;">' + sdone + '/' + subs.length + '</span>';
         if (t.deadline) {
             const info = deadlineInfo(t.deadline);
-            const dotColor = info && info.overdue && !isDone ? 'var(--danger,#ef4444)' : 'var(--warning,#f59e0b)';
-            rightBits += '<span style="width:7px;height:7px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-left:' + (subs.length > 0 ? '4px' : 'auto') + ';" title="' + formatDate(t.deadline) + '"></span>';
+            const c = info && info.overdue && !isDone ? '#dc2626' : '#f59e0b';
+            right += '<span style="width:6px;height:6px;border-radius:50%;background:' + c + ';flex-shrink:0;" title="' + dlText() + '"></span>';
         }
+        if (avatarHt) right += avatarHt;
         return cardOpen +
-            '<div class="cats-funnel-card-head" style="gap:6px;">' +
-                selectCheckbox +
-                checkBtn +
+            '<div class="cats-funnel-card-head">' + selCb + checkBtn +
                 '<div class="cats-funnel-card-title" style="flex:1;min-width:0;">' + _catsEscape(t.title) + '</div>' +
-                rightBits +
+                right +
             '</div>' +
         '</div>';
     }
 
-    // ═══ NORMAL: название + описание + приоритет + дедлайн + отдел + статус + аватар + подзадачи ═══
+    // ══════ NORMAL ══════
+    // Row 1: [checkbox] [check] title                      avatar
+    // Row 2: description (1 line clamp)
+    // Row 3: chips — priority · deadline · dept · subtasks
+    // Row 4: footer — subtask expand btn
     if (vm === 'normal') {
-        const descHtml = (t.description && t.description.trim())
-            ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
-            : '';
+        const desc = (t.description && t.description.trim())
+            ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>' : '';
 
-        const meta = [];
-        // Приоритет
-        const nPrioLabels = {critical:'🔴 Крит.', high:'🟠 Выс.', medium:'🟡 Сред.', low:'🟢 Низк.'};
-        const nPrioColors = {critical:'#ef4444', high:'#f97316', medium:'#eab308', low:'#22c55e'};
-        meta.push('<span class="cats-funnel-card-chip" style="background:' + (nPrioColors[prio]||'#64748b') + '22;color:' + (nPrioColors[prio]||'#64748b') + ';font-weight:600;">' + (nPrioLabels[prio]||prio) + '</span>');
-        // Статус
-        const nStatusLabels = {new:'Новая', in_progress:'В работе', review:'На проверке', done:'Готово'};
-        const nStatusColors = {new:'#3b82f6', in_progress:'#f59e0b', review:'#8b5cf6', done:'#22c55e'};
-        meta.push('<span class="cats-funnel-card-chip" style="background:' + (nStatusColors[status]||'#64748b') + '22;color:' + (nStatusColors[status]||'#64748b') + '">' + (nStatusLabels[status]||status) + '</span>');
-        // Дедлайн
+        const chips = [];
+        // priority chip
+        chips.push('<span class="cats-funnel-card-chip prio" style="background:' + (prioColors[prio]||'#64748b') + '18;color:' + (prioColors[prio]||'#64748b') + '">' + (prioIcons[prio]||'') + '</span>');
+        // deadline
         if (t.deadline) {
             const info = deadlineInfo(t.deadline);
             const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
-            meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
+            chips.push('<span class="' + cls + '">📅 ' + dlText() + '</span>');
         }
-        // Дата создания
-        if (t.created_at) {
-            meta.push('<span class="cats-funnel-card-chip" style="opacity:0.7;">🕐 ' + formatDate(t.created_at) + '</span>');
-        }
-        // Отдел
+        // department
         if (t.department_id) {
-            const dept = (allDepartments || []).find(d => d.id === t.department_id);
-            if (dept) meta.push('<span class="cats-funnel-card-chip" style="background:' + (dept.color || '#64748b') + '22;color:' + (dept.color || '#64748b') + '">' + _catsEscape(dept.name) + '</span>');
+            const d = (allDepartments||[]).find(d=>d.id===t.department_id);
+            if (d) chips.push('<span class="cats-funnel-card-chip" style="background:' + (d.color||'#64748b') + '14;color:' + (d.color||'#64748b') + '">' + _catsEscape(d.name) + '</span>');
         }
-        // Категории (до 2)
-        if (t.categories && t.categories.length > 0) {
-            t.categories.slice(0, 2).forEach(c => {
-                meta.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
-            });
-        }
-        // Подзадачи
-        const subs = allTasks.filter(s => s.parent_task_id === t.id);
-        const hasSubs = subs.length > 0;
-        const sdone = subs.filter(s => s.status === 'done').length;
+        // subtasks count
+        if (hasSubs) chips.push('<span class="cats-funnel-card-chip">✓ ' + sdone + '/' + subs.length + '</span>');
+
+        // subtask expand
+        let subBtn = '';
         if (hasSubs) {
-            meta.push('<span class="cats-funnel-card-chip">✓ ' + sdone + '/' + subs.length + '</span>');
+            const exp = catsTreeState.expandedCardIds.has(t.id) ? ' expanded' : '';
+            subBtn = '<button class="cats-funnel-card-subbtn' + exp + '" onclick="event.stopPropagation();toggleCatsCardExpand(' + t.id + ')"><span class="caret">▸</span> ' + sdone + '/' + subs.length + '</button>';
         }
-
-        // Аватар + имя исполнителя
-        let assigneeHtml = '';
-        if (t.assigned_to) {
-            const user = (allUsers || []).find(u => u.id === t.assigned_to);
-            if (user) {
-                assigneeHtml = '<div class="cats-funnel-card-assignee" style="gap:5px;align-items:center;">' +
-                    avatarHTML(user.full_name, null, 20, user.avatar) +
-                    '<span style="font-size:11px;color:var(--text-secondary,#94a3b8);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _catsEscape(user.full_name) + '</span>' +
-                '</div>';
-            }
-        }
-
-        // Кнопка раскрытия подзадач
-        let subBtnHtml = '';
-        if (hasSubs) {
-            const expandedCls = catsTreeState.expandedCardIds.has(t.id) ? ' expanded' : '';
-            subBtnHtml =
-                '<button class="cats-funnel-card-subbtn' + expandedCls + '" ' +
-                    'onclick="event.stopPropagation();toggleCatsCardExpand(' + t.id + ')" ' +
-                    'title="' + (catsTreeState.expandedCardIds.has(t.id) ? 'Свернуть подзадачи' : 'Показать подзадачи') + '">' +
-                    '<span class="caret">▸</span>' +
-                    '<span>' + sdone + '/' + subs.length + ' подзадач</span>' +
-                '</button>';
-        }
-
-        // Подзадачи развёрнутые
         let subsHtml = '';
         if (catsTreeState.expandedCardIds.has(t.id) && hasSubs) {
-            const rowsHtml = subs.map(s => _catFunnelSubRowHTML(s)).join('');
-            subsHtml = '<div class="cats-funnel-subs">' + rowsHtml + '</div>';
-        }
-
-        let footerHtml = '';
-        if (assigneeHtml || subBtnHtml) {
-            footerHtml = '<div class="cats-funnel-card-footer">' +
-                (subBtnHtml || '<span></span>') +
-                (assigneeHtml || '') +
-            '</div>';
+            subsHtml = '<div class="cats-funnel-subs">' + subs.map(s=>_catFunnelSubRowHTML(s)).join('') + '</div>';
         }
 
         return cardOpen +
-            '<div class="cats-funnel-card-head">' +
-                selectCheckbox +
-                checkBtn +
+            '<div class="cats-funnel-card-head">' + selCb + checkBtn +
                 '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
+                avatarHt +
             '</div>' +
-            descHtml +
-            (meta.length > 0 ? '<div class="cats-funnel-card-meta" style="flex-wrap:wrap;">' + meta.join('') + '</div>' : '') +
-            footerHtml +
+            desc +
+            '<div class="cats-funnel-card-meta">' + chips.join('') + '</div>' +
+            (subBtn ? '<div class="cats-funnel-card-footer">' + subBtn + '</div>' : '') +
             subsHtml +
         '</div>';
     }
 
-    // ═══ DETAILED: всё — полное описание, категории, отдел, подзадачи развёрнуты, аватар, приоритет, даты ═══
-    const descHtml = (t.description && t.description.trim())
-        ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
-        : '';
+    // ══════ DETAILED ══════
+    // Row 1: [checkbox] [check] title                      avatar+name
+    // Row 2: full description (3 line clamp)
+    // Row 3: chips — priority · status · deadline(+time) · dept · categories · subtask count · created
+    // Row 4: subtask list (always expanded) + add subtask
+    // Row 5: creator line
+    const desc = (t.description && t.description.trim())
+        ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>' : '';
 
-    const meta = [];
-    // Приоритет
-    const prioLabels = {critical:'🔴 Критический', high:'🟠 Высокий', medium:'🟡 Средний', low:'🟢 Низкий'};
-    const prioColors = {critical:'#ef4444', high:'#f97316', medium:'#eab308', low:'#22c55e'};
-    meta.push('<span class="cats-funnel-card-chip" style="background:' + (prioColors[prio]||'#64748b') + '22;color:' + (prioColors[prio]||'#64748b') + ';font-weight:600;">' + (prioLabels[prio]||prio) + '</span>');
-    // Статус
-    const statusLabels = {new:'Новая', in_progress:'В работе', review:'На проверке', done:'Готово'};
-    const statusColors = {new:'#3b82f6', in_progress:'#f59e0b', review:'#8b5cf6', done:'#22c55e'};
-    meta.push('<span class="cats-funnel-card-chip" style="background:' + (statusColors[status]||'#64748b') + '22;color:' + (statusColors[status]||'#64748b') + '">' + (statusLabels[status]||status) + '</span>');
+    const chips = [];
+    const prioLabels = {critical:'Критический',high:'Высокий',medium:'Средний',low:'Низкий'};
+    chips.push('<span class="cats-funnel-card-chip prio" style="background:' + (prioColors[prio]||'#64748b') + '18;color:' + (prioColors[prio]||'#64748b') + '">' + (prioIcons[prio]||'') + ' ' + (prioLabels[prio]||prio) + '</span>');
+    const stLabels = {new:'Новая',in_progress:'В работе',review:'Проверка',done:'Готово'};
+    const stColors = {new:'#3b82f6',in_progress:'#f59e0b',review:'#8b5cf6',done:'#22c55e'};
+    chips.push('<span class="cats-funnel-card-chip" style="background:' + (stColors[status]||'#64748b') + '18;color:' + (stColors[status]||'#64748b') + '">' + (stLabels[status]||status) + '</span>');
     if (t.deadline) {
         const info = deadlineInfo(t.deadline);
         const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
-        meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
-    }
-    if (t.categories && t.categories.length > 0) {
-        t.categories.forEach(c => {
-            meta.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
-        });
+        chips.push('<span class="' + cls + '">📅 ' + dlText() + '</span>');
     }
     if (t.department_id) {
-        const dept = (allDepartments || []).find(d => d.id === t.department_id);
-        if (dept) meta.push('<span class="cats-funnel-card-chip" style="background:' + (dept.color || '#64748b') + '22;color:' + (dept.color || '#64748b') + '">' + _catsEscape(dept.name) + '</span>');
+        const d = (allDepartments||[]).find(d=>d.id===t.department_id);
+        if (d) chips.push('<span class="cats-funnel-card-chip" style="background:' + (d.color||'#64748b') + '14;color:' + (d.color||'#64748b') + '">' + _catsEscape(d.name) + '</span>');
     }
-
-    const subs = allTasks.filter(s => s.parent_task_id === t.id);
-    const hasSubs = subs.length > 0;
-    const sdone = subs.filter(s => s.status === 'done').length;
-    if (hasSubs) {
-        meta.push('<span class="cats-funnel-card-chip">✓ ' + sdone + '/' + subs.length + ' подзадач</span>');
+    if (t.categories && t.categories.length) {
+        t.categories.forEach(c => {
+            chips.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '14;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
+        });
     }
+    if (hasSubs) chips.push('<span class="cats-funnel-card-chip">✓ ' + sdone + '/' + subs.length + '</span>');
+    if (t.created_at) chips.push('<span class="cats-funnel-card-chip" style="color:#94a3b8;">🕐 ' + formatDate(t.created_at) + '</span>');
 
-    // Дата создания
-    if (t.created_at) {
-        meta.push('<span class="cats-funnel-card-chip" style="opacity:0.7;">🕐 Создана: ' + formatDate(t.created_at) + '</span>');
-    }
-
-    // Исполнитель — полное имя + аватар
-    let assigneeHtml = '';
+    // assignee with name
+    let assigneeRow = '';
     if (t.assigned_to) {
-        const user = (allUsers || []).find(u => u.id === t.assigned_to);
-        if (user) {
-            assigneeHtml = '<div class="cats-funnel-card-assignee" style="gap:6px;align-items:center;">' +
-                avatarHTML(user.full_name, null, 24, user.avatar) +
-                '<span style="font-size:12px;color:var(--text-secondary,#94a3b8);">' + _catsEscape(user.full_name) + '</span>' +
-            '</div>';
-        }
+        const u = (allUsers||[]).find(u=>u.id===t.assigned_to);
+        if (u) assigneeRow = '<div style="display:flex;align-items:center;gap:6px;">' + avatarHTML(u.full_name,null,26,u.avatar) + '<span style="font-size:12px;color:#475569;font-weight:500;">' + _catsEscape(u.full_name) + '</span></div>';
     }
-
-    // Создатель
-    let creatorHtml = '';
+    // creator
+    let creatorRow = '';
     if (t.created_by) {
-        const creator = (allUsers || []).find(u => u.id === t.created_by);
-        if (creator) {
-            creatorHtml = '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary,#94a3b8);margin-top:2px;">' +
-                '<span>Автор:</span>' +
-                avatarHTML(creator.full_name, null, 18, creator.avatar) +
-                '<span>' + _catsEscape(creator.full_name) + '</span>' +
-            '</div>';
-        }
+        const c = (allUsers||[]).find(u=>u.id===t.created_by);
+        if (c) creatorRow = '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#94a3b8;"><span>Автор:</span>' + avatarHTML(c.full_name,null,18,c.avatar) + '<span>' + _catsEscape(c.full_name) + '</span></div>';
     }
 
-    // Подзадачи — всегда развёрнуты в detailed
-    let subsHtml = '';
-    const rowsHtml = hasSubs ? subs.map(s => _catFunnelSubRowHTML(s)).join('') : '';
-    const addBtn =
-        '<button class="cats-funnel-subadd" onclick="event.stopPropagation();showTaskDetail(' + t.id + ')" title="Открыть задачу и добавить подзадачу">' +
-            '<span>+</span><span>Добавить подзадачу</span>' +
-        '</button>';
-    subsHtml = '<div class="cats-funnel-subs">' + rowsHtml + addBtn + '</div>';
-
-    let footerHtml = '<div class="cats-funnel-card-footer" style="flex-direction:column;align-items:stretch;gap:4px;">' +
-        (assigneeHtml || '') +
-        (creatorHtml || '') +
-    '</div>';
+    // subtasks — always open
+    const subsRows = hasSubs ? subs.map(s=>_catFunnelSubRowHTML(s)).join('') : '';
+    const addBtn = '<button class="cats-funnel-subadd" onclick="event.stopPropagation();showTaskDetail(' + t.id + ')"><span>+</span><span>Подзадача</span></button>';
+    const subsHtml = '<div class="cats-funnel-subs">' + subsRows + addBtn + '</div>';
 
     return cardOpen +
-        '<div class="cats-funnel-card-head">' +
-            selectCheckbox +
-            checkBtn +
+        '<div class="cats-funnel-card-head">' + selCb + checkBtn +
             '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
+            assigneeRow +
         '</div>' +
-        '<div style="display:flex;gap:12px;align-items:flex-start;">' +
-            '<div style="flex:1;min-width:0;">' +
-                descHtml +
-                (meta.length > 0 ? '<div class="cats-funnel-card-meta" style="flex-wrap:wrap;">' + meta.join('') + '</div>' : '') +
-                footerHtml +
-            '</div>' +
-            '<div style="flex:0 0 auto;min-width:140px;max-width:200px;border-left:1px solid #e5e7eb;padding-left:10px;">' +
-                subsHtml +
-            '</div>' +
-        '</div>' +
+        desc +
+        '<div class="cats-funnel-card-meta">' + chips.join('') + '</div>' +
+        subsHtml +
+        (creatorRow ? '<div style="padding-top:4px;border-top:1px solid #f1f5f9;">' + creatorRow + '</div>' : '') +
     '</div>';
 }
 
