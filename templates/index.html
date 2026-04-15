@@ -148,59 +148,54 @@
             font-size: 18px;
         }
 
-        /* Collapse toggle — clean rail tab attached to the sidebar's right edge */
+        /* ── Кнопка сворачивания сайдбара — круглая, всегда видна, крупная ── */
         .sidebar-collapse-btn {
             position: absolute;
             top: 50%;
-            right: -14px;
+            right: -20px;
             transform: translateY(-50%);
-            width: 28px;
-            height: 56px;
+            width: 40px;
+            height: 40px;
             padding: 0;
-            border: none;
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            border-radius: 0 14px 14px 0;
-            box-shadow: 2px 4px 14px rgba(37, 99, 235, 0.28);
-            color: #fff;
+            border: 2px solid rgba(255,255,255,0.15);
+            background: var(--bg-dark, #0f172a);
+            border-radius: 50%;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.25), 0 0 0 3px rgba(59,130,246,0.15);
+            color: rgba(255,255,255,0.85);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 200;
-            opacity: 0;
-            transition: opacity .2s ease, right .2s ease, box-shadow .2s ease, background .2s ease;
-        }
-        /* Reveal on sidebar hover — unobtrusive when not needed */
-        .sidebar:hover .sidebar-collapse-btn,
-        .sidebar-collapse-btn:hover,
-        .sidebar-collapse-btn:focus-visible {
             opacity: 1;
-            right: -18px;
+            transition: background .2s ease, box-shadow .2s ease, border-color .2s ease, transform .15s ease;
         }
         .sidebar-collapse-btn:hover {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            box-shadow: 3px 6px 18px rgba(37, 99, 235, 0.42);
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-color: #3b82f6;
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(59,130,246,0.45), 0 0 0 3px rgba(59,130,246,0.2);
         }
         .sidebar-collapse-btn:active {
-            transform: translateY(-50%) scale(0.94);
+            transform: translateY(-50%) scale(0.88);
         }
-        /* Keep the button always visible when the sidebar is collapsed,
-           so the user has a clear way to expand it back */
+        .sidebar-collapse-btn:focus-visible {
+            outline: 2.5px solid #3b82f6;
+            outline-offset: 3px;
+        }
         .sidebar.icon-only .sidebar-collapse-btn {
-            opacity: 1;
-            right: -18px;
+            right: -20px;
         }
         .sidebar-collapse-btn svg {
-            width: 14px;
-            height: 14px;
+            width: 18px;
+            height: 18px;
             stroke: currentColor;
             stroke-width: 2.5;
             fill: none;
             stroke-linecap: round;
             stroke-linejoin: round;
-            transition: transform .25s ease;
+            transition: transform .3s cubic-bezier(.4,0,.2,1);
         }
-        /* Chevron flips when the sidebar is collapsed */
         .sidebar.icon-only .sidebar-collapse-btn svg {
             transform: rotate(180deg);
         }
@@ -2362,29 +2357,32 @@
         }
         #splashScreen.active { opacity: 1; pointer-events: all; }
 
-        /* Video background */
-        #splashVideo {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            min-width: 100%; min-height: 100%;
-            width: auto; height: auto;
-            object-fit: cover;
-        }
-
-        /* Dark overlay for readability */
-        .splash-overlay {
+        /* ── Анимированный градиентный фон вместо видео ── */
+        .splash-bg {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(
-                180deg,
-                rgba(0,0,0,0.3) 0%,
-                rgba(0,0,0,0.15) 40%,
-                rgba(0,0,0,0.15) 60%,
-                rgba(0,0,0,0.6) 100%
-            );
-            z-index: 1;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #0f172a 50%, #1a1a2e 75%, #0f172a 100%);
+            background-size: 400% 400%;
+            animation: splashGradient 8s ease infinite;
         }
+        .splash-bg::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 40%, rgba(59,130,246,0.15) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 80% at 80% 60%, rgba(139,92,246,0.12) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 50% at 50% 80%, rgba(239,68,68,0.08) 0%, transparent 70%);
+        }
+        @keyframes splashGradient {
+            0%, 100% { background-position: 0% 50%; }
+            25% { background-position: 100% 0%; }
+            50% { background-position: 100% 100%; }
+            75% { background-position: 0% 100%; }
+        }
+
+        /* Оверлей больше не нужен — скрыт */
+        .splash-overlay { display: none; }
 
         /* Bottom UI */
         .splash-ui {
@@ -2393,7 +2391,7 @@
             padding: 40px 0 44px;
             text-align: center;
             z-index: 2;
-            background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 60%, transparent 100%);
+            background: linear-gradient(0deg, rgba(0,0,0,0.4) 0%, transparent 100%);
         }
         .splash-ui-logo {
             width: 44px; height: 44px;
@@ -3651,10 +3649,7 @@
 <body>
     <!-- SPLASH LOADING SCREEN -->
     <div id="splashScreen">
-        <video id="splashVideo" autoplay muted loop playsinline webkit-playsinline>
-            <source src="/static/splash.mp4" type="video/mp4">
-        </video>
-        <div class="splash-overlay"></div>
+        <div class="splash-bg"></div>
         <div class="splash-ui">
             <img src="/static/helmet-white.png" class="splash-ui-logo" alt="">
             <div class="splash-ui-name">Dudarev Motorsport</div>
@@ -4952,8 +4947,8 @@ function setBtnLoading(btn, loading, originalText) {
 }
 
 // =================================
-// SPLASH SCREEN — VIDEO BACKGROUND
-// =================================
+// SPLASH SCREEN — ANIMATED BACKGROUND (без видео)
+// =================================================
 const splashTips = ['Прогрев шин...', 'Выход на трассу...', 'Проверка телеметрии...', 'Настройка болида...', 'Подключение к пит-стопу...', 'Загрузка данных...'];
 let splashInterval = null;
 let splashShownAt = 0;
@@ -4961,19 +4956,8 @@ let splashShownAt = 0;
 function showSplash() {
     const splash = document.getElementById('splashScreen');
     const tipEl = document.getElementById('splashTip');
-    const video = document.getElementById('splashVideo');
     splashShownAt = Date.now();
     splash.classList.add('active');
-
-    // Start video from beginning (with Safari fallback)
-    if (video) {
-        video.currentTime = 0;
-        video.play().catch(() => {
-            // If video fails to play (Safari autoplay policy), skip splash
-            console.log('Video autoplay failed, skipping splash');
-            hideSplash();
-        });
-    }
 
     // Tip text rotation
     let tipIdx = 0;
@@ -4991,7 +4975,6 @@ function showSplash() {
 function hideSplash() {
     return new Promise(resolve => {
         const splash = document.getElementById('splashScreen');
-        const video = document.getElementById('splashVideo');
         const elapsed = Date.now() - splashShownAt;
         const minTime = 2500;
         const delay = Math.max(0, minTime - elapsed);
@@ -4999,7 +4982,6 @@ function hideSplash() {
             if (splashInterval) { clearInterval(splashInterval); splashInterval = null; }
             splash.classList.remove('active');
             setTimeout(() => {
-                if (video) video.pause();
                 resolve();
             }, 500);
         }, delay);
