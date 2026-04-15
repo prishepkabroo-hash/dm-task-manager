@@ -343,19 +343,22 @@ def init_db():
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE user_stats ADD COLUMN car_override TEXT DEFAULT ''")
 
-    # Migrate: add switch_car permission if missing
-    existing_perms = [r[0] for r in c.execute("SELECT DISTINCT permission FROM role_permissions").fetchall()]
-    if 'switch_car' not in existing_perms:
-        c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', 'switch_car', 1)")
-        c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', 'switch_car', 0)")
-        c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', 'switch_car', 0)")
+    # Migrate: add switch_car permission if missing (table may not exist yet on fresh DB)
+    try:
+        existing_perms = [r[0] for r in c.execute("SELECT DISTINCT permission FROM role_permissions").fetchall()]
+        if 'switch_car' not in existing_perms:
+            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', 'switch_car', 1)")
+            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', 'switch_car', 0)")
+            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', 'switch_car', 0)")
 
-    # Migrate: add new permissions if missing
-    for perm, admin_val in [('manage_kanban', 1), ('view_all_departments', 1), ('view_feedback', 1)]:
-        if perm not in existing_perms:
-            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', ?, ?)", (perm, admin_val))
-            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', ?, 0)", (perm,))
-            c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', ?, 0)", (perm,))
+        # Migrate: add new permissions if missing
+        for perm, admin_val in [('manage_kanban', 1), ('view_all_departments', 1), ('view_feedback', 1)]:
+            if perm not in existing_perms:
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', ?, ?)", (perm, admin_val))
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', ?, 0)", (perm,))
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', ?, 0)", (perm,))
+    except sqlite3.OperationalError:
+        pass  # table will be created below and seeded with defaults
 
     # Migrate: add head_user_id column to departments if missing
     try:
