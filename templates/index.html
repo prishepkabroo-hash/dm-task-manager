@@ -1555,10 +1555,16 @@
             box-shadow: 0 16px 40px rgba(15,23,42,0.22);
             cursor: grabbing;
         }
+        .cats-funnel-card.priority-critical { border-left-color: #ef4444; }
         .cats-funnel-card.priority-urgent { border-left-color: #ef4444; }
-        .cats-funnel-card.priority-high { border-left-color: #f59e0b; }
+        .cats-funnel-card.priority-high { border-left-color: #f97316; }
         .cats-funnel-card.priority-medium { border-left-color: #3b82f6; }
-        .cats-funnel-card.priority-low { border-left-color: #94a3b8; }
+        .cats-funnel-card.priority-low { border-left-color: #22c55e; }
+        .cats-funnel-card.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
+        }
         .cats-funnel-card.done {
             background: #f8fafc;
             opacity: 0.75;
@@ -1856,14 +1862,20 @@
             width: 400px;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card {
-            padding: 14px 16px;
-            gap: 10px;
+            padding: 12px 14px;
+            gap: 6px;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card-title {
             font-size: 14px;
+            font-weight: 600;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card-desc {
             font-size: 12.5px;
+            line-height: 1.4;
+        }
+        .cats-funnel-wrap.view-detailed .cats-funnel-card-meta {
+            flex-wrap: wrap;
+            gap: 4px;
         }
 
         /* + Новая воронка — dashed column at the right end */
@@ -5698,12 +5710,12 @@ var catsFilterState = {
 
 function toggleCatsFilterPanel() {
     catsFilterState._open = !catsFilterState._open;
-    renderFunnel();
+    renderKanban();
 }
 
 function setCatsFilter(key, value) {
     catsFilterState[key] = value;
-    renderFunnel();
+    renderKanban();
 }
 
 function resetCatsFilters() {
@@ -5712,7 +5724,7 @@ function resetCatsFilters() {
     catsFilterState.priority = null;
     catsFilterState.overdue = false;
     catsFilterState.search = '';
-    renderFunnel();
+    renderKanban();
 }
 
 function _catsActiveFilterCount() {
@@ -6251,12 +6263,16 @@ function _catFunnelCardHTML(t, secColor, secKey) {
     const nextStatus = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
 
     const safeKey = (secKey || '').replace(/'/g, "\\'");
-    const cardOpen = '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + '" ' +
+    const isSelected = kanbanSelectMode && kanbanSelectedIds.has(t.id);
+    const cardOpen = '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + (isSelected ? ' selected' : '') + '" ' +
             'data-task-id="' + t.id + '" data-from-key="' + safeKey + '" ' +
             'draggable="true" ' +
             'ondragstart="catCardDragStart(event,' + t.id + ',\'' + safeKey + '\')" ' +
             'ondragend="catCardDragEnd(event)" ' +
-            'onclick="showTaskDetail(' + t.id + ')">';
+            'onclick="' + (kanbanSelectMode ? 'event.stopPropagation();toggleKanbanSelect(' + t.id + ')' : 'showTaskDetail(' + t.id + ')') + '">';
+    const selectCheckbox = kanbanSelectMode
+        ? '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation();toggleKanbanSelect(' + t.id + ')" style="width:16px;height:16px;cursor:pointer;accent-color:#3b82f6;flex-shrink:0;">'
+        : '';
     const checkBtn = '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Сменить статус">' + checkIcon + '</div>';
 
     // ═══ MINIMAL: только чекбокс + название + дедлайн-точка + подзадачи (число) ═══
@@ -6276,6 +6292,7 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         }
         return cardOpen +
             '<div class="cats-funnel-card-head" style="gap:6px;">' +
+                selectCheckbox +
                 checkBtn +
                 '<div class="cats-funnel-card-title" style="flex:1;min-width:0;">' + _catsEscape(t.title) + '</div>' +
                 rightBits +
@@ -6283,7 +6300,7 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         '</div>';
     }
 
-    // ═══ NORMAL: название + описание (2 строки) + дедлайн + аватар + подзадачи-кнопка ═══
+    // ═══ NORMAL: название + описание + дедлайн + отдел + аватар + подзадачи ═══
     if (vm === 'normal') {
         const descHtml = (t.description && t.description.trim())
             ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
@@ -6295,7 +6312,12 @@ function _catFunnelCardHTML(t, secColor, secKey) {
             const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
             meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
         }
-        // Краткий счётчик подзадач как чип
+        // Отдел
+        if (t.department_id) {
+            const dept = (allDepartments || []).find(d => d.id === t.department_id);
+            if (dept) meta.push('<span class="cats-funnel-card-chip" style="background:' + (dept.color || '#64748b') + '22;color:' + (dept.color || '#64748b') + '">' + _catsEscape(dept.name) + '</span>');
+        }
+        // Подзадачи
         const subs = allTasks.filter(s => s.parent_task_id === t.id);
         const hasSubs = subs.length > 0;
         const sdone = subs.filter(s => s.status === 'done').length;
@@ -6342,6 +6364,7 @@ function _catFunnelCardHTML(t, secColor, secKey) {
 
         return cardOpen +
             '<div class="cats-funnel-card-head">' +
+                selectCheckbox +
                 checkBtn +
                 '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
             '</div>' +
@@ -6352,25 +6375,33 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         '</div>';
     }
 
-    // ═══ DETAILED: всё — полное описание, категории, отдел, подзадачи развёрнуты, аватар ═══
+    // ═══ DETAILED: всё — полное описание, категории, отдел, подзадачи развёрнуты, аватар, приоритет, даты ═══
     const descHtml = (t.description && t.description.trim())
         ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
         : '';
 
     const meta = [];
+    // Приоритет
+    const prioLabels = {critical:'🔴 Критический', high:'🟠 Высокий', medium:'🟡 Средний', low:'🟢 Низкий'};
+    const prioColors = {critical:'#ef4444', high:'#f97316', medium:'#eab308', low:'#22c55e'};
+    meta.push('<span class="cats-funnel-card-chip" style="background:' + (prioColors[prio]||'#64748b') + '22;color:' + (prioColors[prio]||'#64748b') + ';font-weight:600;">' + (prioLabels[prio]||prio) + '</span>');
+    // Статус
+    const statusLabels = {new:'Новая', in_progress:'В работе', review:'На проверке', done:'Готово'};
+    const statusColors = {new:'#3b82f6', in_progress:'#f59e0b', review:'#8b5cf6', done:'#22c55e'};
+    meta.push('<span class="cats-funnel-card-chip" style="background:' + (statusColors[status]||'#64748b') + '22;color:' + (statusColors[status]||'#64748b') + '">' + (statusLabels[status]||status) + '</span>');
     if (t.deadline) {
         const info = deadlineInfo(t.deadline);
         const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
         meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
     }
     if (t.categories && t.categories.length > 0) {
-        t.categories.slice(0, 3).forEach(c => {
+        t.categories.forEach(c => {
             meta.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
         });
     }
     if (t.department_id) {
         const dept = (allDepartments || []).find(d => d.id === t.department_id);
-        if (dept) meta.push('<span class="cats-funnel-card-chip">' + _catsEscape(dept.name) + '</span>');
+        if (dept) meta.push('<span class="cats-funnel-card-chip" style="background:' + (dept.color || '#64748b') + '22;color:' + (dept.color || '#64748b') + '">' + _catsEscape(dept.name) + '</span>');
     }
 
     const subs = allTasks.filter(s => s.parent_task_id === t.id);
@@ -6380,11 +6411,33 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         meta.push('<span class="cats-funnel-card-chip">✓ ' + sdone + '/' + subs.length + ' подзадач</span>');
     }
 
+    // Дата создания
+    if (t.created_at) {
+        meta.push('<span class="cats-funnel-card-chip" style="opacity:0.7;">🕐 Создана: ' + formatDate(t.created_at) + '</span>');
+    }
+
+    // Исполнитель — полное имя + аватар
     let assigneeHtml = '';
     if (t.assigned_to) {
         const user = (allUsers || []).find(u => u.id === t.assigned_to);
         if (user) {
-            assigneeHtml = '<div class="cats-funnel-card-assignee">' + avatarHTML(user.full_name, null, 22, user.avatar) + '</div>';
+            assigneeHtml = '<div class="cats-funnel-card-assignee" style="gap:6px;align-items:center;">' +
+                avatarHTML(user.full_name, null, 24, user.avatar) +
+                '<span style="font-size:12px;color:var(--text-secondary,#94a3b8);">' + _catsEscape(user.full_name) + '</span>' +
+            '</div>';
+        }
+    }
+
+    // Создатель
+    let creatorHtml = '';
+    if (t.created_by) {
+        const creator = (allUsers || []).find(u => u.id === t.created_by);
+        if (creator) {
+            creatorHtml = '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary,#94a3b8);margin-top:2px;">' +
+                '<span>Автор:</span>' +
+                avatarHTML(creator.full_name, null, 18, creator.avatar) +
+                '<span>' + _catsEscape(creator.full_name) + '</span>' +
+            '</div>';
         }
     }
 
@@ -6397,18 +6450,19 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         '</button>';
     subsHtml = '<div class="cats-funnel-subs">' + rowsHtml + addBtn + '</div>';
 
-    let footerHtml = '';
-    if (assigneeHtml) {
-        footerHtml = '<div class="cats-funnel-card-footer"><span></span>' + assigneeHtml + '</div>';
-    }
+    let footerHtml = '<div class="cats-funnel-card-footer" style="flex-direction:column;align-items:stretch;gap:4px;">' +
+        (assigneeHtml || '') +
+        (creatorHtml || '') +
+    '</div>';
 
     return cardOpen +
         '<div class="cats-funnel-card-head">' +
+            selectCheckbox +
             checkBtn +
             '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
         '</div>' +
         descHtml +
-        (meta.length > 0 ? '<div class="cats-funnel-card-meta">' + meta.join('') + '</div>' : '') +
+        (meta.length > 0 ? '<div class="cats-funnel-card-meta" style="flex-wrap:wrap;">' + meta.join('') + '</div>' : '') +
         footerHtml +
         subsHtml +
     '</div>';
@@ -6934,9 +6988,15 @@ async function setKanbanDept(deptId) {
 }
 
 function toggleKanbanSelect(taskId, checkbox) {
-    if (checkbox.checked) kanbanSelectedIds.add(taskId);
-    else kanbanSelectedIds.delete(taskId);
+    if (checkbox) {
+        if (checkbox.checked) kanbanSelectedIds.add(taskId);
+        else kanbanSelectedIds.delete(taskId);
+    } else {
+        if (kanbanSelectedIds.has(taskId)) kanbanSelectedIds.delete(taskId);
+        else kanbanSelectedIds.add(taskId);
+    }
     updateKanbanSelectionBar();
+    renderKanban();
 }
 
 function updateKanbanSelectionBar() {
