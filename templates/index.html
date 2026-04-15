@@ -148,43 +148,34 @@
             font-size: 18px;
         }
 
-        /* ── Кнопка сворачивания сайдбара — круглая, всегда видна, крупная ── */
+        /* ── Кнопка сворачивания сайдбара — в шапке, всегда видна ── */
         .sidebar-collapse-btn {
-            position: absolute;
-            top: 50%;
-            right: -20px;
-            transform: translateY(-50%);
-            width: 40px;
-            height: 40px;
+            position: relative;
+            width: 36px;
+            height: 36px;
             padding: 0;
-            border: 2px solid rgba(255,255,255,0.15);
-            background: var(--bg-dark, #0f172a);
-            border-radius: 50%;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.25), 0 0 0 3px rgba(59,130,246,0.15);
-            color: rgba(255,255,255,0.85);
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            border-radius: 10px;
+            color: rgba(255,255,255,0.7);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 200;
-            opacity: 1;
-            transition: background .2s ease, box-shadow .2s ease, border-color .2s ease, transform .15s ease;
+            flex-shrink: 0;
+            transition: background .2s ease, border-color .2s ease, color .2s ease, transform .15s ease;
         }
         .sidebar-collapse-btn:hover {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            border-color: #3b82f6;
+            background: rgba(59,130,246,0.2);
+            border-color: rgba(59,130,246,0.4);
             color: #fff;
-            box-shadow: 0 4px 20px rgba(59,130,246,0.45), 0 0 0 3px rgba(59,130,246,0.2);
         }
         .sidebar-collapse-btn:active {
-            transform: translateY(-50%) scale(0.88);
+            transform: scale(0.9);
         }
         .sidebar-collapse-btn:focus-visible {
-            outline: 2.5px solid #3b82f6;
-            outline-offset: 3px;
-        }
-        .sidebar.icon-only .sidebar-collapse-btn {
-            right: -20px;
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
         }
         .sidebar-collapse-btn svg {
             width: 18px;
@@ -196,8 +187,15 @@
             stroke-linejoin: round;
             transition: transform .3s cubic-bezier(.4,0,.2,1);
         }
+        /* Шеврон разворачивается при свёрнутом сайдбаре */
         .sidebar.icon-only .sidebar-collapse-btn svg {
             transform: rotate(180deg);
+        }
+        /* В свёрнутом виде — кнопка по центру */
+        .sidebar.icon-only .sidebar-collapse-btn {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto;
         }
         @media (max-width: 900px) {
             .sidebar-collapse-btn { display: none; }
@@ -3913,16 +3911,17 @@
     <div class="container" id="mainContainer">
         <!-- SIDEBAR -->
         <div class="sidebar" id="sidebar">
-            <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleMainSidebar()" title="Свернуть меню" aria-label="Свернуть меню"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-            <div class="sidebar-header" id="sidebarHeader" style="cursor:pointer;transition:all 0.2s;" onclick="openCmdMenu()" onmouseenter="this.style.background='linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.15) 100%)'" onmouseleave="this.style.background=''">
-                <div class="sidebar-logo"><img src="/static/helmet-white.png" alt="DM"></div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:15px;font-weight:700;letter-spacing:0.3px;line-height:1.2;">Dudarev Motorsport</div>
-                    <div style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;">Task Manager</div>
+            <div class="sidebar-header" id="sidebarHeader">
+                <div style="flex:1;min-width:0;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="openCmdMenu()" onmouseenter="this.parentElement.style.background='linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(139,92,246,0.15) 100%)'" onmouseleave="this.parentElement.style.background=''">
+                    <div class="sidebar-logo"><img src="/static/helmet-white.png" alt="DM"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:15px;font-weight:700;letter-spacing:0.3px;line-height:1.2;">Dudarev Motorsport</div>
+                        <div style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;">Task Manager</div>
+                    </div>
                 </div>
-                <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);flex-shrink:0;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                </div>
+                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleMainSidebar()" title="Свернуть меню" aria-label="Свернуть меню">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
             </div>
             <div class="sidebar-nav">
                 <div class="nav-item active" data-page="dashboard">
