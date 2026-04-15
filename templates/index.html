@@ -1508,8 +1508,30 @@
         .cats-funnel-card.priority-medium  { border-left-color: #3b82f6; }
         .cats-funnel-card.priority-low     { border-left-color: #94a3b8; }
         .cats-funnel-card.selected { outline:2px solid #3b82f6; outline-offset:-1px; background:#f0f7ff; }
-        .cats-funnel-card.done { background:#fafbfc; opacity:.7; }
+        .cats-funnel-card.done { background:#fafbfc; opacity:.65; }
         .cats-funnel-card.done .cats-funnel-card-title { text-decoration:line-through; color:#94a3b8; }
+        /* ── Animation: completing a task ── */
+        @keyframes cardComplete {
+            0%   { transform:scale(1); opacity:1; }
+            15%  { transform:scale(1.02); background:#f0fdf4; border-color:#86efac; }
+            50%  { transform:scale(1); opacity:.8; }
+            100% { transform:scale(.97) translateX(8px); opacity:.5; }
+        }
+        .cats-funnel-card.completing {
+            animation: cardComplete .5s ease forwards;
+            pointer-events: none;
+        }
+        .cats-funnel-card.completing .cats-funnel-card-title {
+            text-decoration: line-through;
+            color: #94a3b8;
+            transition: all .3s;
+        }
+        .cats-funnel-card.completing .cats-funnel-card-check {
+            background: #10b981 !important;
+            border-color: #10b981 !important;
+            transform: scale(1.3);
+            transition: all .2s;
+        }
 
         /* ── head row: checkbox + title + assignee avatar ── */
         .cats-funnel-card-head { display:flex; align-items:center; gap:8px; }
@@ -6441,6 +6463,28 @@ async function toggleTaskState(taskId, newStatus) {
     const task = allTasks.find(t => t.id === taskId);
     if (!task) return;
     const oldStatus = task.status;
+
+    // Animate completion
+    if (newStatus === 'done') {
+        const cardEl = document.querySelector('.cats-funnel-card[data-task-id="' + taskId + '"]');
+        if (cardEl) {
+            cardEl.classList.add('completing');
+            // Wait for animation, then update
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+
+    // Animate "reopen" (undone → flash)
+    if (oldStatus === 'done' && newStatus !== 'done') {
+        const cardEl = document.querySelector('.cats-funnel-card[data-task-id="' + taskId + '"]');
+        if (cardEl) {
+            cardEl.style.transition = 'all .3s';
+            cardEl.style.background = '#eff6ff';
+            cardEl.style.borderColor = '#3b82f6';
+            await new Promise(r => setTimeout(r, 300));
+        }
+    }
+
     task.status = newStatus;
     renderKanban();
     const resp = await apiCall('/api/tasks/' + taskId, {method:'PUT', body:JSON.stringify({status: newStatus})});
@@ -6451,6 +6495,7 @@ async function toggleTaskState(taskId, newStatus) {
         return;
     }
     if (newStatus === 'done') {
+        showToast('✅ Задача завершена', 'success');
         apiCall('/api/gamification/check', {method:'POST', body:JSON.stringify({task_id: taskId})}).then(g => {
             if (g && !g.error) showToast('🎉 +10 км!', 'success');
         });
