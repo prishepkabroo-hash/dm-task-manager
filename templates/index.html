@@ -1856,13 +1856,14 @@
             color: var(--text-secondary, #64748b);
         }
 
-        /* ═══ DETAILED: колонки на всю ширину ═══ */
+        /* ═══ DETAILED: колонки на всю ширину, но не шире 600px ═══ */
         .cats-funnel-wrap.view-detailed {
             flex-wrap: wrap;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-group {
-            flex: 1 1 400px;
-            min-width: 350px;
+            flex: 1 1 420px;
+            min-width: 380px;
+            max-width: 600px;
             width: auto;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card {
@@ -6487,10 +6488,16 @@ function _catFunnelCardHTML(t, secColor, secKey) {
             checkBtn +
             '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
         '</div>' +
-        descHtml +
-        (meta.length > 0 ? '<div class="cats-funnel-card-meta" style="flex-wrap:wrap;">' + meta.join('') + '</div>' : '') +
-        footerHtml +
-        subsHtml +
+        '<div style="display:flex;gap:12px;align-items:flex-start;">' +
+            '<div style="flex:1;min-width:0;">' +
+                descHtml +
+                (meta.length > 0 ? '<div class="cats-funnel-card-meta" style="flex-wrap:wrap;">' + meta.join('') + '</div>' : '') +
+                footerHtml +
+            '</div>' +
+            '<div style="flex:0 0 auto;min-width:140px;max-width:200px;border-left:1px solid #e5e7eb;padding-left:10px;">' +
+                subsHtml +
+            '</div>' +
+        '</div>' +
     '</div>';
 }
 
