@@ -1787,13 +1787,9 @@
             width: 220px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-card {
-            padding: 7px 10px;
-            gap: 3px;
+            padding: 5px 8px;
+            gap: 0;
         }
-        .cats-funnel-wrap.view-minimal .cats-funnel-card-desc,
-        .cats-funnel-wrap.view-minimal .cats-funnel-card-meta,
-        .cats-funnel-wrap.view-minimal .cats-funnel-card-footer,
-        .cats-funnel-wrap.view-minimal .cats-funnel-subs,
         .cats-funnel-wrap.view-minimal .cats-funnel-quick-add-label {
             display: none;
         }
@@ -1801,24 +1797,23 @@
             font-size: 12px;
             font-weight: 500;
             line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
+            white-space: nowrap;
             overflow: hidden;
+            text-overflow: ellipsis;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-card-check {
             width: 14px;
             height: 14px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-body {
-            gap: 5px;
-            padding: 8px 8px 10px;
+            gap: 3px;
+            padding: 6px 6px 8px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-header {
             padding: 10px 12px;
         }
         .cats-funnel-wrap.view-minimal .cats-funnel-addcard {
-            padding: 7px;
+            padding: 5px;
             font-size: 11px;
         }
 
@@ -6067,50 +6062,136 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         : '';
     const nextStatus = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
 
+    const safeKey = (secKey || '').replace(/'/g, "\\'");
+    const cardOpen = '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + '" ' +
+            'data-task-id="' + t.id + '" data-from-key="' + safeKey + '" ' +
+            'draggable="true" ' +
+            'ondragstart="catCardDragStart(event,' + t.id + ',\'' + safeKey + '\')" ' +
+            'ondragend="catCardDragEnd(event)" ' +
+            'onclick="showTaskDetail(' + t.id + ')">';
+    const checkBtn = '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Сменить статус">' + checkIcon + '</div>';
+
+    // ═══ MINIMAL: только чекбокс + название + дедлайн-точка + подзадачи (число) ═══
+    if (vm === 'minimal') {
+        let rightBits = '';
+        // Подзадачи — компактный счётчик
+        const subs = allTasks.filter(s => s.parent_task_id === t.id);
+        if (subs.length > 0) {
+            const sdone = subs.filter(s => s.status === 'done').length;
+            rightBits += '<span class="cats-funnel-card-chip" style="font-size:10px;padding:1px 5px;margin-left:auto;flex-shrink:0;">' + sdone + '/' + subs.length + '</span>';
+        }
+        // Дедлайн — только точка-индикатор
+        if (t.deadline) {
+            const info = deadlineInfo(t.deadline);
+            const dotColor = info && info.overdue && !isDone ? 'var(--danger,#ef4444)' : 'var(--warning,#f59e0b)';
+            rightBits += '<span style="width:7px;height:7px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-left:' + (subs.length > 0 ? '4px' : 'auto') + ';" title="' + formatDate(t.deadline) + '"></span>';
+        }
+        return cardOpen +
+            '<div class="cats-funnel-card-head" style="gap:6px;">' +
+                checkBtn +
+                '<div class="cats-funnel-card-title" style="flex:1;min-width:0;">' + _catsEscape(t.title) + '</div>' +
+                rightBits +
+            '</div>' +
+        '</div>';
+    }
+
+    // ═══ NORMAL: название + описание (2 строки) + дедлайн + аватар + подзадачи-кнопка ═══
+    if (vm === 'normal') {
+        const descHtml = (t.description && t.description.trim())
+            ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
+            : '';
+
+        const meta = [];
+        if (t.deadline) {
+            const info = deadlineInfo(t.deadline);
+            const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
+            meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
+        }
+        // Краткий счётчик подзадач как чип
+        const subs = allTasks.filter(s => s.parent_task_id === t.id);
+        const hasSubs = subs.length > 0;
+        const sdone = subs.filter(s => s.status === 'done').length;
+        if (hasSubs) {
+            meta.push('<span class="cats-funnel-card-chip">✓ ' + sdone + '/' + subs.length + '</span>');
+        }
+
+        // Аватар исполнителя
+        let assigneeHtml = '';
+        if (t.assigned_to) {
+            const user = (allUsers || []).find(u => u.id === t.assigned_to);
+            if (user) {
+                assigneeHtml = '<div class="cats-funnel-card-assignee">' + avatarHTML(user.full_name, null, 22, user.avatar) + '</div>';
+            }
+        }
+
+        // Кнопка раскрытия подзадач
+        let subBtnHtml = '';
+        if (hasSubs) {
+            const expandedCls = catsTreeState.expandedCardIds.has(t.id) ? ' expanded' : '';
+            subBtnHtml =
+                '<button class="cats-funnel-card-subbtn' + expandedCls + '" ' +
+                    'onclick="event.stopPropagation();toggleCatsCardExpand(' + t.id + ')" ' +
+                    'title="' + (catsTreeState.expandedCardIds.has(t.id) ? 'Свернуть подзадачи' : 'Показать подзадачи') + '">' +
+                    '<span class="caret">▸</span>' +
+                    '<span>' + sdone + '/' + subs.length + ' подзадач</span>' +
+                '</button>';
+        }
+
+        // Подзадачи развёрнутые
+        let subsHtml = '';
+        if (catsTreeState.expandedCardIds.has(t.id) && hasSubs) {
+            const rowsHtml = subs.map(s => _catFunnelSubRowHTML(s)).join('');
+            subsHtml = '<div class="cats-funnel-subs">' + rowsHtml + '</div>';
+        }
+
+        let footerHtml = '';
+        if (assigneeHtml || subBtnHtml) {
+            footerHtml = '<div class="cats-funnel-card-footer">' +
+                (subBtnHtml || '<span></span>') +
+                (assigneeHtml || '') +
+            '</div>';
+        }
+
+        return cardOpen +
+            '<div class="cats-funnel-card-head">' +
+                checkBtn +
+                '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
+            '</div>' +
+            descHtml +
+            (meta.length > 0 ? '<div class="cats-funnel-card-meta">' + meta.join('') + '</div>' : '') +
+            footerHtml +
+            subsHtml +
+        '</div>';
+    }
+
+    // ═══ DETAILED: всё — полное описание, категории, отдел, подзадачи развёрнуты, аватар ═══
     const descHtml = (t.description && t.description.trim())
         ? '<div class="cats-funnel-card-desc">' + _catsEscape(t.description) + '</div>'
         : '';
 
-    // Build meta chips (deadline, subtasks, categories, department)
     const meta = [];
     if (t.deadline) {
         const info = deadlineInfo(t.deadline);
         const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
         meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
     }
-    // Show category chips only in detailed view (in narrower views the column header already says which category this is)
-    if (vm === 'detailed' && t.categories && t.categories.length > 0) {
+    if (t.categories && t.categories.length > 0) {
         t.categories.slice(0, 3).forEach(c => {
             meta.push('<span class="cats-funnel-card-chip" style="background:' + c.color + '22;color:' + c.color + '">' + _catsEscape(c.name) + '</span>');
         });
     }
-    if (vm === 'detailed' && t.department_id) {
+    if (t.department_id) {
         const dept = (allDepartments || []).find(d => d.id === t.department_id);
         if (dept) meta.push('<span class="cats-funnel-card-chip">' + _catsEscape(dept.name) + '</span>');
     }
 
-    // Subtasks
     const subs = allTasks.filter(s => s.parent_task_id === t.id);
     const hasSubs = subs.length > 0;
     const sdone = subs.filter(s => s.status === 'done').length;
-    // Detailed view always shows the inline subtask section.
-    // Normal view shows it only when explicitly expanded (via the chip).
-    // Minimal view never shows it.
-    const isExpanded = vm === 'detailed' ? true : (vm === 'normal' && catsTreeState.expandedCardIds.has(t.id));
-
-    let subBtnHtml = '';
-    if (hasSubs && vm === 'normal') {
-        const expandedCls = catsTreeState.expandedCardIds.has(t.id) ? ' expanded' : '';
-        subBtnHtml =
-            '<button class="cats-funnel-card-subbtn' + expandedCls + '" ' +
-                'onclick="event.stopPropagation();toggleCatsCardExpand(' + t.id + ')" ' +
-                'title="' + (catsTreeState.expandedCardIds.has(t.id) ? 'Свернуть подзадачи' : 'Показать подзадачи') + '">' +
-                '<span class="caret">▸</span>' +
-                '<span>' + sdone + '/' + subs.length + ' подзадач</span>' +
-            '</button>';
+    if (hasSubs) {
+        meta.push('<span class="cats-funnel-card-chip">✓ ' + sdone + '/' + subs.length + ' подзадач</span>');
     }
 
-    // Assignee avatar (footer)
     let assigneeHtml = '';
     if (t.assigned_to) {
         const user = (allUsers || []).find(u => u.id === t.assigned_to);
@@ -6119,40 +6200,23 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         }
     }
 
-    // Inline subtask rows
+    // Подзадачи — всегда развёрнуты в detailed
     let subsHtml = '';
-    if (isExpanded) {
-        const rowsHtml = hasSubs
-            ? subs.map(s => _catFunnelSubRowHTML(s)).join('')
-            : '';
-        // Always show "+ Добавить подзадачу" button in this section so the user
-        // can add subtasks (especially relevant in detailed view when there are none yet).
-        const addBtn =
-            '<button class="cats-funnel-subadd" onclick="event.stopPropagation();showTaskDetail(' + t.id + ')" title="Открыть задачу и добавить подзадачу">' +
-                '<span>+</span><span>' + (hasSubs ? 'Добавить подзадачу' : 'Добавить подзадачу') + '</span>' +
-            '</button>';
-        subsHtml = '<div class="cats-funnel-subs">' + rowsHtml + addBtn + '</div>';
-    }
+    const rowsHtml = hasSubs ? subs.map(s => _catFunnelSubRowHTML(s)).join('') : '';
+    const addBtn =
+        '<button class="cats-funnel-subadd" onclick="event.stopPropagation();showTaskDetail(' + t.id + ')" title="Открыть задачу и добавить подзадачу">' +
+            '<span>+</span><span>Добавить подзадачу</span>' +
+        '</button>';
+    subsHtml = '<div class="cats-funnel-subs">' + rowsHtml + addBtn + '</div>';
 
-    // Footer row: assignee + optional subtask toggle
     let footerHtml = '';
-    if (assigneeHtml || subBtnHtml) {
-        footerHtml = '<div class="cats-funnel-card-footer">' +
-            (subBtnHtml || '<span></span>') +
-            (assigneeHtml || '') +
-        '</div>';
+    if (assigneeHtml) {
+        footerHtml = '<div class="cats-funnel-card-footer"><span></span>' + assigneeHtml + '</div>';
     }
 
-    const safeKey = (secKey || '').replace(/'/g, "\\'");
-
-    return '<div class="cats-funnel-card priority-' + prio + (isDone ? ' done' : '') + '" ' +
-            'data-task-id="' + t.id + '" data-from-key="' + safeKey + '" ' +
-            'draggable="true" ' +
-            'ondragstart="catCardDragStart(event,' + t.id + ',\'' + safeKey + '\')" ' +
-            'ondragend="catCardDragEnd(event)" ' +
-            'onclick="showTaskDetail(' + t.id + ')">' +
+    return cardOpen +
         '<div class="cats-funnel-card-head">' +
-            '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Сменить статус">' + checkIcon + '</div>' +
+            checkBtn +
             '<div class="cats-funnel-card-title">' + _catsEscape(t.title) + '</div>' +
         '</div>' +
         descHtml +
