@@ -1856,11 +1856,13 @@
             color: var(--text-secondary, #64748b);
         }
 
-        /* ═══ DETAILED: колонки растягиваются на всю ширину ═══ */
+        /* ═══ DETAILED: колонки на всю ширину ═══ */
+        .cats-funnel-wrap.view-detailed {
+            flex-wrap: wrap;
+        }
         .cats-funnel-wrap.view-detailed .cats-funnel-group {
-            flex: 1 0 340px;
-            min-width: 340px;
-            max-width: 520px;
+            flex: 1 1 400px;
+            min-width: 350px;
             width: auto;
         }
         .cats-funnel-wrap.view-detailed .cats-funnel-card {
@@ -6313,11 +6315,19 @@ function _catFunnelCardHTML(t, secColor, secKey) {
         const nPrioLabels = {critical:'🔴 Крит.', high:'🟠 Выс.', medium:'🟡 Сред.', low:'🟢 Низк.'};
         const nPrioColors = {critical:'#ef4444', high:'#f97316', medium:'#eab308', low:'#22c55e'};
         meta.push('<span class="cats-funnel-card-chip" style="background:' + (nPrioColors[prio]||'#64748b') + '22;color:' + (nPrioColors[prio]||'#64748b') + ';font-weight:600;">' + (nPrioLabels[prio]||prio) + '</span>');
+        // Статус
+        const nStatusLabels = {new:'Новая', in_progress:'В работе', review:'На проверке', done:'Готово'};
+        const nStatusColors = {new:'#3b82f6', in_progress:'#f59e0b', review:'#8b5cf6', done:'#22c55e'};
+        meta.push('<span class="cats-funnel-card-chip" style="background:' + (nStatusColors[status]||'#64748b') + '22;color:' + (nStatusColors[status]||'#64748b') + '">' + (nStatusLabels[status]||status) + '</span>');
         // Дедлайн
         if (t.deadline) {
             const info = deadlineInfo(t.deadline);
             const cls = info && info.overdue && !isDone ? 'cats-funnel-card-chip overdue' : 'cats-funnel-card-chip';
             meta.push('<span class="' + cls + '">📅 ' + formatDate(t.deadline) + '</span>');
+        }
+        // Дата создания
+        if (t.created_at) {
+            meta.push('<span class="cats-funnel-card-chip" style="opacity:0.7;">🕐 ' + formatDate(t.created_at) + '</span>');
         }
         // Отдел
         if (t.department_id) {
