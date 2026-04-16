@@ -126,6 +126,8 @@ lsof -ti:8080 | xargs kill -9; sleep 1; python3 server.py
 - [x] **#10** Логика «задача взята в работу»: new→in_progress ставит taken_at, in_progress→done ставит completed_at, возврат в new сбрасывает оба — коммит `1571888`
 - [x] **#11** @-mention автокомплит в комментариях (dropdown, навигация стрелками, backend парсинг + уведомления) — коммит `1571888`
 - [x] **Полный UI редизайн**: backdrop-blur header, gradient sidebar, modern shadows, smoother transitions — коммит `1571888`
+- [x] **#12** Страница Категории переделана: слева отделы (sidebar), справа воронки-колонки по категориям отдела. Каждая колонка = категория в выбранном отделе.
+- [x] **#13** Фикс календаря: min-width для grid-колонок, overflow-x:auto на контейнере
 
 ---
 
