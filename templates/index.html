@@ -2595,21 +2595,22 @@
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
 
         .form-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-primary);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 0.01em;
         }
 
         .form-input, .form-select {
             width: 100%;
-            padding: 10px 12px;
+            padding: 8px 10px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             transition: border-color 0.2s;
             background: #fff;
         }
@@ -2659,9 +2660,11 @@
 
         .form-buttons {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             justify-content: flex-end;
-            margin-top: 24px;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
         }
 
         .btn {
@@ -2826,19 +2829,19 @@
 
         .modal-content {
             background-color: var(--bg-secondary);
-            border-radius: 12px;
+            border-radius: 14px;
             width: 100%;
-            max-width: 700px;
-            max-height: 85vh;
+            max-width: 560px;
+            max-height: 88vh;
             overflow-y: auto;
-            padding: 30px;
+            padding: 22px 26px 20px;
             position: relative;
         }
 
         .modal-title {
-            font-size: 22px;
+            font-size: 18px;
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -4293,16 +4296,30 @@
                 <span id="taskModalTitle">Новая задача</span>
                 <button class="modal-close" id="taskModalClose">&times;</button>
             </div>
-            <form id="taskForm">
+            <form id="taskForm" autocomplete="off">
                 <div class="form-group">
-                    <label class="form-label">Название <span style="color: var(--danger);">*</span></label>
-                    <input type="text" id="taskTitle" class="form-input" placeholder="Введите название задачи" required>
+                    <label class="form-label">Название <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="taskTitle" class="form-input" placeholder="Что нужно сделать?" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Описание</label>
-                    <textarea id="taskDescription" class="form-input" placeholder="Введите описание задачи" rows="3" style="font-family: inherit; resize: vertical;"></textarea>
+                    <textarea id="taskDescription" class="form-input" placeholder="Подробности (необязательно)" rows="2" style="font-family:inherit;resize:vertical;"></textarea>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Отдел <span style="color:var(--danger)">*</span></label>
+                        <select id="taskDepartment" class="form-select" required onchange="onTaskDeptChange()">
+                            <option value="">Выберите отдел</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Исполнитель</label>
+                        <select id="taskAssignee" class="form-select">
+                            <option value="">Не назначен</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                     <div class="form-group">
                         <label class="form-label">Приоритет</label>
                         <select id="taskPriority" class="form-select">
@@ -4312,24 +4329,8 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Статус</label>
-                        <select id="taskStatus" class="form-select">
-                            <option value="new" selected>Новая</option>
-                            <option value="in_progress">В работе</option>
-                            <option value="done">Выполнена</option>
-                        </select>
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div class="form-group">
-                        <label class="form-label">Отдел <span style="color: var(--danger);">*</span></label>
-                        <select id="taskDepartment" class="form-select" required>
-                            <option value="">Выберите отдел</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label class="form-label">Дедлайн</label>
-                        <div style="display:flex;gap:8px;">
+                        <div style="display:flex;gap:6px;">
                             <div class="date-picker-custom" id="taskDeadlineDate"><input type="text" inputmode="numeric" maxlength="2" class="dp-day" placeholder="ДД" oninput="dpInput(this,'d')" onkeydown="dpKey(this,'d',event)" onblur="dpBlur(this,'d')" onfocus="dpFocus(this)"><span>.</span><input type="text" inputmode="numeric" maxlength="2" class="dp-month" placeholder="ММ" oninput="dpInput(this,'mo')" onkeydown="dpKey(this,'mo',event)" onblur="dpBlur(this,'mo')"><span>.</span><input type="text" inputmode="numeric" maxlength="4" class="dp-year" placeholder="ГГГГ" oninput="dpInput(this,'y')" onkeydown="dpKey(this,'y',event)" onblur="dpBlur(this,'y')"><button type="button" class="dp-cal-btn" onclick="toggleCalendarPopup(this)" tabindex="-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button></div>
                             <div class="time-picker-custom" id="taskDeadlineTime">
                               <input type="text" inputmode="numeric" maxlength="2" class="tp-hours" placeholder="ЧЧ" oninput="tpInput(this,'h')" onkeydown="tpKey(this,'h',event)" onblur="tpBlur(this)">
@@ -4339,21 +4340,24 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Назначить</label>
-                    <select id="taskAssignee" class="form-select">
-                        <option value="">Не назначена</option>
+                <!-- Status: hidden when creating, shown only when editing -->
+                <div class="form-group" id="taskStatusGroup" style="display:none;">
+                    <label class="form-label">Статус</label>
+                    <select id="taskStatus" class="form-select">
+                        <option value="new" selected>Новая</option>
+                        <option value="in_progress">В работе</option>
+                        <option value="done">Выполнена</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Категории</label>
+                    <label class="form-label">Категория (воронка)</label>
                     <div id="taskCategoriesPicker" class="cat-multi-select"></div>
                 </div>
-                <button type="button" class="watcher-toggle-btn" id="watcherToggleBtn">+ Добавить наблюдателей</button>
-                <div id="taskWatchersGroup" class="checkbox-group" style="display: none; margin-top: 12px;"></div>
+                <button type="button" class="watcher-toggle-btn" id="watcherToggleBtn">+ Наблюдатели</button>
+                <div id="taskWatchersGroup" class="checkbox-group" style="display:none;margin-top:8px;"></div>
                 <div class="form-buttons">
                     <button type="button" class="btn btn-secondary" id="taskModalCancelBtn">Отмена</button>
-                    <button type="button" class="btn btn-danger" id="taskDeleteBtn" style="display: none;">Удалить</button>
+                    <button type="button" class="btn btn-danger" id="taskDeleteBtn" style="display:none;">Удалить</button>
                     <button type="button" class="btn btn-primary" id="taskModalSaveBtn">Сохранить</button>
                 </div>
             </form>
@@ -5646,7 +5650,7 @@ async function renderKanban() {
 
     sbHtml += '<div class="cat-tree-section" title="Стандартные подборки задач">📚 Подборки</div>';
     sbHtml += _catBuiltinItemHTML('all', 'Все задачи', '#3b82f6', total, (sel === null || sel === 'all'), 'inbox');
-    sbHtml += _catBuiltinItemHTML('none', 'Без категории', '#94a3b8', noneCount, sel === 'none', 'empty');
+    sbHtml += _catBuiltinItemHTML('none', 'Распределение задач', '#f59e0b', noneCount, sel === 'none', 'empty');
     sbHtml += _catBuiltinItemHTML('done', 'Выполненные', '#10b981', doneCount, sel === 'done', 'check');
 
     sbHtml += '<div class="cat-tree-section" style="margin-top:14px;" title="Свои метки-теги для задач">🏷 Мои категории</div>';
@@ -5686,9 +5690,9 @@ async function renderKanban() {
         headerTitle = 'Все задачи';
         headerSub = total + ' ' + _catsPlural(total, ['активная задача','активные задачи','активных задач']);
     } else if (sel === 'none') {
-        headerTitle = 'Без категории';
-        headerSub = noneCount + ' ' + _catsPlural(noneCount, ['задача','задачи','задач']);
-        headerColor = '#94a3b8';
+        headerTitle = 'Распределение задач';
+        headerSub = noneCount + ' ' + _catsPlural(noneCount, ['задача','задачи','задач']) + ' ожидают распределения';
+        headerColor = '#f59e0b';
     } else if (sel === 'done') {
         headerTitle = 'Выполненные';
         headerSub = doneCount + ' ' + _catsPlural(doneCount, ['задача','задачи','задач']);
@@ -5765,8 +5769,8 @@ async function renderKanban() {
             emptyHint = 'Закрывайте задачи — и они будут появляться в этом архиве.';
         } else if (sel === 'none') {
             emptyIcon = '🎉';
-            emptyMsg = 'Все задачи разложены по категориям';
-            emptyHint = 'Тут появляются задачи без категории. Создавайте новые — или откройте категорию слева.';
+            emptyMsg = 'Все задачи распределены по воронкам';
+            emptyHint = 'Новые задачи без категории попадают сюда. Распределяйте их по воронкам перетаскиванием.';
         } else if (typeof sel === 'number') {
             const cur = cats.find(x => x.id === sel);
             emptyIcon = '📭';
@@ -5826,20 +5830,22 @@ function _renderCategoryFunnel(sel, cats, byParent, tasks) {
                 });
             }
             const noCatTasks = tasks.filter(t => !t.categories || t.categories.length === 0);
-            sections.push({
-                key: 'none',
-                name: 'Без категории',
-                color: '#94a3b8',
-                icon: '📭',
-                tasks: noCatTasks
-            });
+            if (noCatTasks.length > 0 || true) { // always show so users can drop tasks here
+                sections.unshift({
+                    key: 'none',
+                    name: 'Распределение задач',
+                    color: '#f59e0b',
+                    icon: '📥',
+                    tasks: noCatTasks
+                });
+            }
         }
     } else if (sel === 'none') {
         sections.push({
             key: 'none-view',
-            name: 'Без категории',
-            color: '#94a3b8',
-            icon: '📭',
+            name: 'Распределение задач',
+            color: '#f59e0b',
+            icon: '📥',
             tasks: tasks.slice()
         });
     } else if (sel === 'done') {
@@ -7065,6 +7071,74 @@ async function submitListQuickTask() {
 
 // =================================
 // 9. TASK FORM (CREATE/EDIT)
+
+// #7: Render categories filtered by the currently selected department
+// presetIds — optional Set of category IDs to pre-select on first render
+function _renderCategoryPickerForDept(presetIds) {
+    const picker = document.getElementById('taskCategoriesPicker');
+    if (!picker) return;
+    const form = document.getElementById('taskForm');
+    const taskId = form ? (form.getAttribute('data-task-id') ? parseInt(form.getAttribute('data-task-id')) : null) : null;
+    const deptId = parseInt(document.getElementById('taskDepartment').value) || null;
+    const allCats = catsTreeState.allCategories || [];
+
+    // Filter: show only categories belonging to the selected department (or with no department)
+    const cats = deptId
+        ? allCats.filter(c => c.department_id === deptId || !c.department_id)
+        : allCats;
+
+    // Use passed presets, or preserve currently selected chips on re-render
+    const prevSelected = presetIds instanceof Set ? presetIds : new Set();
+    if (!presetIds) {
+        picker.querySelectorAll('.cat-multi-chip.selected').forEach(el => {
+            prevSelected.add(parseInt(el.getAttribute('data-cat-id')));
+        });
+    }
+
+    if (cats.length === 0) {
+        picker.innerHTML = '<div style="color:#94a3b8;font-size:11px;padding:4px;">Нет категорий' + (deptId ? ' в этом отделе' : '') + '.</div>';
+    } else {
+        // Group by department for clarity
+        const grouped = {};
+        const deptMap = {};
+        allDepartments.forEach(d => { deptMap[d.id] = d.name; });
+        cats.forEach(c => {
+            const dName = (c.department_id && deptMap[c.department_id]) ? deptMap[c.department_id] : 'Общие';
+            if (!grouped[dName]) grouped[dName] = [];
+            grouped[dName].push(c);
+        });
+        let html = '';
+        const groupKeys = Object.keys(grouped);
+        // If only one group, don't show header
+        if (groupKeys.length <= 1) {
+            html = cats.map(c => {
+                const sel = prevSelected.has(c.id) ? ' selected' : '';
+                return '<span class="cat-multi-chip' + sel + '" data-cat-id="' + c.id + '" style="border-color:' + c.color + ';">' +
+                    '<span class="cat-tree-item-dot" style="width:8px;height:8px;background:' + c.color + ';"></span>' +
+                    _catsEscape(c.name) + '</span>';
+            }).join('');
+        } else {
+            groupKeys.forEach(gk => {
+                html += '<div style="font-size:10px;color:#94a3b8;margin:4px 0 2px;font-weight:600;">' + _catsEscape(gk) + '</div>';
+                html += grouped[gk].map(c => {
+                    const sel = prevSelected.has(c.id) ? ' selected' : '';
+                    return '<span class="cat-multi-chip' + sel + '" data-cat-id="' + c.id + '" style="border-color:' + c.color + ';">' +
+                        '<span class="cat-tree-item-dot" style="width:8px;height:8px;background:' + c.color + ';"></span>' +
+                        _catsEscape(c.name) + '</span>';
+                }).join('');
+            });
+        }
+        picker.innerHTML = html;
+        picker.querySelectorAll('.cat-multi-chip').forEach(chip => {
+            chip.addEventListener('click', () => chip.classList.toggle('selected'));
+        });
+    }
+}
+
+// Called when department dropdown changes — re-filter categories
+function onTaskDeptChange() {
+    _renderCategoryPickerForDept();
+}
 // =================================
 
 async function showTaskForm(taskId = null, presetCategoryId = null) {
@@ -7072,6 +7146,7 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
     const titleSpan = document.getElementById('taskModalTitle');
     const form = document.getElementById('taskForm');
     const watcherToggle = document.getElementById('watcherToggleBtn');
+    const statusGroup = document.getElementById('taskStatusGroup');
 
     // Populate department dropdown
     const deptSelect = document.getElementById('taskDepartment');
@@ -7082,7 +7157,7 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
 
     // Populate assignee dropdown
     const assigneeSelect = document.getElementById('taskAssignee');
-    assigneeSelect.innerHTML = '<option value="">Не назначена</option>';
+    assigneeSelect.innerHTML = '<option value="">Не назначен</option>';
     allUsers.forEach(u => {
         assigneeSelect.innerHTML += `<option value="${u.id}">${u.full_name}</option>`;
     });
@@ -7095,6 +7170,8 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
         if (!task) return;
 
         titleSpan.textContent = 'Редактировать задачу';
+        // #4: Show status only when editing
+        if (statusGroup) statusGroup.style.display = '';
         document.getElementById('taskTitle').value = task.title;
         document.getElementById('taskDescription').value = task.description || '';
         document.getElementById('taskStatus').value = task.status;
@@ -7108,7 +7185,8 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
     } else {
         titleSpan.textContent = 'Новая задача';
         form.reset();
-        // Default: assign to self, set department from current filter or user profile
+        // #4: Hide status when creating — always defaults to 'new'
+        if (statusGroup) statusGroup.style.display = 'none';
         document.getElementById('taskAssignee').value = currentUser.id;
         const defaultDept = kanbanDeptFilter || selectedDepartment || currentUser.department_id;
         if (defaultDept) {
@@ -7116,37 +7194,18 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
         }
     }
 
-    // Populate categories picker
-    try {
-        await loadCategories();
-        const picker = document.getElementById('taskCategoriesPicker');
-        if (picker) {
-            const cats = catsTreeState.allCategories || [];
-            const editingTask = taskId ? allTasks.find(t => t.id === taskId) : null;
-            // Preset from explicit param (quick add from a column), then from view selection
-            const preset = new Set();
-            if (editingTask && editingTask.categories) {
-                editingTask.categories.forEach(c => preset.add(c.id));
-            } else if (typeof presetCategoryId === 'number' && !isNaN(presetCategoryId)) {
-                preset.add(presetCategoryId);
-            } else if (typeof catsTreeState.selectedCategoryId === 'number') {
-                preset.add(catsTreeState.selectedCategoryId);
-            }
-            if (cats.length === 0) {
-                picker.innerHTML = '<div style="color:#94a3b8;font-size:12px;padding:6px;">Категорий ещё нет. Создайте их во вкладке «Категории».</div>';
-            } else {
-                picker.innerHTML = cats.map(c => {
-                    const sel = preset.has(c.id) ? 'selected' : '';
-                    return '<span class="cat-multi-chip ' + sel + '" data-cat-id="' + c.id + '" style="border-color:' + c.color + ';">' +
-                        '<span class="cat-tree-item-dot" style="width:8px;height:8px;background:' + c.color + ';"></span>' +
-                        _catsEscape(c.name) + '</span>';
-                }).join('');
-                picker.querySelectorAll('.cat-multi-chip').forEach(chip => {
-                    chip.addEventListener('click', () => chip.classList.toggle('selected'));
-                });
-            }
-        }
-    } catch (e) { console.warn('categories picker:', e); }
+    // #7: Load categories and render filtered by selected department
+    await loadCategories();
+    const _catPreset = new Set();
+    if (taskId) {
+        const _et = allTasks.find(t => t.id === taskId);
+        if (_et && _et.categories) _et.categories.forEach(c => _catPreset.add(c.id));
+    } else if (typeof presetCategoryId === 'number' && !isNaN(presetCategoryId)) {
+        _catPreset.add(presetCategoryId);
+    } else if (typeof catsTreeState.selectedCategoryId === 'number') {
+        _catPreset.add(catsTreeState.selectedCategoryId);
+    }
+    _renderCategoryPickerForDept(_catPreset);
 
     modal.style.display = 'flex';
 
@@ -7209,7 +7268,8 @@ async function saveTask() {
     const taskId = form.getAttribute('data-task-id') ? parseInt(form.getAttribute('data-task-id')) : null;
     const title = document.getElementById('taskTitle').value.trim();
     const description = document.getElementById('taskDescription').value.trim();
-    const status = document.getElementById('taskStatus').value;
+    // #4: When creating, always 'new'; when editing, use the dropdown value
+    const status = taskId ? document.getElementById('taskStatus').value : 'new';
     const priority = document.getElementById('taskPriority').value;
     const deptVal = document.getElementById('taskDepartment').value;
     const department_id = deptVal ? parseInt(deptVal) : null;
@@ -7339,7 +7399,7 @@ async function showTaskDetail(taskId) {
         <div style="background:white;border-radius:10px;padding:4px 0;margin-bottom:14px;border:1px solid #e8ecf1;">
             <!-- Assignee -->
             <div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;">
-                <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;">Ответственный</div>
+                <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;">Исполнитель</div>
                 <div style="flex:1;display:flex;align-items:center;gap:8px;">
                     ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 28, assignee.avatar_url) : ''}
                     <select id="detailAssignee" onchange="detailChangeField('assigned_to',this.value)" style="border:none;background:none;font-size:13px;font-weight:500;color:#1e293b;cursor:pointer;padding:4px 0;flex:1;outline:none;">
