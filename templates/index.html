@@ -5856,8 +5856,8 @@ async function renderKanban() {
 
     sbHtml += '<div class="cats-sidebar-divider"></div>';
 
-    // Quick-action buttons
-    if (canManage) {
+    // "New funnel" button — only when a specific department is selected
+    if (canManage && deptId) {
         sbHtml += '<button class="cat-add-btn" onclick="showCategoryModal()" title="Создать новую категорию-воронку">' +
             '<span>+</span><span class="cat-add-btn-label">Новая воронка</span></button>';
     }
@@ -5885,12 +5885,10 @@ async function renderKanban() {
             '</button>' +
         '</div>';
     const filterCount = _catsActiveFilterCount();
-    header.innerHTML =
-        '<div>' +
-            '<div class="cats-header-title"><span class="cat-tree-item-dot" style="background:' + headerColor + '"></span>' + _catsEscape(headerTitle) + '</div>' +
-            '<div class="cats-header-sub">' + headerSub + '</div>' +
-        '</div>' +
-        '<div class="cats-toolbar">' +
+    let toolbarHtml = '';
+    if (deptId) {
+        // Department selected — full toolbar with view switch, filters, select, add task
+        toolbarHtml =
             viewSwitchHtml +
             '<button class="secondary' + (catsFilterState._open ? ' active' : '') + '" onclick="toggleCatsFilterPanel()">' +
                 '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
@@ -5900,8 +5898,21 @@ async function renderKanban() {
                 '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>' +
                 (kanbanSelectMode ? 'Отмена' : 'Выбрать') +
             '</button>' +
-            '<button onclick="showTaskForm()">+ Задача</button>' +
-        '</div>';
+            '<button onclick="showTaskForm()">+ Задача</button>';
+    } else {
+        // "All departments" — only filters
+        toolbarHtml =
+            '<button class="secondary' + (catsFilterState._open ? ' active' : '') + '" onclick="toggleCatsFilterPanel()">' +
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
+                'Фильтры' + (filterCount > 0 ? ' <span style="background:#3b82f6;color:#fff;border-radius:8px;padding:0 5px;font-size:10px;font-weight:700;min-width:16px;text-align:center;">' + filterCount + '</span>' : '') +
+            '</button>';
+    }
+    header.innerHTML =
+        '<div>' +
+            '<div class="cats-header-title"><span class="cat-tree-item-dot" style="background:' + headerColor + '"></span>' + _catsEscape(headerTitle) + '</div>' +
+            '<div class="cats-header-sub">' + headerSub + '</div>' +
+        '</div>' +
+        '<div class="cats-toolbar">' + toolbarHtml + '</div>';
 
     // -------- Filter panel --------
     header.innerHTML += _renderCatsFilterPanel();
@@ -5974,26 +5985,25 @@ function _filterTasksForDeptKanban(deptId) {
 
 // Render funnel columns: each category in the department becomes a column
 function _renderDeptFunnel(deptId, allCats, tasks) {
-    // Get categories for selected department (or all if null)
-    let deptCats;
-    if (deptId) {
-        deptCats = allCats.filter(c => c.department_id === deptId);
-    } else {
-        deptCats = allCats.slice();
+    // "Все отделы" — показываем сводку по отделам, без канбан-колонок
+    if (!deptId) {
+        return _renderAllDeptsOverview(tasks);
     }
-    // Sort by sort_order if available
+
+    // Get categories for selected department
+    let deptCats = allCats.filter(c => c.department_id === deptId);
     deptCats.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
     let sections = [];
 
-    // "Распределение задач" — tasks without any category
-    const noCatTasks = tasks.filter(t => !t.categories || t.categories.length === 0);
+    // Default "Новая задача" column — tasks with status 'new' and no category
+    const newTasks = tasks.filter(t => t.status === 'new' && (!t.categories || t.categories.length === 0));
     sections.push({
-        key: 'none',
-        name: 'Распределение задач',
-        color: '#f59e0b',
+        key: 'new-tasks',
+        name: 'Новая задача',
+        color: '#6366f1',
         icon: '📥',
-        tasks: noCatTasks
+        tasks: newTasks
     });
 
     // One column per category
@@ -6018,7 +6028,7 @@ function _renderDeptFunnel(deptId, allCats, tasks) {
           '</div>'
         : '';
 
-    if (sections.every(s => s.tasks.length === 0) && deptCats.length === 0) {
+    if (deptCats.length === 0 && newTasks.length === 0) {
         return '<div class="cats-empty">' +
             '<div class="cats-empty-icon">🗂</div>' +
             '<div style="font-weight:600;color:#475569;font-size:15px;margin-bottom:6px;">Нет воронок в этом отделе</div>' +
@@ -6031,6 +6041,72 @@ function _renderDeptFunnel(deptId, allCats, tasks) {
         sections.map(s => _renderFunnelSectionHTML(s, collapsedSet)).join('') +
         addColHtml +
     '</div>';
+}
+
+// Overview for "All departments" — summary cards per department + task table
+function _renderAllDeptsOverview(tasks) {
+    const depts = allDepartments || [];
+    const topLevel = allTasks.filter(t => !t.parent_task_id && t.status !== 'done' && t.status !== 'cancelled');
+
+    // Department summary tiles
+    let tilesHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px;">';
+    for (const dept of depts) {
+        const dTasks = topLevel.filter(t => t.department_id === dept.id);
+        const newCount = dTasks.filter(t => t.status === 'new').length;
+        const ipCount = dTasks.filter(t => t.status === 'in_progress').length;
+        const overdueCount = dTasks.filter(t => {
+            if (!t.deadline) return false;
+            return new Date(t.deadline) < new Date() && t.status !== 'done';
+        }).length;
+        const color = dept.color || '#3b82f6';
+        tilesHtml += '<div onclick="selectCatsDept(' + dept.id + ')" style="background:white;border-radius:12px;border:1px solid #e8ecf1;padding:16px;cursor:pointer;transition:all 0.15s;border-left:4px solid ' + color + ';" onmouseenter="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\';this.style.transform=\'translateY(-1px)\'" onmouseleave="this.style.boxShadow=\'none\';this.style.transform=\'none\'">' +
+            '<div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:8px;">' + _catsEscape(dept.name) + '</div>' +
+            '<div style="display:flex;gap:12px;font-size:12px;color:#64748b;">' +
+                '<span>Всего: <b style="color:#1e293b;">' + dTasks.length + '</b></span>' +
+                '<span>Новых: <b style="color:#6366f1;">' + newCount + '</b></span>' +
+                '<span>В работе: <b style="color:#f59e0b;">' + ipCount + '</b></span>' +
+                (overdueCount > 0 ? '<span>Просрочено: <b style="color:#ef4444;">' + overdueCount + '</b></span>' : '') +
+            '</div>' +
+        '</div>';
+    }
+    tilesHtml += '</div>';
+
+    // Task list below
+    let tableHtml = '';
+    if (tasks.length > 0) {
+        tableHtml = '<div style="font-size:13px;font-weight:700;color:#475569;margin-bottom:8px;">Все активные задачи (' + tasks.length + ')</div>';
+        tableHtml += '<div style="display:flex;flex-direction:column;gap:2px;">';
+        const sorted = tasks.slice().sort((a, b) => {
+            if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+            if (a.deadline) return -1;
+            if (b.deadline) return 1;
+            return b.id - a.id;
+        });
+        const shown = sorted.slice(0, 50);
+        for (const t of shown) {
+            const dept = (allDepartments || []).find(d => d.id === t.department_id);
+            const deptName = dept ? dept.name : '';
+            const deptColor = dept ? (dept.color || '#94a3b8') : '#94a3b8';
+            const statusLabels = {new: 'Новая', in_progress: 'В работе', done: 'Выполнена'};
+            const statusColors = {new: '#6366f1', in_progress: '#f59e0b', done: '#10b981'};
+            const sc = statusColors[t.status] || '#94a3b8';
+            const isOverdue = t.deadline && new Date(t.deadline) < new Date() && t.status !== 'done';
+            tableHtml += '<div onclick="showTaskDetail(' + t.id + ')" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:white;border-radius:8px;border:1px solid #f1f5f9;cursor:pointer;transition:all 0.12s;" onmouseenter="this.style.background=\'#f8fafc\'" onmouseleave="this.style.background=\'white\'">' +
+                '<span style="width:8px;height:8px;border-radius:50%;background:' + sc + ';flex-shrink:0;"></span>' +
+                '<span style="flex:1;font-size:13px;font-weight:500;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _catsEscape(t.title) + '</span>' +
+                '<span style="font-size:11px;color:' + deptColor + ';font-weight:600;flex-shrink:0;">' + _catsEscape(deptName) + '</span>' +
+                (t.deadline ? '<span style="font-size:11px;color:' + (isOverdue ? '#ef4444' : '#94a3b8') + ';flex-shrink:0;font-weight:' + (isOverdue ? '700' : '500') + ';">' + formatDate(t.deadline) + '</span>' : '') +
+            '</div>';
+        }
+        if (sorted.length > 50) {
+            tableHtml += '<div style="text-align:center;padding:8px;color:#94a3b8;font-size:12px;">...и ещё ' + (sorted.length - 50) + '</div>';
+        }
+        tableHtml += '</div>';
+    } else {
+        tableHtml = '<div style="text-align:center;padding:40px 20px;color:#94a3b8;font-size:14px;">Нет активных задач</div>';
+    }
+
+    return tilesHtml + tableHtml;
 }
 
 // Group tasks into "funnel" sections by top-level (or child) category.
@@ -6847,7 +6923,7 @@ function showCategoryModal(editId = null, parentIdPreset = null) {
     let pickedColor = existing ? existing.color : '#3b82f6';
     const currentParent = existing ? existing.parent_id : parentIdPreset;
     const depts = allDepartments || [];
-    const currentDept = existing ? existing.department_id : null;
+    const currentDept = existing ? existing.department_id : (catsTreeState.selectedDeptId || null);
 
     // Forbid picking self or own descendants as parent
     const exclude = new Set();
@@ -7513,13 +7589,27 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
     // #7: Load categories and render filtered by selected department
     await loadCategories();
     const _catPreset = new Set();
+    const catPickerGroup = document.getElementById('taskCategoriesPicker')?.closest('.form-group');
     if (taskId) {
+        // Editing — show category picker with current categories
         const _et = allTasks.find(t => t.id === taskId);
         if (_et && _et.categories) _et.categories.forEach(c => _catPreset.add(c.id));
-    } else if (typeof presetCategoryId === 'number' && !isNaN(presetCategoryId)) {
-        _catPreset.add(presetCategoryId);
-    } else if (typeof catsTreeState.selectedCategoryId === 'number') {
-        _catPreset.add(catsTreeState.selectedCategoryId);
+        if (catPickerGroup) catPickerGroup.style.display = '';
+    } else if (catsTreeState.selectedDeptId) {
+        // Creating from a department view — hide category picker (task goes to "Новая задача" column)
+        if (catPickerGroup) catPickerGroup.style.display = 'none';
+        if (typeof presetCategoryId === 'number' && !isNaN(presetCategoryId)) {
+            _catPreset.add(presetCategoryId);
+            if (catPickerGroup) catPickerGroup.style.display = '';
+        }
+    } else {
+        // Creating from other context — show picker
+        if (catPickerGroup) catPickerGroup.style.display = '';
+        if (typeof presetCategoryId === 'number' && !isNaN(presetCategoryId)) {
+            _catPreset.add(presetCategoryId);
+        } else if (typeof catsTreeState.selectedCategoryId === 'number') {
+            _catPreset.add(catsTreeState.selectedCategoryId);
+        }
     }
     _renderCategoryPickerForDept(_catPreset);
 
