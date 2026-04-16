@@ -636,6 +636,18 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
 
+    # Migrate: add taken_at column to tasks (tracks when task was taken into work)
+    try:
+        c.execute("SELECT taken_at FROM tasks LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE tasks ADD COLUMN taken_at TIMESTAMP DEFAULT NULL")
+
+    # Migrate: add completed_at column to tasks (tracks when task was completed)
+    try:
+        c.execute("SELECT completed_at FROM tasks LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP DEFAULT NULL")
+
     # Seed admin
     if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
         c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (?,?,?,?,?,?,?)",
@@ -1042,6 +1054,32 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     perms[r['role']] = {}
                 perms[r['role']][r['permission']] = bool(r['allowed'])
             return self._json({'permissions': perms})
+
+        if path == "/api/metrics/employees":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            # Calculate average time from creation to taken_at, and taken_at to completed_at
+            rows = conn.execute("""
+                SELECT u.id, u.full_name, u.avatar_color, u.department_id,
+                    d.name as department_name,
+                    COUNT(CASE WHEN t.status = 'done' THEN 1 END) as completed_count,
+                    COUNT(CASE WHEN t.status = 'in_progress' THEN 1 END) as in_progress_count,
+                    COUNT(t.id) as total_assigned,
+                    AVG(CASE WHEN t.taken_at IS NOT NULL
+                        THEN (julianday(t.taken_at) - julianday(t.created_at)) * 24
+                        END) as avg_hours_to_take,
+                    AVG(CASE WHEN t.completed_at IS NOT NULL AND t.taken_at IS NOT NULL
+                        THEN (julianday(t.completed_at) - julianday(t.taken_at)) * 24
+                        END) as avg_hours_to_complete
+                FROM users u
+                LEFT JOIN tasks t ON t.assigned_to = u.id
+                LEFT JOIN departments d ON u.department_id = d.id
+                GROUP BY u.id
+                ORDER BY completed_count DESC
+            """).fetchall()
+            conn.close()
+            return self._json([dict(r) for r in rows])
 
         if path == "/api/tasks":
             u = self._user()
@@ -1665,6 +1703,17 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Log activity
             log_activity(conn, int(task_id), u["id"], "comment_added", text)
 
+            # Parse @mentions in comment text and create notifications
+            if text:
+                for mentioned_user in conn.execute("SELECT id, full_name FROM users").fetchall():
+                    mention_pattern = "@" + mentioned_user["full_name"]
+                    if mention_pattern in text:
+                        if mentioned_user["id"] != u["id"]:  # Don't notify self
+                            conn.execute(
+                                "INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                                (mentioned_user["id"], task_id, "mention",
+                                 f'{u["full_name"]} упомянул вас в комментарии к задаче'))
+
             # Award km for commenting
             update_km(conn, u["id"], 1)
             stats = conn.execute("SELECT comments_count FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
@@ -2261,6 +2310,17 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 sets.append("updated_at = CURRENT_TIMESTAMP")
                 params.append(task_id)
                 conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
+
+                # Update taken_at and completed_at timestamps based on status changes
+                if "status" in data:
+                    new_status = data["status"]
+                    if new_status == "in_progress":
+                        conn.execute("UPDATE tasks SET taken_at = CURRENT_TIMESTAMP WHERE id = ? AND taken_at IS NULL", (task_id,))
+                    elif new_status == "done":
+                        conn.execute("UPDATE tasks SET completed_at = CURRENT_TIMESTAMP WHERE id = ?", (task_id,))
+                    elif new_status == "new":
+                        # Reset timestamps when task goes back to new
+                        conn.execute("UPDATE tasks SET taken_at = NULL, completed_at = NULL WHERE id = ?", (task_id,))
 
                 # Log all field changes with old/new values
                 # Build status names from DB stages

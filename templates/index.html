@@ -36,6 +36,12 @@
             --status-review: #8b5cf6;
             --status-done: #22c55e;
             --status-cancelled: #94a3b8;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
         }
 
         body {
@@ -43,6 +49,8 @@
             background-color: var(--bg-main);
             color: var(--text-primary);
             line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         .container {
@@ -54,7 +62,7 @@
         /* SIDEBAR */
         .sidebar {
             width: var(--sidebar-width);
-            background-color: var(--bg-dark);
+            background: linear-gradient(180deg, #0f172a 0%, #131c31 100%);
             color: #ffffff;
             display: flex;
             flex-direction: column;
@@ -307,14 +315,17 @@
         }
 
         .nav-item {
-            padding: 12px 20px;
+            padding: 11px 20px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.15s ease;
             border-left: 3px solid transparent;
             border-radius: 0 8px 8px 0;
             display: flex;
             align-items: center;
             gap: 10px;
+            margin: 1px 8px 1px 0;
+            font-size: 14px;
+            letter-spacing: 0.01em;
         }
 
         .nav-item svg {
@@ -329,7 +340,7 @@
         }
 
         .nav-item:hover {
-            background-color: rgba(255,255,255,0.05);
+            background-color: rgba(255,255,255,0.07);
         }
 
         .nav-item.active {
@@ -444,13 +455,15 @@
 
         .header {
             height: var(--header-height);
-            background-color: var(--bg-secondary);
-            border-bottom: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(226,232,240,0.6);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 24px;
+            padding: 0 28px;
             position: relative;
             z-index: 50;
             overflow: visible;
@@ -499,17 +512,20 @@
         }
 
         .search-input {
-            padding: 8px 12px;
+            padding: 9px 14px 9px 36px;
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            width: 250px;
+            border-radius: 10px;
+            width: 280px;
             font-size: 13px;
-            transition: border-color 0.2s;
+            background: var(--bg-main);
+            transition: all 0.2s;
         }
 
         .search-input:focus {
             outline: none;
             border-color: var(--blue);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
         }
 
         .filter-chips {
@@ -570,14 +586,14 @@
             top: 50px;
             right: 0;
             background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            width: 300px;
-            max-height: 400px;
+            border: 1px solid rgba(226,232,240,0.8);
+            border-radius: 12px;
+            width: 320px;
+            max-height: 420px;
             overflow-y: auto;
             display: none;
             z-index: 45;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.02);
         }
 
         .notification-dropdown.visible {
@@ -611,7 +627,8 @@
         .content {
             flex: 1;
             overflow-y: auto;
-            padding: 30px;
+            padding: 24px 28px;
+            scroll-behavior: smooth;
         }
 
         .page {
@@ -622,142 +639,112 @@
             display: block;
         }
 
-        /* DASHBOARD */
+        /* DASHBOARD — unified with stats tiles + filters + task list */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background-color: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border-left: 4px solid var(--blue);
-        }
-
-        .stat-card.new {
-            border-left-color: var(--status-new);
-        }
-
-        .stat-card.in-progress {
-            border-left-color: var(--status-in-progress);
-        }
-
-        .stat-card.review {
-            border-left-color: var(--status-review);
-        }
-
-        .stat-card.done {
-            border-left-color: var(--status-done);
-        }
-
-        .stat-card.overdue {
-            border-left-color: var(--danger);
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .recent-tasks {
-            background-color: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-
-        .tasks-list {
-            display: flex;
-            flex-direction: column;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 12px;
+            margin-bottom: 16px;
         }
-
-        .task-item {
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 14px 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            border-left: 3px solid var(--blue);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
+        .stat-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        .stat-card.active-filter { border-left-width: 4px; box-shadow: 0 0 0 2px var(--blue) inset; }
+        .stat-card.overdue { border-left-color: var(--danger); }
+        .stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+        .stat-value { font-size: 24px; font-weight: 700; color: var(--text-primary); }
 
-        .task-item:hover {
-            background-color: var(--bg-main);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .task-item-left {
-            flex: 1;
-        }
-
-        .task-title {
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        .task-meta {
+        /* Dashboard filter bar */
+        .dash-filters {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
-
-        .task-tag {
-            background-color: var(--bg-main);
-            padding: 2px 8px;
-            border-radius: 4px;
+        .dash-filter-select {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
             font-size: 12px;
-            color: var(--text-secondary);
+            background: white;
+            color: var(--text-primary);
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.15s;
         }
-
-        .task-status {
-            padding: 2px 8px;
-            border-radius: 4px;
+        .dash-filter-select:focus { border-color: var(--blue); }
+        .dash-filter-select.active { border-color: var(--blue); background: #eff6ff; color: var(--blue); font-weight: 600; }
+        .dash-filter-reset {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 8px;
             font-size: 12px;
-            font-weight: 500;
-            color: white;
+            font-weight: 600;
+            background: #fee2e2;
+            color: #ef4444;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .dash-filter-reset:hover { background: #fecaca; }
+
+        /* Dashboard task list (card-based) */
+        .dash-task-list { display: flex; flex-direction: column; gap: 6px; }
+        .dash-task-row {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) 90px 80px 140px 110px 100px;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.12s;
+            border: 1px solid transparent;
+        }
+        .dash-task-row:hover { border-color: var(--border-color); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .dash-task-row .dt-title { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dash-task-row .dt-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .dash-task-row .dt-meta { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+        .dash-task-head {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) 90px 80px 140px 110px 100px;
+            gap: 10px;
+            padding: 6px 16px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .task-status.new {
-            background-color: var(--status-new);
-        }
-
-        .task-status.in_progress {
-            background-color: var(--status-in-progress);
-        }
-
-        .task-status.review {
-            background-color: var(--status-review);
-        }
-
-        .task-status.done {
-            background-color: var(--status-done);
-        }
-
-        .task-status.cancelled {
-            background-color: var(--status-cancelled);
-        }
-
-        .task-tag.overdue {
-            background-color: var(--danger);
-            color: white;
-        }
+        /* Legacy compat */
+        .section-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+        .task-title { font-weight: 600; margin-bottom: 6px; font-size: 13px; }
+        .task-status { padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; color: white; }
+        .task-status.new { background: var(--status-new); }
+        .task-status.in_progress { background: var(--status-in-progress); }
+        .task-status.done { background: var(--status-done); }
+        .task-status.cancelled { background: var(--status-cancelled); }
+        .task-tag.overdue { background: var(--danger); color: white; }
 
         /* KANBAN */
         .kanban-board {
@@ -1430,6 +1417,20 @@
             flex-shrink: 0;
         }
         .cats-funnel-header:hover { background: #fafbfc; }
+        .cats-funnel-col-handle {
+            cursor: grab;
+            opacity: 0;
+            transition: opacity 0.15s;
+            font-size: 14px;
+            color: var(--text-light);
+            padding: 2px 4px;
+            user-select: none;
+        }
+        .cats-funnel-header:hover .cats-funnel-col-handle { opacity: 0.7; }
+        .cats-funnel-col-handle:hover { opacity: 1 !important; color: var(--text-primary); }
+        .cats-funnel-col-handle:active { cursor: grabbing; }
+        .cats-funnel-group.col-drop-left { border-left: 3px solid var(--blue) !important; }
+        .cats-funnel-group.col-drop-right { border-right: 3px solid var(--blue) !important; }
         .cats-funnel-caret {
             width: 14px; text-align: center; color: #94a3b8;
             font-size: 10px; flex-shrink: 0; transition: transform .15s;
@@ -2816,6 +2817,8 @@
             right: 0;
             bottom: 0;
             background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 500;
             align-items: center;
             justify-content: center;
@@ -2829,13 +2832,14 @@
 
         .modal-content {
             background-color: var(--bg-secondary);
-            border-radius: 14px;
+            border-radius: 16px;
             width: 100%;
             max-width: 620px;
             max-height: 88vh;
             overflow-y: auto;
             padding: 22px 26px 20px;
             position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.03);
         }
 
         .modal-title {
@@ -3530,6 +3534,33 @@
         @keyframes slideUp { from{opacity:0;transform:translateY(30px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes exhaustPuff { 0%{opacity:0.6;transform:translateX(0) scale(1)} 100%{opacity:0;transform:translateX(-25px) scale(2)} }
         @keyframes starSparkle { 0%,100%{opacity:0;transform:scale(0.5)} 50%{opacity:1;transform:scale(1)} }
+        .mention-dropdown {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            max-height: 180px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            min-width: 200px;
+        }
+        .mention-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.1s;
+        }
+        .mention-item:hover, .mention-item.active {
+            background: #eff6ff;
+        }
+        .mention-item .mention-name { font-weight: 600; color: var(--text-primary); }
     </style>
 </head>
 <body>
@@ -3837,7 +3868,7 @@
                     </svg>
                     <span>Воронка</span>
                 </div>
-                <div class="nav-item" data-page="list">
+                <div class="nav-item" data-page="list" style="display:none;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="8" y1="6" x2="21" y2="6"></line>
                         <line x1="8" y1="12" x2="21" y2="12"></line>
@@ -3982,11 +4013,38 @@
             <div class="content">
                 <!-- DASHBOARD PAGE -->
                 <div class="page active" id="page-dashboard">
+                    <!-- Unified Dashboard: stat tiles + filters + task list -->
                     <div class="stats-grid" id="statsGrid"></div>
-                    <div class="recent-tasks">
-                        <div class="section-title">Последние задачи</div>
-                        <div class="tasks-list" id="recentTasksList"></div>
+                    <div class="dash-filters" id="dashFilters">
+                        <select id="dashDeptFilter" class="dash-filter-select" onchange="setDashFilter('dept',this.value)">
+                            <option value="">Все отделы</option>
+                        </select>
+                        <select id="dashStatusFilter" class="dash-filter-select" onchange="setDashFilter('status',this.value)">
+                            <option value="">Все статусы</option>
+                            <option value="new">Новые</option>
+                            <option value="in_progress">В работе</option>
+                            <option value="done">Выполнены</option>
+                        </select>
+                        <select id="dashPriorityFilter" class="dash-filter-select" onchange="setDashFilter('priority',this.value)">
+                            <option value="">Любой приоритет</option>
+                            <option value="high">Высокий</option>
+                            <option value="medium">Средний</option>
+                            <option value="low">Низкий</option>
+                        </select>
+                        <select id="dashDeadlineFilter" class="dash-filter-select" onchange="setDashFilter('deadline',this.value)">
+                            <option value="">Любой дедлайн</option>
+                            <option value="overdue">Просрочено</option>
+                            <option value="today">Сегодня</option>
+                            <option value="week">Эта неделя</option>
+                            <option value="month">Этот месяц</option>
+                            <option value="none">Без дедлайна</option>
+                        </select>
+                        <select id="dashAssigneeFilter" class="dash-filter-select" onchange="setDashFilter('assignee',this.value)">
+                            <option value="">Все исполнители</option>
+                        </select>
+                        <button class="dash-filter-reset" id="dashFilterResetBtn" style="display:none;" onclick="resetDashFilters()">Сбросить</button>
                     </div>
+                    <div id="dashTaskList" class="dash-task-list"></div>
                 </div>
 
                 <!-- CATEGORIES PAGE (Todoist-style, replaces old kanban) -->
@@ -5060,6 +5118,9 @@ function navigate(page) {
 }
 
 function _doNavigate(page) {
+    // List is merged into dashboard
+    if (page === 'list') page = 'dashboard';
+
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
 
@@ -5086,7 +5147,6 @@ function _doNavigate(page) {
     if (page === 'dashboard') renderDashboard();
     else if (page === 'kanban') renderKanban();
     else if (page === 'funnel') renderFunnel();
-    else if (page === 'list') renderList();
     else if (page === 'calendar') renderCalendar();
     else if (page === 'analytics') renderAnalytics();
     else if (page === 'leaderboard') renderLeaderboard();
@@ -5325,81 +5385,152 @@ function renderCurrentPage() {
     if (currentPage === 'dashboard') renderDashboard();
     else if (currentPage === 'kanban') renderKanban();
     else if (currentPage === 'funnel') renderFunnel();
-    else if (currentPage === 'list') renderList();
+    else if (currentPage === 'list') renderDashboard();
     else if (currentPage === 'calendar') renderCalendar();
+}
+
+// =================================
+// DASHBOARD FILTER STATE & FUNCTIONS
+// =================================
+
+// Dashboard filter state
+var dashFilterState = { dept: '', status: '', priority: '', deadline: '', assignee: '' };
+
+function setDashFilter(key, value) {
+    dashFilterState[key] = value;
+    // Sync select element
+    const selMap = {'dept':'dashDeptFilter','status':'dashStatusFilter','priority':'dashPriorityFilter','deadline':'dashDeadlineFilter','assignee':'dashAssigneeFilter'};
+    const selId = selMap[key];
+    if (selId) {
+        const sel = document.getElementById(selId);
+        if (sel) {
+            sel.value = value;
+            sel.classList.toggle('active', !!value);
+        }
+    }
+    // Show/hide reset button
+    const hasAny = Object.values(dashFilterState).some(v => v);
+    const resetBtn = document.getElementById('dashFilterResetBtn');
+    if (resetBtn) resetBtn.style.display = hasAny ? '' : 'none';
+    renderDashboard();
+}
+
+function resetDashFilters() {
+    dashFilterState = { dept: '', status: '', priority: '', deadline: '', assignee: '' };
+    ['dashDeptFilter','dashStatusFilter','dashPriorityFilter','dashDeadlineFilter','dashAssigneeFilter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.value = ''; el.classList.remove('active'); }
+    });
+    const resetBtn = document.getElementById('dashFilterResetBtn');
+    if (resetBtn) resetBtn.style.display = 'none';
+    renderDashboard();
+}
+
+function getDashFilteredTasks() {
+    let tasks = allTasks;
+    const f = dashFilterState;
+    if (f.dept) tasks = tasks.filter(t => t.department_id == f.dept);
+    if (f.status) tasks = tasks.filter(t => t.status === f.status);
+    if (f.priority) tasks = tasks.filter(t => t.priority === f.priority);
+    if (f.assignee) tasks = tasks.filter(t => t.assigned_to == f.assignee);
+    if (f.deadline) {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
+        const monthEnd = new Date(now); monthEnd.setMonth(monthEnd.getMonth() + 1);
+        if (f.deadline === 'overdue') tasks = tasks.filter(t => t.deadline && t.deadline < todayStr && !['done','cancelled'].includes(t.status));
+        else if (f.deadline === 'today') tasks = tasks.filter(t => t.deadline && t.deadline.startsWith(todayStr));
+        else if (f.deadline === 'week') tasks = tasks.filter(t => t.deadline && t.deadline >= todayStr && t.deadline <= weekEnd.toISOString().split('T')[0]);
+        else if (f.deadline === 'month') tasks = tasks.filter(t => t.deadline && t.deadline >= todayStr && t.deadline <= monthEnd.toISOString().split('T')[0]);
+        else if (f.deadline === 'none') tasks = tasks.filter(t => !t.deadline);
+    }
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        tasks = tasks.filter(t => (t.title||'').toLowerCase().includes(q) || (t.description||'').toLowerCase().includes(q));
+    }
+    return tasks;
 }
 
 async function renderDashboard() {
     await loadStats();
 
-    const recentTasks = getFilteredTasks().slice(0, 10);
-    const list = document.getElementById('recentTasksList');
-    list.innerHTML = '';
-    
-    recentTasks.forEach(task => {
-        const deadline = deadlineInfo(task.deadline);
-        const assignee = allUsers.find(u => u.id === task.assigned_to);
-        const dept = allDepartments.find(d => d.id === task.department_id);
-        
-        const div = document.createElement('div');
-        div.className = 'task-item';
-        div.style.display = 'flex';
-        div.style.alignItems = 'center';
-        div.style.gap = '12px';
-        div.innerHTML = `
-            <div style="flex: 1;">
-                <div class="task-title">${task.title}</div>
-                <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px;">
-                    <span style="background: var(--priority-${task.priority}); color: white; padding: 2px 8px; border-radius: 3px;">${priorityName(task.priority)}</span>
-                    ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 24, assignee.avatar_url) : ''}
-                    ${dept ? `<span style="background: ${dept.color || '#ccc'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px;">${dept.name}</span>` : ''}
-                </div>
-            </div>
-            <div style="text-align: right; font-size: 12px;">
-                <div style="color: var(--text-secondary);">${statusName(task.status)}</div>
-                ${deadline.text ? `<div style="color: var(--${deadline.class}); margin-top: 4px; font-weight: 600;">${deadline.text}</div>` : ''}
-            </div>
-        `;
-        div.addEventListener('click', () => showTaskDetail(task.id));
-        list.appendChild(div);
+    // Populate dept filter dropdown
+    const deptSel = document.getElementById('dashDeptFilter');
+    const deptVal = deptSel.value;
+    deptSel.innerHTML = '<option value="">Все отделы</option>';
+    allDepartments.forEach(d => {
+        deptSel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
     });
-    
-    // Mini gamification widget - remove previous first to avoid duplicates
-    const existingWidget = document.getElementById('dashboardGamifWidget');
-    if (existingWidget) existingWidget.remove();
+    deptSel.value = deptVal || dashFilterState.dept;
 
-    const gamif = await apiCall('/api/gamification/me');
-    if (gamif && gamif.stats) {
-        const s = gamif.stats;
-        const nl = gamif.next_level || {name: 'Чемпион', km_needed: s.total_km || 1};
-        const widget = document.createElement('div');
-        widget.id = 'dashboardGamifWidget';
-        widget.style.cssText = 'background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); color: white; border-radius: 12px; padding: 24px; margin-top: 30px; box-shadow: 0 4px 20px rgba(15,23,42,0.3);';
-        const _lt = {'Босоногий':0,'Самокатчик':100,'Моноколёсник':500,'Байкер':1500,'Водитель':3500,'Формула 3':7000,'Формула 2':12000,'Формула 1':18000,'Чемпион':25000};
-        const _ct = _lt[s.level] || 0;
-        const _nt = nl.km_needed || s.total_km;
-        const _rng = _nt - _ct;
-        const pct = _rng > 0 ? Math.min(100, Math.round(((s.total_km - _ct) / _rng) * 100)) : 100;
-        widget.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <div>
-                    <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin-bottom: 4px;">Ваш уровень</div>
-                    <div style="font-size: 20px; font-weight: 700;">${levelIcon(gamif.car_override || s.level)} ${gamif.car_override || s.level}</div>
-                    <div style="font-size: 11px; opacity: 0.5; font-style:italic;">«${levelFunName(gamif.car_override || s.level)}»</div>
-                </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 28px; font-weight: 700;">${s.total_km || 0} <span style="font-size: 14px; opacity: 0.7;">км</span></div>
-                </div>
-            </div>
-            <div style="background: rgba(255,255,255,0.15); height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
-                <div style="background: linear-gradient(90deg, #3b82f6, #22c55e); height: 100%; width: ${pct}%; border-radius: 3px; transition: width 0.5s;"></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; opacity: 0.7;">
-                <span>Задач выполнено: ${s.tasks_completed || 0}</span>
-                <span>До «${nl.name}»: ${Math.max(0, (nl.km_needed || 0) - (s.total_km || 0))} км</span>
-            </div>
-        `;
-        document.getElementById('recentTasksList').parentElement.appendChild(widget);
+    // Populate assignee filter dropdown
+    const assSel = document.getElementById('dashAssigneeFilter');
+    const assVal = assSel.value;
+    assSel.innerHTML = '<option value="">Все исполнители</option>';
+    allUsers.forEach(u => {
+        assSel.innerHTML += `<option value="${u.id}">${u.full_name}</option>`;
+    });
+    assSel.value = assVal || dashFilterState.assignee;
+
+    // Get filtered tasks
+    const tasks = getDashFilteredTasks();
+    const container = document.getElementById('dashTaskList');
+
+    // Header row
+    let html = '<div class="dash-task-head"><span>Задача</span><span>Статус</span><span>Приоритет</span><span>Исполнитель</span><span>Отдел</span><span>Дедлайн</span></div>';
+
+    if (!tasks.length) {
+        html += '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:14px;">Нет задач по выбранным фильтрам</div>';
+    } else {
+        tasks.forEach(task => {
+            const assignee = allUsers.find(u => u.id === task.assigned_to);
+            const dept = allDepartments.find(d => d.id === task.department_id);
+            const dl = deadlineInfo(task.deadline);
+            html += `<div class="dash-task-row" onclick="showTaskDetail(${task.id})">
+                <span class="dt-title">${task.title}</span>
+                <span><span class="dt-badge" style="background:var(--status-${task.status})20;color:var(--status-${task.status});">${statusName(task.status)}</span></span>
+                <span><span class="dt-badge" style="background:var(--priority-${task.priority})20;color:var(--priority-${task.priority});">${priorityName(task.priority)}</span></span>
+                <span class="dt-meta">${assignee ? assignee.full_name : '—'}</span>
+                <span class="dt-meta">${dept ? dept.name : '—'}</span>
+                <span class="dt-meta">${dl.text || '—'}</span>
+            </div>`;
+        });
+    }
+    container.innerHTML = html;
+
+    // Make stat tiles clickable - add click handlers for filtering
+    const statCards = document.querySelectorAll('#statsGrid .stat-card');
+    statCards.forEach((card, idx) => {
+        card.onclick = function() {
+            // If it's the "overdue" card, filter by deadline=overdue
+            if (this.classList.contains('overdue')) {
+                setDashFilter('deadline', dashFilterState.deadline === 'overdue' ? '' : 'overdue');
+                return;
+            }
+            // First card is "Total" - reset filters
+            if (idx === 0) {
+                resetDashFilters();
+                return;
+            }
+            // Status cards (idx 1-N)
+            const stageIdx = idx - 1;
+            if (stageIdx >= 0 && stageIdx < allStages.length) {
+                const stage = allStages[stageIdx];
+                setDashFilter('status', dashFilterState.status === stage.key ? '' : stage.key);
+            }
+        };
+    });
+
+    // Highlight active filter cards
+    const cards = document.querySelectorAll('#statsGrid .stat-card');
+    cards.forEach(c => c.classList.remove('active-filter'));
+    if (dashFilterState.status) {
+        const idx = allStages.findIndex(s => s.key === dashFilterState.status);
+        if (idx >= 0 && cards[idx + 1]) cards[idx + 1].classList.add('active-filter');
+    }
+    if (dashFilterState.deadline === 'overdue') {
+        const last = cards[cards.length - 1];
+        if (last) last.classList.add('active-filter');
     }
 }
 
@@ -5979,9 +6110,10 @@ function _renderFunnelSectionHTML(sec, collapsedSet) {
         '</button>';
 
     return '<div class="' + groupClass + '" data-sec-key="' + sec.key + '" ' +
-            'ondragover="catSecDragOver(event)" ondragleave="catSecDragLeave(event)" ondrop="catSecDrop(event,\'' + sec.key + '\')" ' +
+            'ondragover="catSecDragOver(event);colDragOver(event)" ondragleave="catSecDragLeave(event);colDragLeave(event)" ondrop="if(_colDragState.key){colDrop(event)}else{catSecDrop(event,\'' + sec.key + '\')}" ' +
             'style="--sec-color:' + sec.color + ';--sec-bg:' + bg + ';--sec-bg-hover:' + bgHover + ';">' +
         '<div class="cats-funnel-header" onclick="toggleCatsSection(\'' + sec.key + '\')">' +
+            '<span class="cats-funnel-col-handle" draggable="true" ondragstart="colDragStart(event,\'' + sec.key + '\')" ondragend="colDragEnd(event)" onclick="event.stopPropagation()" title="Перетащите для изменения порядка">⠿</span>' +
             '<span class="cats-funnel-caret">' + caret + '</span>' +
             iconPart +
             '<span class="cats-funnel-title">' + _catsEscape(sec.name) + '</span>' +
@@ -6247,6 +6379,87 @@ function catSecDrop(ev, toKey) {
     if (taskId == null) return;
     if (fromKey === toKey) return;
     moveTaskBetweenSections(taskId, fromKey, toKey);
+}
+
+// ═══ COLUMN REORDER DRAG STATE ═══
+let _colDragState = { key: null, el: null };
+
+function colDragStart(ev, secKey) {
+    // Don't interfere with card drag
+    ev.stopPropagation();
+    _colDragState.key = secKey;
+    _colDragState.el = ev.currentTarget.closest('.cats-funnel-group');
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/x-col-reorder', secKey);
+    requestAnimationFrame(() => { if (_colDragState.el) _colDragState.el.style.opacity = '0.4'; });
+}
+
+function colDragEnd(ev) {
+    if (_colDragState.el) _colDragState.el.style.opacity = '';
+    document.querySelectorAll('.cats-funnel-group.col-drop-left, .cats-funnel-group.col-drop-right').forEach(el => {
+        el.classList.remove('col-drop-left', 'col-drop-right');
+    });
+    _colDragState = { key: null, el: null };
+}
+
+function colDragOver(ev) {
+    if (!_colDragState.key) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    const target = ev.currentTarget;
+    if (target === _colDragState.el) return;
+    // Determine left/right based on mouse position
+    const rect = target.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    target.classList.remove('col-drop-left', 'col-drop-right');
+    if (ev.clientX < midX) {
+        target.classList.add('col-drop-left');
+    } else {
+        target.classList.add('col-drop-right');
+    }
+}
+
+function colDragLeave(ev) {
+    ev.currentTarget.classList.remove('col-drop-left', 'col-drop-right');
+}
+
+async function colDrop(ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const targetGroup = ev.currentTarget;
+    targetGroup.classList.remove('col-drop-left', 'col-drop-right');
+    if (!_colDragState.key || !_colDragState.el) return;
+
+    const wrap = targetGroup.parentElement;
+    if (!wrap) return;
+
+    // Determine before or after
+    const rect = targetGroup.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    if (ev.clientX < midX) {
+        wrap.insertBefore(_colDragState.el, targetGroup);
+    } else {
+        wrap.insertBefore(_colDragState.el, targetGroup.nextSibling);
+    }
+
+    // Collect new order of category IDs
+    const groups = wrap.querySelectorAll('.cats-funnel-group[data-sec-key]');
+    const order = [];
+    groups.forEach(g => {
+        const key = g.getAttribute('data-sec-key');
+        // Only include numeric keys (real categories)
+        const num = parseInt(key.replace('self-', ''));
+        if (!isNaN(num)) order.push(num);
+    });
+
+    if (order.length) {
+        await apiCall('/api/categories/reorder', {
+            method: 'POST',
+            body: JSON.stringify({ order })
+        });
+    }
+
+    colDragEnd(ev);
 }
 
 // Optimistic move: update local state, re-render immediately, then call the API.
@@ -7551,6 +7764,14 @@ async function showTaskDetail(taskId) {
 
     // Close on overlay click
     modal.onclick = e => { if (e.target === modal) closeTaskDetail(); };
+
+    // Init @-mention autocomplete
+    setTimeout(() => {
+        const mainInput = document.getElementById('detailQuickComment');
+        if (mainInput) initMentionDropdown(mainInput);
+        const tabInput = document.getElementById('tabCommentInput');
+        if (tabInput) initMentionDropdown(tabInput);
+    }, 100);
 }
 
 function openDetailDeadlinePicker() {
@@ -8101,6 +8322,104 @@ async function sendComment(taskId, prefix) {
     } else {
         showToast((resp && resp.error) || 'Ошибка отправки', 'error');
     }
+}
+
+// ═══ @-MENTION AUTOCOMPLETE ═══
+var _mentionState = { active: false, startIdx: -1, dropdown: null, items: [], selectedIdx: 0, inputEl: null };
+
+function initMentionDropdown(inputEl) {
+    if (inputEl._mentionInit) return;
+    inputEl._mentionInit = true;
+    // Wrap input in relative container if needed
+    const parent = inputEl.parentElement;
+    if (parent && getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
+    }
+    // Create dropdown
+    const dd = document.createElement('div');
+    dd.className = 'mention-dropdown';
+    inputEl.parentElement.appendChild(dd);
+
+    inputEl.addEventListener('input', function() { handleMentionInput(this, dd); });
+    inputEl.addEventListener('keydown', function(e) { handleMentionKeydown(e, this, dd); });
+    inputEl.addEventListener('blur', function() { setTimeout(() => { dd.style.display = 'none'; _mentionState.active = false; }, 200); });
+}
+
+function handleMentionInput(input, dropdown) {
+    const val = input.value;
+    const pos = input.selectionStart;
+
+    // Find @ before cursor
+    let atIdx = -1;
+    for (let i = pos - 1; i >= 0; i--) {
+        if (val[i] === '@') { atIdx = i; break; }
+        if (val[i] === ' ' && i < pos - 1) break; // space before means no active @
+    }
+
+    if (atIdx === -1) {
+        dropdown.style.display = 'none';
+        _mentionState.active = false;
+        return;
+    }
+
+    const query = val.substring(atIdx + 1, pos).toLowerCase();
+    const matches = allUsers.filter(u => u.full_name.toLowerCase().includes(query)).slice(0, 8);
+
+    if (!matches.length) {
+        dropdown.style.display = 'none';
+        _mentionState.active = false;
+        return;
+    }
+
+    _mentionState = { active: true, startIdx: atIdx, dropdown, items: matches, selectedIdx: 0, inputEl: input };
+
+    dropdown.innerHTML = matches.map((u, i) =>
+        '<div class="mention-item' + (i === 0 ? ' active' : '') + '" onmousedown="selectMention(' + i + ')">' +
+            '<span class="mention-name">@' + u.full_name + '</span>' +
+        '</div>'
+    ).join('');
+    dropdown.style.display = 'block';
+}
+
+function handleMentionKeydown(e, input, dropdown) {
+    if (!_mentionState.active) return;
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _mentionState.selectedIdx = Math.min(_mentionState.selectedIdx + 1, _mentionState.items.length - 1);
+        updateMentionSelection(dropdown);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _mentionState.selectedIdx = Math.max(_mentionState.selectedIdx - 1, 0);
+        updateMentionSelection(dropdown);
+    } else if (e.key === 'Enter' && _mentionState.active && _mentionState.items.length) {
+        e.preventDefault();
+        e.stopPropagation();
+        selectMention(_mentionState.selectedIdx);
+    } else if (e.key === 'Escape') {
+        dropdown.style.display = 'none';
+        _mentionState.active = false;
+    }
+}
+
+function updateMentionSelection(dropdown) {
+    dropdown.querySelectorAll('.mention-item').forEach((el, i) => {
+        el.classList.toggle('active', i === _mentionState.selectedIdx);
+    });
+}
+
+function selectMention(idx) {
+    const m = _mentionState;
+    if (!m.active || !m.items[idx] || !m.inputEl) return;
+    const user = m.items[idx];
+    const val = m.inputEl.value;
+    const before = val.substring(0, m.startIdx);
+    const after = val.substring(m.inputEl.selectionStart);
+    m.inputEl.value = before + '@' + user.full_name + ' ' + after;
+    m.inputEl.focus();
+    const newPos = before.length + user.full_name.length + 2;
+    m.inputEl.setSelectionRange(newPos, newPos);
+    m.dropdown.style.display = 'none';
+    m.active = false;
 }
 
 function renderCommentAttachment(c) {
