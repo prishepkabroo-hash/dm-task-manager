@@ -6141,13 +6141,15 @@ function _renderDeptFunnel(deptId, allCats, tasks) {
 
     let sections = [];
 
-    // Default "Новая задача" column — tasks with status 'new' and no category
-    const newTasks = tasks.filter(t => t.status === 'new' && (!t.categories || t.categories.length === 0));
+    // Default "Новая задача" column — ВСЕ активные задачи без категории (любой статус)
+    // Эта колонка показывается ВСЕГДА, даже если пустая, и ВСЕГДА идёт первой.
+    const newTasks = tasks.filter(t => !t.categories || t.categories.length === 0);
     sections.push({
         key: 'new-tasks',
         name: 'Новая задача',
         color: '#6366f1',
         icon: '📥',
+        isDefault: true,
         tasks: newTasks
     });
 
@@ -6173,15 +6175,9 @@ function _renderDeptFunnel(deptId, allCats, tasks) {
           '</div>'
         : '';
 
-    if (deptCats.length === 0 && newTasks.length === 0) {
-        return '<div class="cats-empty">' +
-            '<div class="cats-empty-icon">🗂</div>' +
-            '<div style="font-weight:600;color:#475569;font-size:15px;margin-bottom:6px;">Нет воронок в этом отделе</div>' +
-            '<div style="color:#94a3b8;font-size:13px;max-width:320px;margin:0 auto;line-height:1.5;">Создайте категории-воронки для этого отдела, чтобы распределять задачи.</div>' +
-            (canManage ? '<div style="margin-top:18px;"><button onclick="showCategoryModal()" style="padding:10px 18px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Новая воронка</button></div>' : '') +
-        '</div>';
-    }
-
+    // ВАЖНО: пустое состояние НЕ подменяет колонки — "Новая задача" всегда рендерится.
+    // Если в отделе нет воронок и нет задач — показываем саму колонку "Новая задача" (пустая)
+    // + кнопку "+ Новая воронка" справа. Это единый дефолт для всех отделов.
     return '<div class="cats-funnel-wrap view-' + vm + '">' +
         sections.map(s => _renderFunnelSectionHTML(s, collapsedSet)).join('') +
         addColHtml +
@@ -6794,7 +6790,8 @@ async function moveTaskBetweenSections(taskId, fromKey, toKey) {
 
     // Build the patch payload based on the destination section key
     const payload = {};
-    if (toKey === 'none' || toKey === 'none-view') {
+    if (toKey === 'none' || toKey === 'none-view' || toKey === 'new-tasks') {
+        // "Новая задача" — дефолтная колонка без категории
         payload.category_ids = [];
         if (task.status === 'done' || task.status === 'cancelled') payload.status = 'new';
     } else if (toKey === 'done-view') {
