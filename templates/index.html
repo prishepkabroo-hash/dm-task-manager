@@ -3586,6 +3586,7 @@
         .typing-dots span:nth-child(3) { animation-delay:0.4s; }
         @keyframes typingDots { 0%,100% { opacity:0; } 30%,70% { opacity:1; } }
         @keyframes slideUp { from{opacity:0;transform:translateY(30px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes tutArrowPulse { 0%,100%{transform:rotate(var(--a,0deg)) scale(1);opacity:1} 50%{transform:rotate(var(--a,0deg)) scale(1.25);opacity:0.7} }
         @keyframes exhaustPuff { 0%{opacity:0.6;transform:translateX(0) scale(1)} 100%{opacity:0;transform:translateX(-25px) scale(2)} }
         @keyframes starSparkle { 0%,100%{opacity:0;transform:scale(0.5)} 50%{opacity:1;transform:scale(1)} }
         .mention-dropdown {
@@ -3615,6 +3616,150 @@
             background: #eff6ff;
         }
         .mention-item .mention-name { font-weight: 600; color: var(--text-primary); }
+
+        /* ═══ INLINE SUBTASK CHAT ═══ */
+        .subtask-chat-panel {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin: 4px 0 10px 28px;
+            overflow: hidden;
+            animation: subtaskChatSlideIn 0.2s ease-out;
+        }
+        @keyframes subtaskChatSlideIn {
+            from { opacity: 0; max-height: 0; transform: translateY(-8px); }
+            to { opacity: 1; max-height: 600px; transform: translateY(0); }
+        }
+        .subtask-chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: white;
+            border-bottom: 1px solid #e8ecf1;
+        }
+        .subtask-chat-header-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .subtask-chat-close {
+            width: 28px; height: 28px;
+            border: none; background: #f1f5f9;
+            border-radius: 6px; cursor: pointer;
+            font-size: 14px; color: #64748b;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .subtask-chat-close:hover { background: #fee2e2; color: #ef4444; }
+        .subtask-chat-messages {
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 10px 14px;
+        }
+        .subtask-chat-msg {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: flex-start;
+        }
+        .subtask-chat-msg-avatar {
+            flex-shrink: 0;
+        }
+        .subtask-chat-msg-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .subtask-chat-msg-header {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+        .subtask-chat-msg-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .subtask-chat-msg-time {
+            font-size: 10px;
+            color: #94a3b8;
+        }
+        .subtask-chat-msg-text {
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .subtask-chat-msg-text .mention-tag {
+            color: #3b82f6;
+            font-weight: 600;
+            background: #eff6ff;
+            padding: 1px 4px;
+            border-radius: 4px;
+        }
+        .subtask-chat-composer {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            padding: 10px 14px;
+            background: white;
+            border-top: 1px solid #e8ecf1;
+            flex-wrap: wrap;
+        }
+        .subtask-chat-input {
+            flex: 1;
+            min-width: 140px;
+            padding: 9px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .subtask-chat-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .subtask-chat-btn {
+            width: 34px; height: 34px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        .subtask-chat-btn:hover { background: #e2e8f0; }
+        .subtask-chat-send {
+            padding: 9px 14px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .subtask-chat-send:hover { background: #2563eb; }
+        .subtask-chat-attach-preview {
+            display: none;
+            width: 100%;
+            padding: 6px 10px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            font-size: 12px;
+            align-items: center;
+            gap: 8px;
+        }
+        .subtask-chat-empty {
+            text-align: center;
+            padding: 20px 14px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -6775,7 +6920,6 @@ function _catCustomItemHTML(c, hasKids, expanded, active, canManage) {
     if (canManage) {
         actionsHtml =
             '<div class="cat-tree-item-actions">' +
-                '<button title="Подкатегория" onclick="event.stopPropagation();showCategoryModal(null,' + c.id + ')">+</button>' +
                 '<button title="Редактировать" onclick="event.stopPropagation();showCategoryModal(' + c.id + ')">✎</button>' +
                 '<button title="Удалить" onclick="event.stopPropagation();deleteCategory(' + c.id + ')">✕</button>' +
             '</div>';
@@ -6918,28 +7062,18 @@ async function deleteCategory(id) {
 function showCategoryModal(editId = null, parentIdPreset = null) {
     const cats = catsTreeState.allCategories;
     const existing = editId ? cats.find(c => c.id === editId) : null;
-    const modalTitle = existing ? 'Редактировать категорию' : (parentIdPreset ? 'Новая подкатегория' : 'Новая категория');
+    const depts = allDepartments || [];
+    // Auto-detect department from context
+    const contextDeptId = catsTreeState.selectedDeptId || null;
+    const currentDept = existing ? existing.department_id : contextDeptId;
+    const deptName = currentDept ? (depts.find(d => d.id === currentDept) || {}).name : null;
+    const modalTitle = existing ? 'Редактировать воронку' : 'Новая воронка';
     const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
     let pickedColor = existing ? existing.color : '#3b82f6';
-    const currentParent = existing ? existing.parent_id : parentIdPreset;
-    const depts = allDepartments || [];
-    const currentDept = existing ? existing.department_id : (catsTreeState.selectedDeptId || null);
 
-    // Forbid picking self or own descendants as parent
-    const exclude = new Set();
-    if (editId) {
-        const byParent = buildCategoryTree(cats);
-        (function collect(id) {
-            exclude.add(id);
-            (byParent.get(id) || []).forEach(k => collect(k.id));
-        })(editId);
-    }
-    let parentOpts = '<option value="">— (корневая)</option>';
-    cats.filter(c => !exclude.has(c.id)).forEach(c => {
-        parentOpts += '<option value="' + c.id + '"' + (currentParent === c.id ? ' selected' : '') + '>' + _catsEscape(c.name) + '</option>';
-    });
-
-    let deptOpts = '<option value="">— (общая)</option>';
+    // Department selector only if no context department and user is admin
+    const showDeptPicker = !contextDeptId && !existing && currentUser && currentUser.role === 'admin';
+    let deptOpts = '<option value="">— Выберите отдел —</option>';
     depts.forEach(d => {
         deptOpts += '<option value="' + d.id + '"' + (currentDept === d.id ? ' selected' : '') + '>' + _catsEscape(d.name) + '</option>';
     });
@@ -6948,10 +7082,11 @@ function showCategoryModal(editId = null, parentIdPreset = null) {
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.innerHTML =
         '<div style="background:#fff;border-radius:14px;padding:24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">' +
-            '<h3 style="margin:0 0 16px;font-size:18px;color:#0f172a;">' + modalTitle + '</h3>' +
+            '<h3 style="margin:0 0 4px;font-size:18px;color:#0f172a;">' + modalTitle + '</h3>' +
+            (deptName ? '<div style="margin-bottom:16px;font-size:13px;color:#64748b;">Отдел: <strong style="color:#1e293b;">' + _catsEscape(deptName) + '</strong></div>' : '<div style="margin-bottom:16px;"></div>') +
             '<div style="margin-bottom:12px;">' +
-                '<label style="font-size:12px;color:#64748b;font-weight:600;">Название</label>' +
-                '<input id="catModalName" type="text" value="' + _catsEscape(existing ? existing.name : '') + '" placeholder="Например: Продажи" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;" autofocus>' +
+                '<label style="font-size:12px;color:#64748b;font-weight:600;">Название воронки</label>' +
+                '<input id="catModalName" type="text" value="' + _catsEscape(existing ? existing.name : '') + '" placeholder="Например: Горячие лиды" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;" autofocus>' +
             '</div>' +
             '<div style="margin-bottom:12px;">' +
                 '<label style="font-size:12px;color:#64748b;font-weight:600;">Цвет</label>' +
@@ -6959,11 +7094,7 @@ function showCategoryModal(editId = null, parentIdPreset = null) {
                     colors.map(col => '<div class="cat-edit-color-swatch ' + (col === pickedColor ? 'selected' : '') + '" data-color="' + col + '" style="background:' + col + ';"></div>').join('') +
                 '</div>' +
             '</div>' +
-            '<div style="margin-bottom:12px;">' +
-                '<label style="font-size:12px;color:#64748b;font-weight:600;">Родительская категория</label>' +
-                '<select id="catModalParent" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">' + parentOpts + '</select>' +
-            '</div>' +
-            (currentUser && currentUser.role === 'admin' ? '<div style="margin-bottom:16px;">' +
+            (showDeptPicker ? '<div style="margin-bottom:16px;">' +
                 '<label style="font-size:12px;color:#64748b;font-weight:600;">Отдел</label>' +
                 '<select id="catModalDept" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">' + deptOpts + '</select>' +
             '</div>' : '') +
@@ -6989,14 +7120,14 @@ function showCategoryModal(editId = null, parentIdPreset = null) {
     modal.querySelector('#catModalSave').onclick = async () => {
         const name = modal.querySelector('#catModalName').value.trim();
         if (!name) { showToast('Введите название', 'error'); return; }
-        const parentVal = modal.querySelector('#catModalParent').value;
         const deptEl = modal.querySelector('#catModalDept');
+        const finalDeptId = deptEl ? (deptEl.value ? parseInt(deptEl.value) : null) : (currentDept || null);
         const payload = {
             name,
             color: pickedColor,
-            parent_id: parentVal ? parseInt(parentVal) : null,
+            parent_id: null,
+            department_id: finalDeptId,
         };
-        if (deptEl) payload.department_id = deptEl.value ? parseInt(deptEl.value) : null;
         let resp;
         if (editId) {
             resp = await apiCall('/api/categories/' + editId, {method:'PUT', body:JSON.stringify(payload)});
@@ -7004,7 +7135,7 @@ function showCategoryModal(editId = null, parentIdPreset = null) {
             resp = await apiCall('/api/categories', {method:'POST', body:JSON.stringify(payload)});
         }
         if (resp && resp.ok) {
-            showToast(editId ? 'Категория обновлена' : 'Категория создана', 'success');
+            showToast(editId ? 'Воронка обновлена' : 'Воронка создана', 'success');
             close();
             await loadTasks();
             renderKanban();
@@ -8043,7 +8174,7 @@ function renderSubtasks(parentTaskId) {
                         + ((s.comment_count && s.comment_count > 0) ? '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#3b82f6;font-weight:600;background:#eff6ff;padding:2px 7px;border-radius:10px;cursor:pointer;">💬 ' + s.comment_count + '</span>' : '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#94a3b8;font-weight:500;cursor:pointer;">💬 Обсудить</span>')
                     + '</div>'
                 + '</div>'
-                + '<button onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть подробно" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseenter="this.style.background=\'#eff6ff\';this.style.color=\'#3b82f6\'" onmouseleave="this.style.background=\'none\';this.style.color=\'#cbd5e1\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg></button>'
+                + '<button onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Обсуждение" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseenter="this.style.background=\'#eff6ff\';this.style.color=\'#3b82f6\'" onmouseleave="this.style.background=\'none\';this.style.color=\'#cbd5e1\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button>'
                 + '<button onclick="event.stopPropagation();deleteSubtask(' + s.id + ',' + parentTaskId + ')" title="Удалить" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseenter="this.style.background=\'#fef2f2\';this.style.color=\'#ef4444\'" onmouseleave="this.style.background=\'none\';this.style.color=\'#cbd5e1\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>'
                 + '</div>';
         }).join('');
@@ -8147,14 +8278,177 @@ async function saveSubtaskTitle(subtaskId, parentTaskId, el) {
 }
 
 function openSubtaskFull(subtaskId) {
-    // Open subtask in the task detail modal (closes current first)
+    // Toggle inline chat panel for this subtask
     const sub = allTasks.find(t => t.id === subtaskId);
-    if (!sub) {
-        showToast('Подзадача не найдена', 'error');
+    if (!sub) { showToast('Подзадача не найдена', 'error'); return; }
+    const row = document.querySelector('.subtask-row[data-sid="' + subtaskId + '"]');
+    if (!row) return;
+    // Check if chat panel already open — toggle it off
+    const existingPanel = row.nextElementSibling;
+    if (existingPanel && existingPanel.classList.contains('subtask-chat-panel')) {
+        existingPanel.remove();
         return;
     }
-    closeTaskDetail();
-    setTimeout(function() { showTaskDetail(subtaskId); }, 180);
+    // Close any other open chat panels
+    document.querySelectorAll('.subtask-chat-panel').forEach(p => p.remove());
+    // Create inline chat panel
+    const panel = document.createElement('div');
+    panel.className = 'subtask-chat-panel';
+    panel.dataset.subtaskId = subtaskId;
+    panel.innerHTML =
+        '<div class="subtask-chat-header">' +
+            '<div class="subtask-chat-header-title">💬 ' + (sub.title || 'Подзадача').replace(/</g,'&lt;') + '</div>' +
+            '<button class="subtask-chat-close" onclick="this.closest(\'.subtask-chat-panel\').remove()" title="Закрыть">✕</button>' +
+        '</div>' +
+        '<div class="subtask-chat-messages" id="stChat_msgs_' + subtaskId + '">' +
+            '<div class="subtask-chat-empty">Загрузка...</div>' +
+        '</div>' +
+        '<div class="subtask-chat-attach-preview" id="stChat_preview_' + subtaskId + '"></div>' +
+        '<div class="subtask-chat-composer">' +
+            '<input type="text" class="subtask-chat-input" id="stChat_input_' + subtaskId + '" placeholder="Написать... (@имя для упоминания)" onkeydown="if(event.key===\'Enter\')sendSubtaskComment(' + subtaskId + ')">' +
+            '<input type="file" id="stChat_file_' + subtaskId + '" style="display:none;" onchange="handleSubtaskChatFile(' + subtaskId + ')" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">' +
+            '<button class="subtask-chat-btn" title="Прикрепить файл" onclick="document.getElementById(\'stChat_file_' + subtaskId + '\').click()">📎</button>' +
+            '<button class="subtask-chat-btn" id="stChat_voice_' + subtaskId + '" title="Голосовое" onclick="toggleSubtaskChatVoice(' + subtaskId + ')">🎤</button>' +
+            '<button class="subtask-chat-send" onclick="sendSubtaskComment(' + subtaskId + ')">Отправить</button>' +
+        '</div>';
+    row.after(panel);
+    // Load comments
+    loadSubtaskChatComments(subtaskId);
+    // Init @-mention on the input
+    setTimeout(function() {
+        var inp = document.getElementById('stChat_input_' + subtaskId);
+        if (inp) { initMentionDropdown(inp); inp.focus(); }
+    }, 50);
+}
+
+// ═══ INLINE SUBTASK CHAT FUNCTIONS ═══
+var _subtaskChatAttachments = {};
+
+async function loadSubtaskChatComments(subtaskId) {
+    var container = document.getElementById('stChat_msgs_' + subtaskId);
+    if (!container) return;
+    var comments = await apiCall('/api/tasks/' + subtaskId + '/comments');
+    if (!comments || !comments.length) {
+        container.innerHTML = '<div class="subtask-chat-empty"><div style="font-size:24px;margin-bottom:6px;">💬</div>Нет сообщений. Начните обсуждение!</div>';
+        return;
+    }
+    container.innerHTML = comments.map(function(c) {
+        var author = allUsers.find(u => u.id === c.user_id) || {};
+        var textHtml = (c.text || '').replace(/</g,'&lt;').replace(/@(\S+)/g, '<span class="mention-tag">@$1</span>');
+        return '<div class="subtask-chat-msg">' +
+            '<div class="subtask-chat-msg-avatar">' + avatarHTML(c.author_name || '?', author.avatar_color || '#94a3b8', 28, author.avatar_url) + '</div>' +
+            '<div class="subtask-chat-msg-body">' +
+                '<div class="subtask-chat-msg-header">' +
+                    '<span class="subtask-chat-msg-name">' + (c.author_name || '') + '</span>' +
+                    '<span class="subtask-chat-msg-time">' + formatDateTime(c.created_at) + '</span>' +
+                '</div>' +
+                (textHtml ? '<div class="subtask-chat-msg-text">' + textHtml + '</div>' : '') +
+                _renderSubtaskChatAttachment(c) +
+            '</div>' +
+        '</div>';
+    }).join('');
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+}
+
+function _renderSubtaskChatAttachment(c) {
+    if (!c.attachment_name) return '';
+    var type = c.attachment_type || '';
+    if (type.startsWith('image/')) {
+        return '<div style="margin-top:6px;"><img src="/api/comments/' + c.id + '/attachment" alt="' + c.attachment_name + '" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;" onclick="window.open(this.src,\'_blank\')"></div>';
+    }
+    if (type.startsWith('audio/')) {
+        return '<div style="margin-top:6px;"><audio controls src="/api/comments/' + c.id + '/attachment" style="max-width:100%;height:36px;"></audio></div>';
+    }
+    if (type.startsWith('video/')) {
+        return '<div style="margin-top:6px;"><video controls src="/api/comments/' + c.id + '/attachment" style="max-width:100%;max-height:180px;border-radius:8px;"></video></div>';
+    }
+    return '<div style="margin-top:6px;"><a href="/api/comments/' + c.id + '/attachment" target="_blank" download style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f1f5f9;border-radius:6px;font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;">📄 ' + c.attachment_name + '</a></div>';
+}
+
+function handleSubtaskChatFile(subtaskId) {
+    var input = document.getElementById('stChat_file_' + subtaskId);
+    var file = input && input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { showToast('Файл макс 8 МБ', 'error'); input.value = ''; return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        _subtaskChatAttachments[subtaskId] = { data: e.target.result, name: file.name, type: file.type || 'application/octet-stream' };
+        _showSubtaskChatPreview(subtaskId);
+    };
+    reader.readAsDataURL(file);
+}
+
+function _showSubtaskChatPreview(subtaskId) {
+    var preview = document.getElementById('stChat_preview_' + subtaskId);
+    if (!preview) return;
+    var att = _subtaskChatAttachments[subtaskId];
+    if (!att) { preview.style.display = 'none'; return; }
+    var icon = att.type.startsWith('image/') ? '🖼️' : att.type.startsWith('audio/') ? '🎵' : att.type.startsWith('video/') ? '🎬' : '📄';
+    preview.style.display = 'flex';
+    preview.innerHTML = '<span>' + icon + '</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569;">' + att.name + '</span>' +
+        '<button onclick="_clearSubtaskChatAttach(' + subtaskId + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-weight:600;">✕</button>';
+}
+
+function _clearSubtaskChatAttach(subtaskId) {
+    delete _subtaskChatAttachments[subtaskId];
+    var input = document.getElementById('stChat_file_' + subtaskId);
+    if (input) input.value = '';
+    var preview = document.getElementById('stChat_preview_' + subtaskId);
+    if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+}
+
+async function toggleSubtaskChatVoice(subtaskId) {
+    var recKey = 'stChat_' + subtaskId;
+    var rec = commentRecorders[recKey];
+    var btn = document.getElementById('stChat_voice_' + subtaskId);
+    if (rec && rec.state === 'recording') { rec.stop(); return; }
+    if (!navigator.mediaDevices || !window.MediaRecorder) { showToast('Запись не поддерживается', 'error'); return; }
+    try {
+        var stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        var mr = mimeType ? new MediaRecorder(stream, {mimeType}) : new MediaRecorder(stream);
+        var chunks = [];
+        mr.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        mr.onstop = function() {
+            stream.getTracks().forEach(t => t.stop());
+            var blob = new Blob(chunks, {type: mimeType || 'audio/webm'});
+            if (blob.size > 8*1024*1024) { showToast('Запись слишком длинная', 'error'); commentRecorders[recKey]=null; if(btn){btn.textContent='🎤';btn.style.background='';} return; }
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                _subtaskChatAttachments[subtaskId] = { data: e.target.result, name: 'voice_' + Date.now() + '.webm', type: blob.type || 'audio/webm' };
+                _showSubtaskChatPreview(subtaskId);
+            };
+            reader.readAsDataURL(blob);
+            commentRecorders[recKey] = null;
+            if (btn) { btn.textContent = '🎤'; btn.style.background = ''; }
+        };
+        mr.start();
+        commentRecorders[recKey] = mr;
+        if (btn) { btn.textContent = '⏹'; btn.style.background = '#fecaca'; }
+        showToast('Запись... Нажмите ⏹ для остановки', 'info');
+        setTimeout(function() { if (commentRecorders[recKey] && commentRecorders[recKey].state === 'recording') commentRecorders[recKey].stop(); }, 120000);
+    } catch(err) { showToast('Нет доступа к микрофону', 'error'); }
+}
+
+async function sendSubtaskComment(subtaskId) {
+    var input = document.getElementById('stChat_input_' + subtaskId);
+    var text = input ? input.value.trim() : '';
+    var att = _subtaskChatAttachments[subtaskId];
+    if (!text && !att) return;
+    var body = { text: text };
+    if (att) { body.attachment_data = att.data; body.attachment_name = att.name; body.attachment_type = att.type; }
+    var resp = await apiCall('/api/tasks/' + subtaskId + '/comments', { method:'POST', body:JSON.stringify(body) });
+    if (resp && !resp.error) {
+        if (input) input.value = '';
+        _clearSubtaskChatAttach(subtaskId);
+        loadSubtaskChatComments(subtaskId);
+        // Update comment count locally
+        var sub = allTasks.find(t => t.id === subtaskId);
+        if (sub) sub.comment_count = (sub.comment_count || 0) + 1;
+    } else {
+        showToast((resp && resp.error) || 'Ошибка', 'error');
+    }
 }
 
 // Undo-toast delete: hide locally, remove on server after 5s unless undone
@@ -10499,6 +10793,9 @@ function _tutBuildSteps(pages, mode) {
         // Then: info steps for this page
         infoSteps.forEach(s => { all.push(Object.assign({}, s, { _type: 'info', _page: page })); });
     });
+    // Mark first info step as welcome (full-screen intro)
+    var firstInfo = all.find(function(s) { return s._type === 'info'; });
+    if (firstInfo) firstInfo._welcome = true;
     return all;
 }
 
@@ -10855,191 +11152,261 @@ function _tutCleanup() {
     document.getElementById('tutSpotlight')?.remove();
 }
 
+var _tutTransitioning = false; // guard against double-click skips
+
 function _tutShow() {
-    // Remove old card and spotlight
     document.getElementById('tutCard')?.remove();
     document.getElementById('tutSpotlight')?.remove();
+    document.getElementById('tutArrow')?.remove();
+    _tutTransitioning = false;
 
-    if (_tutStepIdx >= _tutSteps.length) {
-        _tutFinish();
-        return;
-    }
+    if (_tutStepIdx >= _tutSteps.length) { _tutFinish(); return; }
 
     var step = _tutSteps[_tutStepIdx];
-    var total = _tutSteps.length;
 
-    // If it's a navigate step, navigate and auto-advance after a short pause
+    // ═══ NAV STEP — auto-advance ═══
     if (step._type === 'nav') {
         _doNavigate(step._page);
-        // Show a brief "navigating" card with spotlight
-        _tutCreateSpotlight(null);
+        _tutCreateSpotlight(null, false);
         var card = document.createElement('div');
         card.id = 'tutCard';
-        card.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:380px;max-width:calc(100vw - 48px);background:white;border-radius:20px;padding:28px 32px;box-shadow:0 20px 60px rgba(0,0,0,0.3);z-index:5502;animation:slideUp 0.3s ease;display:flex;align-items:center;gap:16px;';
-        card.innerHTML = '<div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">' + step.icon + '</div>' +
-            '<div><div style="font-size:12px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Переход в раздел</div>' +
-            '<div style="font-size:20px;font-weight:700;color:#1e293b;margin-top:2px;">' + step.title + '</div></div>';
+        card.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:420px;max-width:calc(100vw - 40px);background:white;border-radius:24px;padding:36px 40px;box-shadow:0 25px 80px rgba(0,0,0,0.35);z-index:5502;animation:slideUp 0.3s ease;display:flex;align-items:center;gap:20px;';
+        card.innerHTML = '<div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;box-shadow:0 8px 24px rgba(59,130,246,0.3);">' + step.icon + '</div>' +
+            '<div><div style="font-size:13px;color:#6366f1;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Переход в раздел</div>' +
+            '<div style="font-size:24px;font-weight:800;color:#0f172a;margin-top:4px;">' + step.title + '</div></div>';
         document.body.appendChild(card);
-        setTimeout(function() {
-            _tutStepIdx++;
-            _tutShow();
-        }, 1200);
+        setTimeout(function() { _tutStepIdx++; _tutShow(); }, 1200);
         return;
     }
 
-    // Info step
+    // ═══ WELCOME STEP (first info step overall) ═══
+    if (step._welcome) {
+        _tutCreateSpotlight(null, false);
+        var infoSteps = _tutSteps.filter(function(s) { return s._type === 'info'; });
+        var card = document.createElement('div');
+        card.id = 'tutCard';
+        card.style.cssText = 'position:fixed;inset:0;z-index:5502;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.4s;';
+        card.innerHTML = '<div style="background:white;border-radius:32px;padding:56px 48px;max-width:560px;width:92%;text-align:center;box-shadow:0 30px 100px rgba(0,0,0,0.4);animation:slideUp 0.5s ease;">' +
+            '<div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;margin:0 auto 28px;font-size:48px;box-shadow:0 12px 40px rgba(99,102,241,0.35);">🎓</div>' +
+            '<h1 style="margin:0 0 12px;font-size:32px;font-weight:800;color:#0f172a;">' + step.title + '</h1>' +
+            '<p style="margin:0 0 32px;color:#64748b;font-size:17px;line-height:1.7;">' + step.description + '</p>' +
+            '<div style="background:#f8fafc;border-radius:16px;padding:20px 24px;margin-bottom:32px;text-align:left;">' +
+                '<div style="font-size:14px;font-weight:700;color:#475569;margin-bottom:12px;">Что вы узнаете:</div>' +
+                '<div style="display:flex;flex-direction:column;gap:8px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;font-size:15px;color:#334155;"><span style="color:#3b82f6;">📊</span> Дашборд — статистика и задачи</div>' +
+                    '<div style="display:flex;align-items:center;gap:10px;font-size:15px;color:#334155;"><span style="color:#8b5cf6;">🗂</span> Воронки — категории по отделам</div>' +
+                    '<div style="display:flex;align-items:center;gap:10px;font-size:15px;color:#334155;"><span style="color:#f59e0b;">📅</span> Календарь — дедлайны наглядно</div>' +
+                    '<div style="display:flex;align-items:center;gap:10px;font-size:15px;color:#334155;"><span style="color:#10b981;">🏆</span> Геймификация — км и достижения</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;justify-content:center;">' +
+                '<button onclick="_tutGoStep(1)" style="padding:16px 36px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;border-radius:16px;cursor:pointer;font-weight:800;font-size:17px;box-shadow:0 6px 20px rgba(99,102,241,0.35);transition:transform 0.15s;" onmouseenter="this.style.transform=\'scale(1.03)\'" onmouseleave="this.style.transform=\'scale(1)\'">Начать обучение →</button>' +
+            '</div>' +
+            '<button onclick="skipTut()" style="margin-top:16px;padding:8px 16px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;">Пропустить</button>' +
+        '</div>';
+        document.body.appendChild(card);
+        return;
+    }
+
+    // ═══ INFO STEP ═══
     var page = step._page;
     var pageName = _tutPageNames[page] || page;
     var pageIcon = _tutPageIcons[page] || '';
 
-    // Spotlight: highlight target element if selector provided
+    // Spotlight target
     var targetEl = step.selector ? document.querySelector(step.selector) : null;
-    _tutCreateSpotlight(targetEl);
-    // Scroll target into view
+    var isInteractive = !!step.action; // step requires user to click something
+    _tutCreateSpotlight(targetEl, isInteractive);
+
+    // Scroll target into view with padding
     if (targetEl) {
-        try { targetEl.scrollIntoView({behavior:'smooth', block:'center', inline:'center'}); } catch(e){}
+        try {
+            var tRect = targetEl.getBoundingClientRect();
+            if (tRect.top < 80 || tRect.bottom > window.innerHeight - 80) {
+                targetEl.scrollIntoView({behavior:'smooth', block:'center', inline:'nearest'});
+            }
+        } catch(e){}
     }
 
-    // Count info steps for this page (for dots)
+    // Set up interactive click listener if step.action
+    if (isInteractive && targetEl) {
+        var actionTarget = step.actionSelector ? document.querySelector(step.actionSelector) : targetEl;
+        if (actionTarget) {
+            _tutTransitioning = true;
+            var handler = function(e) {
+                actionTarget.removeEventListener('click', handler, true);
+                _tutTransitioning = false;
+                setTimeout(function() { _tutGoStep(1); }, 300);
+            };
+            actionTarget.addEventListener('click', handler, true);
+        }
+    }
+
+    // Counts
+    var infoSteps = _tutSteps.filter(function(s) { return s._type === 'info'; });
+    var myGlobalIdx = infoSteps.indexOf(step);
+    var totalInfo = infoSteps.length;
+
     var pageInfoSteps = _tutSteps.filter(function(s) { return s._page === page && s._type === 'info'; });
     var myIdxInPage = pageInfoSteps.indexOf(step);
-    var pageTotal = pageInfoSteps.length;
 
-    // Overall progress
-    var overallPct = Math.round(((_tutStepIdx + 1) / _tutSteps.length) * 100);
+    // Progress
+    var overallPct = Math.round(((myGlobalIdx + 1) / totalInfo) * 100);
+    var progressBar = '<div style="width:100%;height:4px;background:#e2e8f0;border-radius:3px;margin-bottom:20px;overflow:hidden;"><div style="width:' + overallPct + '%;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:3px;transition:width 0.4s;"></div></div>';
 
-    // Dots
-    var dots = pageInfoSteps.map(function(_, i) {
-        var color = i === myIdxInPage ? '#3b82f6' : (i < myIdxInPage ? '#93c5fd' : '#cbd5e1');
-        return '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';transition:background 0.3s;"></div>';
-    }).join('');
+    // Counter
+    var counter = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+        '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:linear-gradient(135deg,#f0f9ff,#ede9fe);border-radius:24px;font-size:13px;color:#6366f1;font-weight:700;">' + pageIcon + ' ' + pageName + '</div>' +
+        '<div style="font-size:14px;color:#94a3b8;font-weight:600;">' + (myGlobalIdx + 1) + ' / ' + totalInfo + '</div>' +
+    '</div>';
 
-    // Progress bar
-    var progressBar = '<div style="width:100%;height:3px;background:#e2e8f0;border-radius:2px;margin-bottom:16px;overflow:hidden;"><div style="width:' + overallPct + '%;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:2px;transition:width 0.4s;"></div></div>';
-
-    // Badge
-    var badge = '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;background:linear-gradient(135deg,#f0f9ff,#ede9fe);border-radius:20px;font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:12px;">' +
-        pageIcon + ' ' + pageName + ' — шаг ' + (myIdxInPage + 1) + ' из ' + pageTotal + '</div>';
+    // Action hint (if interactive)
+    var actionHtml = '';
+    if (step.action) {
+        actionHtml = '<div style="margin-top:14px;padding:12px 16px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border:2px solid #f59e0b;display:flex;align-items:center;gap:10px;">' +
+            '<span style="font-size:22px;flex-shrink:0;">👆</span>' +
+            '<span style="font-size:15px;font-weight:700;color:#92400e;">' + step.action + '</span>' +
+        '</div>';
+    }
 
     // Buttons
-    var skipBtn = '<button onclick="skipTut()" style="padding:8px 16px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;transition:color 0.2s;" onmouseenter="this.style.color=\'#64748b\'" onmouseleave="this.style.color=\'#94a3b8\'">Пропустить</button>';
-    var prevBtn = myIdxInPage > 0 ? '<button onclick="_tutGoStep(-1)" style="padding:8px 16px;background:#f1f5f9;border:none;border-radius:10px;color:#64748b;cursor:pointer;font-weight:600;transition:background 0.2s;" onmouseenter="this.style.background=\'#e2e8f0\'" onmouseleave="this.style.background=\'#f1f5f9\'">←</button>' : '';
-
-    // Figure out next button text
     var isLastOverall = _tutStepIdx >= _tutSteps.length - 1;
     var nextStep = _tutSteps[_tutStepIdx + 1];
     var isLastOnPage = !nextStep || nextStep._page !== page || nextStep._type === 'nav';
-    var nextLabel = isLastOverall ? '🎉 Завершить' : (isLastOnPage ? 'Следующий раздел →' : 'Далее →');
-    var nextBg = isLastOverall ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'linear-gradient(135deg,#3b82f6,#2563eb)';
-    var nextBtn = '<button onclick="_tutGoStep(1)" style="padding:10px 22px;background:' + nextBg + ';color:white;border:none;border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(59,130,246,0.25);transition:transform 0.15s;" onmouseenter="this.style.transform=\'scale(1.05)\'" onmouseleave="this.style.transform=\'scale(1)\'">' + nextLabel + '</button>';
 
-    // Position card near target or bottom-center
-    var cardW = 440;
-    var cardH = 280;
+    var prevBtn = _tutStepIdx > 0 ? '<button onclick="_tutGoStep(-1)" style="padding:12px 20px;background:#f1f5f9;border:none;border-radius:12px;color:#64748b;cursor:pointer;font-weight:700;font-size:14px;transition:background 0.2s;" onmouseenter="this.style.background=\'#e2e8f0\'" onmouseleave="this.style.background=\'#f1f5f9\'">← Назад</button>' : '';
+    var skipBtn = '<button onclick="skipTut()" style="padding:12px 18px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;font-weight:500;">Пропустить</button>';
+
+    var nextLabel, nextBg;
+    if (isInteractive) {
+        nextLabel = 'Пропустить действие →';
+        nextBg = '#f1f5f9';
+        var nextColor = '#64748b';
+    } else if (isLastOverall) {
+        nextLabel = '🎉 Завершить';
+        nextBg = 'linear-gradient(135deg,#22c55e,#16a34a)';
+        var nextColor = 'white';
+    } else {
+        nextLabel = isLastOnPage ? 'Следующий раздел →' : 'Дальше →';
+        nextBg = 'linear-gradient(135deg,#3b82f6,#6366f1)';
+        var nextColor = 'white';
+    }
+    var nextBtnStyle = isInteractive
+        ? 'padding:12px 20px;background:#f1f5f9;color:#64748b;border:none;border-radius:12px;cursor:pointer;font-weight:600;font-size:14px;'
+        : 'padding:12px 24px;background:' + nextBg + ';color:' + nextColor + ';border:none;border-radius:14px;cursor:pointer;font-weight:800;font-size:15px;box-shadow:0 4px 16px rgba(59,130,246,0.25);transition:transform 0.15s;';
+    var nextBtn = '<button onclick="_tutGoStep(1)" style="' + nextBtnStyle + '"' +
+        (!isInteractive ? ' onmouseenter="this.style.transform=\'scale(1.03)\'" onmouseleave="this.style.transform=\'scale(1)\'"' : '') +
+        '>' + nextLabel + '</button>';
+
+    // ═══ POSITION CARD ═══
+    var cardW = 520;
     var vw = window.innerWidth;
     var vh = window.innerHeight;
-    var pad = 20;
-    // Последний шаг — всегда по центру экрана, чтобы кнопка «Завершить» точно
-    // помещалась в viewport и не уезжала за край.
-    var cardPos;
+    var pad = 24;
+    var cardPos = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%);';
+
     if (isLastOverall) {
         cardPos = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);';
-    } else {
-        cardPos = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);';
-        if (targetEl) {
-            var rect = targetEl.getBoundingClientRect();
-            // Try right of target
-            if (rect.right + pad + cardW + pad < vw) {
-                var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
-                cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.right + pad) + 'px;';
-            }
-            // Try left of target
-            else if (rect.left - pad - cardW > 0) {
-                var cTop = Math.max(pad, Math.min(rect.top - 20, vh - cardH - pad));
-                cardPos = 'position:fixed;top:' + cTop + 'px;left:' + (rect.left - pad - cardW) + 'px;';
-            }
-            // Try below target
-            else if (rect.bottom + pad + cardH < vh) {
-                var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
-                cardPos = 'position:fixed;top:' + (rect.bottom + pad) + 'px;left:' + cLeft + 'px;';
-            }
-            // Try above target
-            else if (rect.top - pad - cardH > 0) {
-                var cLeft = Math.max(pad, Math.min(rect.left, vw - cardW - pad));
-                cardPos = 'position:fixed;top:' + (rect.top - pad - cardH) + 'px;left:' + cLeft + 'px;';
-            }
-            // Fallback: center of screen
-            else {
-                cardPos = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);';
-            }
+    } else if (targetEl) {
+        var rect = targetEl.getBoundingClientRect();
+        // Try below target
+        if (rect.bottom + pad + 200 < vh) {
+            var cLeft = Math.max(pad, Math.min(vw / 2 - cardW / 2, vw - cardW - pad));
+            cardPos = 'position:fixed;top:' + Math.min(rect.bottom + pad, vh - 320) + 'px;left:' + cLeft + 'px;';
+        }
+        // Try above target
+        else if (rect.top > 300) {
+            var cLeft = Math.max(pad, Math.min(vw / 2 - cardW / 2, vw - cardW - pad));
+            cardPos = 'position:fixed;bottom:' + (vh - rect.top + pad) + 'px;left:' + cLeft + 'px;';
         }
     }
 
     var card = document.createElement('div');
     card.id = 'tutCard';
-    card.style.cssText = cardPos + 'width:440px;max-width:calc(100vw - 48px);background:white;border-radius:20px;padding:24px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);z-index:5502;animation:slideUp 0.3s ease;';
+    card.style.cssText = cardPos + 'width:' + cardW + 'px;max-width:calc(100vw - 32px);background:white;border-radius:24px;padding:28px 32px;box-shadow:0 25px 80px rgba(0,0,0,0.35);z-index:5502;animation:slideUp 0.3s ease;';
 
-    card.innerHTML = progressBar + badge +
-        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">' +
-            '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#f0f9ff,#ede9fe);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">' + (step.icon || '📌') + '</div>' +
+    card.innerHTML = progressBar + counter +
+        '<div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:6px;">' +
+            '<div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#f0f9ff,#ede9fe);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">' + (step.icon || '📌') + '</div>' +
             '<div style="flex:1;">' +
-                '<h3 style="margin:0 0 6px 0;font-size:18px;font-weight:700;color:#0f172a;">' + step.title + '</h3>' +
-                '<p style="margin:0;font-size:14px;color:#475569;line-height:1.7;white-space:pre-wrap;">' + step.description + '</p>' +
+                '<h3 style="margin:0 0 8px 0;font-size:21px;font-weight:800;color:#0f172a;">' + step.title + '</h3>' +
+                '<p style="margin:0;font-size:16px;color:#475569;line-height:1.7;">' + step.description + '</p>' +
             '</div>' +
         '</div>' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">' +
-            '<div style="display:flex;gap:5px;align-items:center;">' + dots + '</div>' +
-            '<div style="display:flex;gap:8px;align-items:center;">' + skipBtn + prevBtn + nextBtn + '</div>' +
+        actionHtml +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;">' +
+            '<div style="display:flex;gap:8px;align-items:center;">' + prevBtn + skipBtn + '</div>' +
+            '<div>' + nextBtn + '</div>' +
         '</div>';
 
     document.body.appendChild(card);
 
-    // Пост-рендер: замеряем реальную высоту карточки и если она вылезает за экран —
-    // поджимаем позицию. Это спасает случаи, когда контент шага длиннее cardH=280
-    // и кнопки уезжают ниже viewport (особенно последний слайд).
+    // Post-render: fix overflow
     try {
         requestAnimationFrame(function(){
             var r = card.getBoundingClientRect();
-            var realH = r.height;
-            var realW = r.width;
-            var overflowBottom = r.bottom > vh - 8;
-            var overflowTop = r.top < 8;
-            var overflowRight = r.right > vw - 8;
-            var overflowLeft = r.left < 8;
-            if (overflowBottom || overflowTop || overflowRight || overflowLeft) {
-                // Ставим по центру экрана, очищая transform от прежних значений.
-                card.style.top = Math.max(8, (vh - realH) / 2) + 'px';
-                card.style.left = Math.max(8, (vw - realW) / 2) + 'px';
+            if (r.bottom > vh - 8 || r.top < 8 || r.right > vw - 8 || r.left < 8) {
+                card.style.top = Math.max(8, (vh - r.height) / 2) + 'px';
+                card.style.left = Math.max(8, (vw - r.width) / 2) + 'px';
                 card.style.bottom = 'auto';
                 card.style.right = 'auto';
                 card.style.transform = 'none';
             }
         });
     } catch(e) {}
+
+    // ═══ ARROW pointing to target ═══
+    if (targetEl && !isLastOverall) {
+        requestAnimationFrame(function(){
+            _tutDrawArrow(targetEl, card);
+        });
+    }
 }
 
-// Spotlight overlay — blocks clicks, darkens screen, highlights target
-function _tutCreateSpotlight(targetEl) {
+// Draw a CSS arrow from card toward the target element
+function _tutDrawArrow(targetEl, cardEl) {
+    document.getElementById('tutArrow')?.remove();
+    if (!targetEl || !cardEl) return;
+    var tR = targetEl.getBoundingClientRect();
+    var cR = cardEl.getBoundingClientRect();
+    var tCx = tR.left + tR.width / 2;
+    var tCy = tR.top + tR.height / 2;
+    var cCx = cR.left + cR.width / 2;
+    var cCy = cR.top + cR.height / 2;
+
+    // Arrow should point FROM card edge TOWARD target center
+    // Use a simple triangle at the midpoint between card and target
+    var midX = (tCx + cCx) / 2;
+    var midY = (tCy + cCy) / 2;
+    var angle = Math.atan2(tCy - cCy, tCx - cCx) * 180 / Math.PI;
+
+    var arrow = document.createElement('div');
+    arrow.id = 'tutArrow';
+    arrow.style.cssText = 'position:fixed;top:' + (midY - 16) + 'px;left:' + (midX - 16) + 'px;width:32px;height:32px;z-index:5503;pointer-events:none;transform:rotate(' + angle + 'deg);display:flex;align-items:center;justify-content:center;animation:tutArrowPulse 1.2s ease-in-out infinite;';
+    arrow.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="#3b82f6" stroke="white" stroke-width="1.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+    document.body.appendChild(arrow);
+}
+
+// Spotlight overlay
+function _tutCreateSpotlight(targetEl, allowClickThrough) {
     document.getElementById('tutSpotlight')?.remove();
     var overlay = document.createElement('div');
     overlay.id = 'tutSpotlight';
 
     if (targetEl) {
         var rect = targetEl.getBoundingClientRect();
-        var pad = 8;
+        var pad = 10;
         var top = rect.top - pad;
         var left = rect.left - pad;
         var w = rect.width + pad * 2;
         var h = rect.height + pad * 2;
-        var radius = 12;
-        // Transparent overlay that blocks clicks on background
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;background:transparent;pointer-events:auto;transition:all 0.3s;';
-        // Highlight div with box-shadow to darken everything around target
+        var radius = 14;
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;background:transparent;pointer-events:' + (allowClickThrough ? 'none' : 'auto') + ';transition:all 0.3s;';
         var highlight = document.createElement('div');
-        highlight.style.cssText = 'position:fixed;top:' + top + 'px;left:' + left + 'px;width:' + w + 'px;height:' + h + 'px;border-radius:' + radius + 'px;box-shadow:0 0 0 9999px rgba(15,23,42,0.65);z-index:5501;pointer-events:none;border:2px solid rgba(59,130,246,0.6);animation:pulse 2s infinite;';
+        highlight.style.cssText = 'position:fixed;top:' + top + 'px;left:' + left + 'px;width:' + w + 'px;height:' + h + 'px;border-radius:' + radius + 'px;box-shadow:0 0 0 9999px rgba(15,23,42,0.6);z-index:5501;pointer-events:none;border:3px solid rgba(99,102,241,0.7);animation:pulse 2s infinite;';
         overlay.appendChild(highlight);
     } else {
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;background:rgba(15,23,42,0.65);pointer-events:auto;transition:all 0.3s;';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:5500;background:rgba(15,23,42,0.6);pointer-events:auto;transition:all 0.3s;';
     }
     document.body.appendChild(overlay);
 }
@@ -11096,86 +11463,76 @@ function getDetailedSteps(page) {
     var isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
     var s = {
         dashboard: isAdmin ? [
-            { icon:'👑', title:'Добро пожаловать, руководитель!', description:'Вы вошли как администратор. У вас полный доступ: управление пользователями, отделами, воронками и задачами всех сотрудников.', selector:'#userInfo' },
-            { icon:'📊', title:'Статистика', description:'Карточки показывают общую картину: сколько задач новых, в работе и завершённых по всем отделам. Обновляются в реальном времени.', selector:'#statsGrid' },
-            { icon:'⚡', title:'Последние задачи', description:'Список последних задач из всех отделов. Нажмите на любую — откроется карточка с деталями: статус, приоритет, исполнитель, дедлайн.', selector:'#recentTasksList' },
-            { icon:'🔔', title:'Уведомления', description:'Колокольчик — ваши уведомления. Красная точка = непрочитанные. Сюда приходят назначения задач, изменения статусов, упоминания и дедлайны.', selector:'#notificationBell' },
-            { icon:'🔍', title:'Поиск', description:'Поле поиска быстро находит любую задачу по названию. Начните вводить — результаты фильтруются мгновенно.', selector:'#searchInput' },
-            { icon:'🎤', title:'Голосовой ввод', description:'Микрофон рядом с поиском — голосовое создание задачи. Нажмите, скажите название — задача создастся автоматически.', selector:'#voiceBtn' },
-            { icon:'❓', title:'Кнопка помощи', description:'Знак вопроса в шапке — запуск обучения по текущему разделу в любой момент. Забыли что-то — нажмите и освежите память.', selector:'#helpBtn' },
-            { icon:'➕', title:'Создание задачи', description:'Синяя круглая кнопка "+" справа внизу — быстрое создание задачи. Укажите название, отдел, исполнителя, приоритет и дедлайн.', selector:'#fabCreateTask' }
+            { icon:'👑', title:'Добро пожаловать, руководитель!', description:'Вы вошли как администратор. У вас полный доступ: управление пользователями, отделами, воронками и задачами всех сотрудников.' },
+            { icon:'📊', title:'Статистика по задачам', description:'Карточки-плитки показывают общую картину: сколько задач новых, в работе, завершённых и просроченных. Нажмите на любую плитку — таблица снизу отфильтруется по этому статусу.', selector:'#statsGrid', action:'Нажмите на любую плитку статистики, чтобы отфильтровать задачи' },
+            { icon:'🔎', title:'Фильтры дашборда', description:'Панель фильтров позволяет быстро сузить список: по отделу, статусу, приоритету, дедлайну и исполнителю. Фильтры комбинируются между собой.', selector:'.dash-filters' },
+            { icon:'⚡', title:'Таблица задач', description:'Под фильтрами — таблица всех задач. Нажмите на строку — откроется карточка задачи со всеми деталями: статус, приоритет, исполнитель, подзадачи и комментарии.', selector:'#recentTasksList' },
+            { icon:'🔔', title:'Уведомления', description:'Колокольчик в шапке — ваши уведомления. Красная точка означает непрочитанные. Сюда приходят назначения задач, изменения статусов, @упоминания и дедлайны.', selector:'#notificationBell', action:'Нажмите на колокольчик, чтобы увидеть уведомления' },
+            { icon:'🔍', title:'Поиск задач', description:'Поле поиска мгновенно находит задачу по названию. Начните вводить — результаты фильтруются в реальном времени.', selector:'#searchInput' },
+            { icon:'🎤', title:'Голосовой ввод', description:'Микрофон рядом с поиском — голосовое создание задачи. Нажмите, произнесите название — задача создастся автоматически.', selector:'#voiceBtn' },
+            { icon:'❓', title:'Кнопка помощи', description:'Знак «?» в шапке — запуск обучения по текущему разделу в любой момент. Забыли что-то — нажмите и освежите память.', selector:'#helpBtn' },
+            { icon:'➕', title:'Быстрое создание задачи', description:'Синяя круглая кнопка «+» справа внизу — быстрое создание задачи. Укажите название, отдел, исполнителя, приоритет и дедлайн.', selector:'#fabCreateTask', action:'Нажмите «+» чтобы увидеть форму создания задачи' }
         ] : [
-            { icon:'👋', title:'Добро пожаловать!', description:'Это ваше рабочее пространство в Dudarev Motorsport. Здесь вы будете управлять задачами и зарабатывать километры!', selector:'#userInfo' },
-            { icon:'📊', title:'Статистика', description:'Карточки — статистика ваших задач: новые, в работе, завершённые. Следите за прогрессом.', selector:'#statsGrid' },
-            { icon:'⚡', title:'Последние задачи', description:'Список ваших последних задач. Нажмите на любую — откроется карточка с деталями.', selector:'#recentTasksList' },
-            { icon:'🔔', title:'Уведомления', description:'Колокольчик — уведомления. Сюда приходят назначения задач, изменения статусов и упоминания в чатах.', selector:'#notificationBell' },
+            { icon:'👋', title:'Добро пожаловать!', description:'Это ваше рабочее пространство в Dudarev Motorsport. Здесь вы будете управлять задачами и зарабатывать километры!' },
+            { icon:'📊', title:'Статистика', description:'Карточки-плитки — статистика ваших задач: новые, в работе, завершённые и просроченные. Нажмите на плитку — список снизу отфильтруется.', selector:'#statsGrid', action:'Нажмите на любую плитку, чтобы отфильтровать задачи' },
+            { icon:'⚡', title:'Таблица задач', description:'Под статистикой — таблица ваших задач. Нажмите на любую строку — откроется карточка с деталями.', selector:'#recentTasksList' },
+            { icon:'🔔', title:'Уведомления', description:'Колокольчик — уведомления. Сюда приходят назначения задач, изменения статусов и @упоминания в чатах.', selector:'#notificationBell' },
             { icon:'🔍', title:'Поиск', description:'Поиск задач по названию. Начните вводить — результаты появятся мгновенно.', selector:'#searchInput' },
             { icon:'🎤', title:'Голосовой ввод', description:'Микрофон — создать задачу голосом. Удобно, когда писать некогда.', selector:'#voiceBtn' },
-            { icon:'❓', title:'Кнопка помощи', description:'Знак вопроса — запуск обучения по текущему разделу в любой момент.', selector:'#helpBtn' },
-            { icon:'➕', title:'Создание задачи', description:'Синяя кнопка "+" снизу справа — быстрое создание новой задачи.', selector:'#fabCreateTask' }
+            { icon:'❓', title:'Кнопка помощи', description:'Знак «?» — запуск обучения по текущему разделу в любой момент.', selector:'#helpBtn' },
+            { icon:'➕', title:'Создание задачи', description:'Синяя кнопка «+» снизу справа — быстрое создание новой задачи.', selector:'#fabCreateTask' }
         ],
         kanban: isAdmin ? [
-            { icon:'🗂', title:'Раздел «Категории»', description:'Вместо старой канбан-доски — Todoist-подобный вид. Слева подборки и ваши категории, справа список задач выбранной категории. У одной задачи может быть сразу несколько категорий — как теги.', selector:'#page-kanban' },
-            { icon:'💡', title:'Банер-подсказка', description:'При первом заходе вверху списка появляется цветной банер с краткой инструкцией. Прочитали — закройте крестиком ×, и он больше не вернётся в этом браузере.', selector:'#catsList' },
-            { icon:'📚', title:'Блок «Подборки»', description:'Верхняя часть сайдбара — три готовых вида. Они всегда на месте, их нельзя удалить. С них обычно и начинаем день.', selector:'#catsSidebar' },
-            { icon:'📋', title:'«Все задачи»', description:'Показывает ВСЕ активные задачи вашей компании (или отдела). Выполненные сюда не попадают автоматически — чтобы не мешали. Самый универсальный вид.', selector:'#catsSidebar' },
-            { icon:'🗄', title:'«Без категории»', description:'Тут лежат задачи, которым ещё никто не назначил категорию. Регулярно заглядывайте и раскладывайте — так ничего не потеряется.', selector:'#catsSidebar' },
-            { icon:'✅', title:'«Выполненные»', description:'Архив завершённых задач. Нужно вспомнить или восстановить — заходите сюда. Здесь нет кнопки «+ задача», это архив.', selector:'#catsSidebar' },
-            { icon:'🏷', title:'Блок «Мои категории»', description:'Ниже — ваши собственные категории (теги). У категории может быть родитель — тогда получается дерево. Треугольник слева — раскрыть/свернуть. Числа справа — количество активных задач.', selector:'#catsSidebar' },
-            { icon:'➕', title:'Создать категорию', description:'Кнопка «+ Новая категория» внизу сайдбара. Название, цвет, иконка, (опционально) родитель. Админ ещё выбирает отдел — категория будет видна только этому отделу.', selector:'.cat-add-btn' },
-            { icon:'✏️', title:'Редактировать/удалить', description:'Иконки +/✎/✕ справа от названия категории теперь видны всегда (раньше появлялись только при наведении). «+» — создать подкатегорию, «✎» — редактировать, «✕» — удалить. Сами задачи при удалении категории не пропадают.', selector:'#catsSidebar' },
-            { icon:'📑', title:'Заголовок раздела', description:'В верхней части основной области — название текущего вида и кнопка «+ Новая задача». Если открыта какая-то категория — новая задача автоматически попадёт именно в неё.', selector:'#catsHeader' },
-            { icon:'⭕', title:'Кружок слева — статус', description:'Самая важная деталь! Кликните по кружку слева от задачи — статус переключится по циклу: Новая → В работе → Выполнена → снова Новая. Цвет обводки = приоритет задачи.', selector:'.cat-task-check' },
-            { icon:'🏷', title:'Теги категорий', description:'Под названием задачи — цветные чипы всех категорий, к которым она привязана. Одна задача может быть одновременно в «Клиенты», «Срочное» и «Маркетинг».', selector:'.cat-task-row' },
-            { icon:'☑', title:'Чип «Подзадачи»', description:'Если у задачи есть подзадачи — в строке появится голубой чип «☑ X/Y подзадач». Он показывает прогресс. Клик по названию откроет задачу — и вы сразу увидите все подзадачи.', selector:'.cat-task-row' },
-            { icon:'🧩', title:'ВАЖНО: подзадачи теперь ВНУТРИ карточки', description:'Раньше подзадачи жили на отдельной вкладке — теперь они встроены в главную вкладку задачи. Открыл задачу — сразу видно все подзадачи под полями. Ничего не прячется.', selector:'.cat-task-row' },
-            { icon:'💬', title:'Чат внутри подзадачи', description:'У каждой подзадачи есть чип «💬 N» или «💬 Обсудить». Клик по нему откроет подзадачу как отдельную карточку, где можно писать комментарии, прикреплять файлы и записывать голосовые. Переписка по шагам — в одном месте.', selector:'.cat-task-row' },
-            { icon:'🎯', title:'Несколько категорий при создании', description:'В форме создания задачи есть блок «Категории» — набор плиток-тегов. Нажимайте на нужные, чтобы выделить несколько. Задача попадёт во все выбранные категории.', selector:'#fabCreateTask' }
+            { icon:'🏢', title:'Отделы и воронки', description:'Слева — список отделов вашей компании. Каждый отдел содержит свои воронки (категории задач). Выберите отдел — справа появятся его воронки в виде колонок.', selector:'#catsSidebar' },
+            { icon:'🌐', title:'«Все отделы»', description:'Верхний пункт «Все отделы» показывает общую сводку: плитки по каждому отделу со статистикой и список всех задач. Отсюда удобно начинать день и видеть общую картину.', selector:'#catsSidebar', action:'Нажмите «Все отделы» в боковой панели' },
+            { icon:'🏷', title:'Выбор отдела', description:'Нажмите на конкретный отдел — справа появятся колонки-воронки. Первая колонка «Новая задача» — сюда попадают задачи без воронки. Остальные колонки — ваши воронки.', selector:'#catsSidebar' },
+            { icon:'📋', title:'Колонки-воронки', description:'Каждая колонка — это воронка (категория) внутри отдела. В ней карточки задач. Перетаскивайте задачи между колонками, чтобы менять их категорию. Drag-and-drop работает как в Битрикс24.', selector:'#catsList' },
+            { icon:'➕', title:'Новая воронка', description:'Кнопка «+ Новая воронка» справа от колонок. Укажите название и цвет — воронка создастся сразу в текущем отделе. Без лишних полей и выбора — всё автоматически.', selector:'#catsList' },
+            { icon:'⠿', title:'Сортировка колонок', description:'Иконка ⠿ в заголовке каждой колонки — перетащите, чтобы изменить порядок воронок. Порядок сохраняется автоматически.', selector:'#catsList' },
+            { icon:'⭕', title:'Статус задачи — кружок', description:'Кружок слева от карточки задачи переключает статус: Новая → В работе → Выполнена → Новая. Цвет обводки показывает приоритет задачи.', selector:'.cat-task-check' },
+            { icon:'🧩', title:'Подзадачи внутри карточки', description:'Откройте любую задачу — подзадачи встроены прямо в главную вкладку. Добавляйте подзадачи, отмечайте выполненные, перетаскивайте для сортировки.', selector:'.cat-task-row' },
+            { icon:'💬', title:'Чат внутри подзадачи', description:'У каждой подзадачи есть кнопка 💬. Нажмите — раскроется встроенный чат прямо под подзадачей. Пишите комментарии, прикрепляйте файлы, записывайте голосовые. Упоминайте коллег через @имя — они получат уведомление.', selector:'.cat-task-row' },
+            { icon:'🎯', title:'Создание задачи в отделе', description:'Когда выбран отдел, создание задачи автоматически привязывает её к этому отделу. Выбор воронки скрыт — задача попадёт в «Новая задача», откуда вы её перетащите в нужную воронку.', selector:'#fabCreateTask' }
         ] : [
-            { icon:'🗂', title:'Раздел «Категории»', description:'Вместо старой канбан-доски — удобный вид по категориям (как в Todoist). Слева подборки и категории, справа ваши задачи.', selector:'#page-kanban' },
-            { icon:'💡', title:'Банер-подсказка', description:'При первом заходе вверху списка — цветной банер с краткой инструкцией. Прочитали — закрывайте крестиком ×, больше не появится.', selector:'#catsList' },
-            { icon:'📚', title:'«Подборки»', description:'Верхний блок сайдбара: «Все задачи», «Без категории», «Выполненные». Это готовые виды — они всегда на месте.', selector:'#catsSidebar' },
-            { icon:'📋', title:'«Все задачи»', description:'Ваши активные задачи одним списком — удобно начинать день. Выполненные сюда не попадают.', selector:'#catsSidebar' },
-            { icon:'✅', title:'«Выполненные»', description:'Архив закрытых задач. Нужно что-то вспомнить — загляните сюда.', selector:'#catsSidebar' },
-            { icon:'🏷', title:'«Мои категории»', description:'Ниже — дерево категорий. Задача может быть в нескольких категориях сразу, это теги. Создаёт и настраивает руководитель.', selector:'#catsSidebar' },
-            { icon:'⭕', title:'Кружок — статус задачи', description:'Главное взаимодействие: клик по кружку переключает статус по циклу Новая → В работе → Выполнена → Новая. Цвет обводки = приоритет.', selector:'.cat-task-check' },
-            { icon:'☑', title:'Чип «Подзадачи»', description:'Если у задачи есть подзадачи — в строке появится голубой чип «☑ X/Y подзадач». Видно, сколько уже сделано из общего числа.', selector:'.cat-task-row' },
-            { icon:'🧩', title:'ВАЖНО: подзадачи теперь внутри карточки', description:'Раньше подзадачи жили на отдельной вкладке — теперь они встроены в главную вкладку задачи. Открыл задачу — сразу видно все подзадачи под полями.', selector:'.cat-task-row' },
-            { icon:'💬', title:'Чат внутри подзадачи', description:'У каждой подзадачи есть чип «💬 N» или «💬 Обсудить». Клик по нему откроет подзадачу с отдельным чатом: комментарии, файлы, голосовые — всё как в обычной задаче.', selector:'.cat-task-row' },
-            { icon:'➕', title:'Создать задачу', description:'Кнопка «+ Новая задача» в шапке раздела, а также круглая «+» справа внизу. Если открыта категория — новая задача автоматически попадёт в неё.', selector:'#fabCreateTask' }
+            { icon:'🏢', title:'Отделы и воронки', description:'Слева — список отделов. Нажмите на свой отдел — справа появятся колонки-воронки с задачами.', selector:'#catsSidebar' },
+            { icon:'🌐', title:'«Все отделы»', description:'Верхний пункт показывает общую сводку: плитки по каждому отделу и список всех задач. Удобно для обзора.', selector:'#catsSidebar' },
+            { icon:'📋', title:'Колонки-воронки', description:'Каждая колонка — это воронка (категория). Перетаскивайте задачи между колонками для смены категории.', selector:'#catsList' },
+            { icon:'⭕', title:'Статус задачи', description:'Кружок слева от задачи переключает статус по циклу: Новая → В работе → Выполнена. Цвет = приоритет.', selector:'.cat-task-check' },
+            { icon:'🧩', title:'Подзадачи', description:'Откройте задачу — подзадачи встроены в главную вкладку. Добавляйте, отмечайте, перетаскивайте.', selector:'.cat-task-row' },
+            { icon:'💬', title:'Обсуждение подзадач', description:'Кнопка 💬 рядом с подзадачей раскрывает встроенный чат. Пишите, прикрепляйте файлы, записывайте голосовые, упоминайте коллег через @.', selector:'.cat-task-row' },
+            { icon:'➕', title:'Создать задачу', description:'Кнопка «+» справа внизу. Задача автоматически привязывается к текущему отделу.', selector:'#fabCreateTask' }
         ],
         list: [
-            { icon:'📝', title:'Список задач', description:'Все задачи в виде таблицы: название, статус, приоритет, исполнитель, отдел и дедлайн. Удобно для общего обзора.', selector:'.tasks-table' },
-            { icon:'🔍', title:'Фильтр по отделу', description:'Выпадающий список вверху — фильтр по отделу. Выберите нужный, чтобы показать только его задачи.', selector:'#listDepartmentFilter' },
-            { icon:'📋', title:'Строки-задачи', description:'Каждая строка — задача. Нажмите на любую, чтобы открыть её карточку со всеми деталями и редактировать.', selector:'#tasksTableBody' },
-            { icon:'➕', title:'Быстрая задача', description:'Внизу списка — блок "Быстрая задача". Введите название, выберите отдел и дедлайн — задача создастся мгновенно.', selector:'#listQuickTask' }
+            { icon:'📝', title:'Дашборд задач', description:'Все задачи в виде таблицы: название, статус, приоритет, исполнитель, отдел и дедлайн. Сверху — плитки статистики с кликабельными фильтрами.', selector:'.tasks-table' },
+            { icon:'🔍', title:'Фильтры', description:'Панель фильтров сверху: по отделу, статусу, приоритету, дедлайну и исполнителю. Выберите нужные — таблица мгновенно обновится.', selector:'#listDepartmentFilter' },
+            { icon:'📋', title:'Строки-задачи', description:'Каждая строка — задача. Нажмите на любую, чтобы открыть карточку со всеми деталями и редактировать.', selector:'#tasksTableBody' },
+            { icon:'➕', title:'Быстрая задача', description:'Внизу списка — блок «Быстрая задача». Введите название, выберите отдел и дедлайн — задача создастся мгновенно.', selector:'#listQuickTask' }
         ],
         calendar: [
             { icon:'📅', title:'Календарь задач', description:'Задачи с дедлайнами отображаются на календаре. Цветные точки показывают приоритет.', selector:'#calendarContainer' },
-            { icon:'◀▶', title:'Навигация', description:'Стрелки ← и → переключают период: следующий день, неделю или месяц. Между ними показана текущая дата.', selector:'#calendarNavControls' },
-            { icon:'🗓', title:'Виды календаря', description:'Три вида: День — фокус на сегодня, Неделя — детальный план, Месяц — общая картина. Нажмите нужную кнопку.', selector:'#calendarViewSwitcher' },
-            { icon:'📌', title:'Кнопка "Сегодня"', description:'Нажмите, чтобы быстро вернуться к текущей дате, если вы ушли далеко вперёд или назад.', selector:'#calendarTodayBtn' },
-            { icon:'➕', title:'Создание задачи', description:'Нажмите на любую дату в календаре — откроется форма создания задачи с автоматически заполненным дедлайном на эту дату.', selector:'#calendarContainer' }
+            { icon:'◀▶', title:'Навигация', description:'Стрелки ← и → переключают период: день, неделю или месяц. Между ними — текущая дата.', selector:'#calendarNavControls' },
+            { icon:'🗓', title:'Виды календаря', description:'Три вида: День — фокус на сегодня, Неделя — детальный план, Месяц — общая картина. Нажмите нужную кнопку.', selector:'#calendarViewSwitcher', action:'Переключите вид календаря на «Неделя»' },
+            { icon:'📌', title:'Кнопка «Сегодня»', description:'Нажмите, чтобы мгновенно вернуться к текущей дате.', selector:'#calendarTodayBtn' },
+            { icon:'➕', title:'Создание задачи из календаря', description:'Нажмите на любую дату — откроется форма создания задачи с автоматически заполненным дедлайном на эту дату.', selector:'#calendarContainer' }
         ],
         leaderboard: [
-            { icon:'🏆', title:'Геймификация', description:'Работа как гонка! Закрывайте задачи, зарабатывайте километры и повышайте уровень.', selector:'#userRacingCard' },
-            { icon:'🏎', title:'Ваша машинка', description:'Ваш текущий уровень и машинка. 9 уровней — от Босоногого (0 км) до Чемпиона (25,000 км). За каждый уровень новая машинка!', selector:'#userRacingCard' },
-            { icon:'🎨', title:'Смена скина', description:'Нажмите на свою машинку — откроется галерея скинов из открытых уровней. Кастомизируйте свой болид!', selector:'#userRacingCard' },
+            { icon:'🏆', title:'Геймификация', description:'Работа как гонка! Закрывайте задачи, зарабатывайте километры и повышайте уровень. 9 уровней — от Босоногого до Чемпиона.', selector:'#userRacingCard' },
+            { icon:'🏎', title:'Ваша машинка', description:'Ваш текущий уровень и болид. За каждый уровень — новая машинка! Нажмите на неё — откроется галерея скинов.', selector:'#userRacingCard', action:'Нажмите на машинку, чтобы увидеть галерею скинов' },
             { icon:'🥇', title:'Достижения', description:'Награды за особые успехи: первая задача, серия из 3 дней подряд, 10 задач за неделю, скорость закрытия и многое другое.', selector:'#achievementGrid' },
             { icon:'📊', title:'Таблица лидеров', description:'Рейтинг всех сотрудников компании. Кто закрыл больше задач — тот выше! Обновляется в реальном времени.', selector:'#leaderboardTable' }
         ],
         profile: [
             { icon:'👤', title:'Ваш профиль', description:'Личные данные: имя, логин, отдел и роль. Здесь видна вся информация о вашем аккаунте.', selector:'#profileAvatarWrap' },
-            { icon:'📷', title:'Аватар', description:'Нажмите на иконку камеры, чтобы загрузить фото. Аватар отображается в задачах, комментариях и таблице лидеров.', selector:'#profileAvatarDisplay' },
-            { icon:'✏️', title:'Редактирование имени', description:'Измените имя и нажмите "Сохранить изменения". Логин и отдел изменить может только администратор.', selector:'#profileName' }
+            { icon:'📷', title:'Аватар', description:'Нажмите на иконку камеры, чтобы загрузить фото. Аватар виден в задачах, комментариях и таблице лидеров.', selector:'#profileAvatarDisplay', action:'Нажмите на камеру, чтобы изменить аватар' },
+            { icon:'✏️', title:'Редактирование', description:'Измените имя и нажмите «Сохранить изменения». Логин и отдел изменить может только администратор.', selector:'#profileName' }
         ],
         admin: [
-            { icon:'👑', title:'Панель администратора', description:'Центр управления системой. Несколько вкладок для полного контроля над системой.', selector:'#page-admin' },
-            { icon:'👥', title:'Вкладка "Пользователи"', description:'Управление аккаунтами: роли (сотрудник/руководитель/администратор), привязка к отделам, блокировка аккаунтов.', selector:'.admin-tab[data-admin-tab="users"]' },
-            { icon:'🏢', title:'Вкладка "Отделы"', description:'Управление отделами компании. Создавайте отделы, задавайте цвет для визуального отличия и назначайте руководителя.', selector:'.admin-tab[data-admin-tab="departments"]' },
-            { icon:'📊', title:'Вкладка "Этапы воронки"', description:'Настройка колонок канбан-доски для каждого отдела. Добавляйте, удаляйте и меняйте порядок этапов с иконками и цветами.', selector:'.admin-tab[data-admin-tab="stages"]' },
-            { icon:'🔐', title:'Вкладка "Настройки"', description:'Тонкая настройка прав доступа для каждой роли. Контролируйте, кто может создавать задачи, управлять воронками и видеть чужие задачи.', selector:'.admin-tab[data-admin-tab="settings"]' },
-            { icon:'🏢', title:'Отделы в боковой панели', description:'Внизу слева — кнопки отделов. Нажмите, чтобы фильтровать задачи. Фильтр работает на канбане, в списке и календаре одновременно.', selector:'#departmentsList' }
+            { icon:'👑', title:'Панель администратора', description:'Центр управления системой. Здесь вы управляете пользователями, отделами, этапами воронки и правами доступа.', selector:'#page-admin' },
+            { icon:'👥', title:'Пользователи', description:'Управление аккаунтами: роли (сотрудник / руководитель / администратор), привязка к отделам, блокировка.', selector:'.admin-tab[data-admin-tab="users"]', action:'Нажмите вкладку «Пользователи»' },
+            { icon:'🏢', title:'Отделы', description:'Создание и управление отделами компании. Задавайте цвет, назначайте руководителя. Каждый отдел — отдельное рабочее пространство с воронками.', selector:'.admin-tab[data-admin-tab="departments"]' },
+            { icon:'📊', title:'Этапы воронки', description:'Настройка колонок канбан-доски для каждого отдела. Добавляйте этапы с иконками и цветами, меняйте их порядок.', selector:'.admin-tab[data-admin-tab="stages"]' },
+            { icon:'🔐', title:'Настройки прав', description:'Тонкая настройка прав доступа для каждой роли. Контролируйте, кто может создавать задачи, управлять воронками и видеть чужие задачи.', selector:'.admin-tab[data-admin-tab="settings"]' },
+            { icon:'🏢', title:'Отделы в боковой панели', description:'Внизу слева — кнопки отделов. Нажмите для фильтрации задач. Фильтр работает на канбане, дашборде и календаре одновременно.', selector:'#departmentsList' }
         ]
     };
     return s[page] || [];
