@@ -27,10 +27,6 @@ typing_status = {}  # {typing_key: timestamp}
 login_attempts = {}
 LOGIN_MAX_ATTEMPTS = 5       # попыток
 LOGIN_WINDOW_SECONDS = 300   # окно 5 минут
-# Rate-limit: {ip: [timestamp, timestamp, ...]} — только неудачные попытки логина
-login_attempts = {}
-LOGIN_MAX_ATTEMPTS = 5       # попыток
-LOGIN_WINDOW_SECONDS = 300   # окно 5 минут
 
 def hash_password(password, salt=None):
     if salt is None:
@@ -42,71 +38,12 @@ def verify_password(password, stored):
     salt = stored.split(":")[0]
     return hash_password(password, salt) == stored
 
-_HTML_TAG_RE = re.compile(r'<[^>]+>')
-
-def _sanitize_text(s):
-    """Вырезать HTML-теги из пользовательского текста.
-    Защита от XSS — даже если фронт где-то забыл экранировать.
-    Оставляет одиночные < и > (например, в тексте "приоритет > 5").
-    """
-    if not s or not isinstance(s, str):
-        return s
-    return _HTML_TAG_RE.sub('', s)
-
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
-
-def load_sessions_from_db():
-    """Загрузить все активные сессии из БД в память при старте сервера."""
-    global sessions
-    try:
-        conn = get_db()
-        rows = conn.execute("SELECT token, user_id, username, role FROM sessions_db").fetchall()
-        sessions.clear()
-        for r in rows:
-            sessions[r["token"]] = {"id": r["user_id"], "username": r["username"], "role": r["role"]}
-        conn.close()
-        print(f"Loaded {len(sessions)} sessions from DB")
-    except Exception as e:
-        print(f"load_sessions_from_db: {e}")
-
-def save_session_to_db(token, user_id, username, role):
-    try:
-        conn = get_db()
-        conn.execute("INSERT OR REPLACE INTO sessions_db (token, user_id, username, role) VALUES (?,?,?,?)",
-                     (token, user_id, username, role))
-        conn.commit(); conn.close()
-    except Exception as e:
-        print(f"save_session_to_db: {e}")
-
-def delete_session_from_db(token):
-    try:
-        conn = get_db()
-        conn.execute("DELETE FROM sessions_db WHERE token=?", (token,))
-        conn.commit(); conn.close()
-    except Exception as e:
-        print(f"delete_session_from_db: {e}")
-
-def _check_login_rate_limit(ip):
-    """Возвращает True если запрос разрешён, False если превышен лимит."""
-    import time
-    now = time.time()
-    attempts = login_attempts.get(ip, [])
-    # Оставить только попытки в окне
-    attempts = [t for t in attempts if now - t < LOGIN_WINDOW_SECONDS]
-    login_attempts[ip] = attempts
-    return len(attempts) < LOGIN_MAX_ATTEMPTS
-
-def _record_login_failure(ip):
-    import time
-    login_attempts.setdefault(ip, []).append(time.time())
-
-def _clear_login_attempts(ip):
-    login_attempts.pop(ip, None)
 
 def load_sessions_from_db():
     """Загрузить все активные сессии из БД в память при старте сервера."""
@@ -348,18 +285,6 @@ def init_db():
         c.execute("SELECT sort_order FROM tasks LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0")
-
-    # Migrate: persistent sessions table (survives server restart)
-    try:
-        c.execute("SELECT token FROM sessions_db LIMIT 1")
-    except:
-        c.execute("""CREATE TABLE IF NOT EXISTS sessions_db (
-            token TEXT PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            username TEXT NOT NULL,
-            role TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )""")
 
     # Migrate: persistent sessions table (survives server restart)
     try:
@@ -1760,7 +1685,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
         if path == "/api/register":
             username = data.get("username", "").strip()
-            full_name = _sanitize_text(data.get("full_name", "").strip())
+            full_name = data.get("full_name", "").strip()
             password = data.get("password", "")
             department_id = data.get("department_id")
             if not username or not full_name or not password:
@@ -1823,12 +1748,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/tasks":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            title = _sanitize_text(data.get("title", "").strip())
+            title = data.get("title", "").strip()
             if not title: return self._json({"error": "Введите название задачи"}, 400)
             conn = get_db()
             c = conn.execute(
                 "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline, parent_task_id, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (title, _sanitize_text(data.get("description", "")), data.get("status", "new"), data.get("priority", "medium"),
+                (title, data.get("description", ""), data.get("status", "new"), data.get("priority", "medium"),
                  u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None,
                  data.get("parent_task_id") or None, int(data.get("sort_order") or 0)))
             task_id = c.lastrowid
@@ -1879,7 +1804,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
-            text = _sanitize_text((data.get("text") or "").strip())
+            text = (data.get("text") or "").strip()
             attachment_data = data.get("attachment_data") or None
             attachment_name = data.get("attachment_name") or None
             attachment_type = data.get("attachment_type") or None
@@ -2074,7 +1999,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     dept_id = dept["id"]
             else:
                 return self._json({"error": "Нет доступа"}, 403)
-            label = _sanitize_text(data.get('label', '').strip())
+            label = data.get('label', '').strip()
             if not label: return self._json({"error": "Название обязательно"}, 400)
             key = data.get('key', '').strip()
             if not key:
@@ -2235,7 +2160,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/categories":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            name = _sanitize_text((data.get("name") or "").strip())
+            name = (data.get("name") or "").strip()
             if not name:
                 return self._json({"error": "Название обязательно"}, 400)
             dept_id = data.get("department_id")
@@ -2410,7 +2335,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close()
                 return self._json({"error": "Forbidden: admin only"}, 403)
 
-            name = _sanitize_text(data.get("name", "").strip())
+            name = data.get("name", "").strip()
             if not name:
                 conn.close()
                 return self._json({"error": "Department name required"}, 400)
@@ -2474,7 +2399,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/feedback":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            text = _sanitize_text(data.get("text", "").strip())
+            text = data.get("text", "").strip()
             rating = data.get("rating", 0)
             if not text: return self._json({"error": "Текст обязателен"}, 400)
             conn = get_db()
@@ -2491,7 +2416,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/profile":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            full_name = _sanitize_text(data.get("full_name", "").strip())
+            full_name = data.get("full_name", "").strip()
             if not full_name: return self._json({"error": "Имя не может быть пустым"}, 400)
             conn = get_db()
             conn.execute("UPDATE users SET full_name=? WHERE id=?", (full_name, u["id"]))
@@ -2533,10 +2458,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline", "sort_order", "parent_task_id"]:
                 if field in data:
                     sets.append(f"{field} = ?")
-                    _val = data[field] if data[field] != "" else None
-                    if field in ("title", "description") and isinstance(_val, str):
-                        _val = _sanitize_text(_val)
-                    params.append(_val)
+                    params.append(data[field] if data[field] != "" else None)
             if sets:
                 sets.append("updated_at = CURRENT_TIMESTAMP")
                 params.append(task_id)
