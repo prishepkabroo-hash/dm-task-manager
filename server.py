@@ -697,6 +697,33 @@ def log_activity(conn, task_id, user_id, action, details=None, old_value=None, n
     conn.execute("INSERT INTO task_activity (task_id, user_id, action, details, old_value, new_value) VALUES (?,?,?,?,?,?)",
         (task_id, user_id, action, details, old_value, new_value))
 
+def _can_access_task(conn, user_id, task_id):
+    """Проверка права доступа пользователя к задаче.
+    Admin — любая задача. Head — задачи своего отдела + где он участник.
+    Member — только где он создатель/исполнитель/наблюдатель/соисполнитель.
+    Возвращает (task_row или None, allowed: bool).
+    """
+    task = conn.execute("SELECT id, created_by, assigned_to, department_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+    if not task:
+        return (None, False)
+    user_row = conn.execute("SELECT role, department_id FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user_row:
+        return (task, False)
+    role = user_row["role"]
+    if role == "admin":
+        return (task, True)
+    if role == "head" and user_row["department_id"] == task["department_id"]:
+        return (task, True)
+    if user_id in (task["created_by"], task["assigned_to"]):
+        return (task, True)
+    is_watcher = conn.execute("SELECT 1 FROM task_watchers WHERE task_id=? AND user_id=?", (task_id, user_id)).fetchone()
+    if is_watcher:
+        return (task, True)
+    is_coexec = conn.execute("SELECT 1 FROM task_coexecutors WHERE task_id=? AND user_id=?", (task_id, user_id)).fetchone()
+    if is_coexec:
+        return (task, True)
+    return (task, False)
+
 def calculate_working_hours(start_dt_str, end_dt_str):
     """Calculate working hours between two datetime strings, excluding non-working hours.
     Working hours: Mon-Fri 11:00-19:00 (8 hours), Sat 11:00-17:00 (6 hours), Sun is off.
@@ -1178,8 +1205,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json(tasks)
 
         if path.startswith("/api/tasks/") and "/comments" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
             conn = get_db()
+            _t, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _t:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
             r = conn.execute(
                 "SELECT c.*, u.full_name as author_name, u.avatar_color FROM comments c "
                 "JOIN users u ON c.user_id = u.id WHERE c.task_id = ? ORDER BY c.created_at ASC", (task_id,)
@@ -1188,8 +1222,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json([dict(c) for c in r])
 
         if path.startswith("/api/tasks/") and "/activity" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
             conn = get_db()
+            _t, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _t:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
             r = conn.execute(
                 "SELECT a.id, a.task_id, a.user_id, a.action, a.details, a.created_at, "
                 "a.old_value, a.new_value, u.full_name as user_name, u.avatar_color "
@@ -1201,8 +1242,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json([dict(a) for a in r])
 
         if path.startswith("/api/tasks/") and "/watchers" in path:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
             conn = get_db()
+            _t, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _t:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
             r = conn.execute(
                 "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (task_id,)
             ).fetchall()
@@ -1210,8 +1258,17 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json([dict(w) for w in r])
 
         if path.startswith("/api/tasks/") and path.count("/") == 3:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
             conn = get_db()
+            _tr, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _tr:
+                conn.close()
+                return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close()
+                return self._json({"error": "forbidden"}, 403)
             t = conn.execute(
                 "SELECT t.*, u1.full_name as creator_name, u2.full_name as assignee_name, "
                 "d.name as department_name, d.color as department_color "
@@ -1742,6 +1799,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             task_id = path.split("/")[3]
             watcher_ids = data.get("watcher_ids", [])
             conn = get_db()
+            _tr, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _tr:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
 
             # Get old watchers for activity log
             old_watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
@@ -1779,6 +1841,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             task_id = path.split("/")[3]
             coexecutor_ids = data.get("coexecutor_ids", [])
             conn = get_db()
+            _tr, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _tr:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
             old_coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=?", (task_id,)).fetchall()
             old_ids = set([c["user_id"] for c in old_coexecs])
             new_ids = set(coexecutor_ids)
@@ -2300,6 +2367,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
             conn = get_db()
+            _tr, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _tr:
+                conn.close()
+                return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close()
+                return self._json({"error": "forbidden"}, 403)
             old_task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
             sets, params = [], []
             for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline", "sort_order", "parent_task_id"]:
@@ -2554,6 +2628,20 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not u: return self._json({"error": "unauthorized"}, 401)
             task_id = path.split("/")[3]
             conn = get_db()
+            # Удалять задачу могут только admin, head своего отдела или её создатель
+            _tr = conn.execute("SELECT created_by, department_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+            if not _tr:
+                conn.close()
+                return self._json({"error": "not found"}, 404)
+            _ur = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            _can_delete = bool(_ur) and (
+                _ur["role"] == "admin"
+                or (_ur["role"] == "head" and _ur["department_id"] == _tr["department_id"])
+                or u["id"] == _tr["created_by"]
+            )
+            if not _can_delete:
+                conn.close()
+                return self._json({"error": "forbidden"}, 403)
             conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
             conn.commit(); conn.close()
             return self._json({"ok": True})
