@@ -23,6 +23,10 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templa
 sessions = {}
 user_last_seen = {}  # {user_id: timestamp}
 typing_status = {}  # {typing_key: timestamp}
+# Rate-limit: {ip: [timestamp, timestamp, ...]} — только неудачные попытки логина
+login_attempts = {}
+LOGIN_MAX_ATTEMPTS = 5       # попыток
+LOGIN_WINDOW_SECONDS = 300   # окно 5 минут
 
 def hash_password(password, salt=None):
     if salt is None:
@@ -40,6 +44,54 @@ def get_db():
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
+
+def load_sessions_from_db():
+    """Загрузить все активные сессии из БД в память при старте сервера."""
+    global sessions
+    try:
+        conn = get_db()
+        rows = conn.execute("SELECT token, user_id, username, role FROM sessions_db").fetchall()
+        sessions.clear()
+        for r in rows:
+            sessions[r["token"]] = {"id": r["user_id"], "username": r["username"], "role": r["role"]}
+        conn.close()
+        print(f"Loaded {len(sessions)} sessions from DB")
+    except Exception as e:
+        print(f"load_sessions_from_db: {e}")
+
+def save_session_to_db(token, user_id, username, role):
+    try:
+        conn = get_db()
+        conn.execute("INSERT OR REPLACE INTO sessions_db (token, user_id, username, role) VALUES (?,?,?,?)",
+                     (token, user_id, username, role))
+        conn.commit(); conn.close()
+    except Exception as e:
+        print(f"save_session_to_db: {e}")
+
+def delete_session_from_db(token):
+    try:
+        conn = get_db()
+        conn.execute("DELETE FROM sessions_db WHERE token=?", (token,))
+        conn.commit(); conn.close()
+    except Exception as e:
+        print(f"delete_session_from_db: {e}")
+
+def _check_login_rate_limit(ip):
+    """Возвращает True если запрос разрешён, False если превышен лимит."""
+    import time
+    now = time.time()
+    attempts = login_attempts.get(ip, [])
+    # Оставить только попытки в окне
+    attempts = [t for t in attempts if now - t < LOGIN_WINDOW_SECONDS]
+    login_attempts[ip] = attempts
+    return len(attempts) < LOGIN_MAX_ATTEMPTS
+
+def _record_login_failure(ip):
+    import time
+    login_attempts.setdefault(ip, []).append(time.time())
+
+def _clear_login_attempts(ip):
+    login_attempts.pop(ip, None)
 
 def init_db():
     conn = get_db()
@@ -233,6 +285,18 @@ def init_db():
         c.execute("SELECT sort_order FROM tasks LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0")
+
+    # Migrate: persistent sessions table (survives server restart)
+    try:
+        c.execute("SELECT token FROM sessions_db LIMIT 1")
+    except:
+        c.execute("""CREATE TABLE IF NOT EXISTS sessions_db (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            role TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""")
 
     # Migrate: add attachment columns to comments (files, voice)
     try:
@@ -1598,18 +1662,25 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         data = self._body()
 
         if path == "/api/login":
+            # Rate-limit: максимум 5 неудач за 5 мин с одного IP
+            ip = self.client_address[0] if self.client_address else "unknown"
+            if not _check_login_rate_limit(ip):
+                return self._json({"error": "Слишком много попыток. Попробуйте через 5 минут."}, 429)
             conn = get_db()
             user = conn.execute("SELECT * FROM users WHERE username = ?", (data.get("username", ""),)).fetchone()
             conn.close()
             if user and verify_password(data.get("password", ""), user["password_hash"]):
+                _clear_login_attempts(ip)
                 token = secrets.token_hex(32)
                 sessions[token] = {"id": user["id"], "username": user["username"], "role": user["role"]}
+                save_session_to_db(token, user["id"], user["username"], user["role"])
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Set-Cookie", f"session={token}; Path=/; HttpOnly; SameSite=Lax")
                 self.end_headers()
                 self.wfile.write(json.dumps({"ok": True, "token": token, "user": {"id": user["id"], "full_name": user["full_name"], "role": user["role"]}}, ensure_ascii=False).encode())
                 return
+            _record_login_failure(ip)
             return self._json({"error": "Неверный логин или пароль"}, 401)
 
         if path == "/api/register":
@@ -1635,6 +1706,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.commit(); conn.close()
             token = secrets.token_hex(32)
             sessions[token] = {"id": uid, "username": username, "role": "member"}
+            save_session_to_db(token, uid, username, "member")
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Set-Cookie", f"session={token}; Path=/; HttpOnly; SameSite=Lax")
@@ -1647,7 +1719,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             for part in cookie.split(";"):
                 part = part.strip()
                 if part.startswith("session="):
-                    sessions.pop(part[8:], None)
+                    token = part[8:]
+                    sessions.pop(token, None)
+                    delete_session_from_db(token)
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Set-Cookie", "session=; Path=/; Max-Age=0")
@@ -2759,6 +2833,7 @@ if __name__ == "__main__":
     import ssl
     import subprocess
     init_db()
+    load_sessions_from_db()
     generate_deadline_notifications()
 
     # Support PORT env variable for cloud hosting (Render, Railway, etc.)
