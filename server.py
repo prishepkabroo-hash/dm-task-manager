@@ -386,6 +386,40 @@ def init_db():
         c.execute("SELECT attachment_type FROM comments LIMIT 1")
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE comments ADD COLUMN attachment_type TEXT DEFAULT NULL")
+    # Migrate: add edited_at to comments (for "(изменено)" badge)
+    try:
+        c.execute("SELECT edited_at FROM comments LIMIT 1")
+    except sqlite3.OperationalError:
+        try: c.execute("ALTER TABLE comments ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
+        except: pass
+    # Migrate: task_reads — per-user last-read marker per task (for unread badge in chat)
+    try:
+        c.execute("SELECT task_id FROM task_reads LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("""CREATE TABLE IF NOT EXISTS task_reads (
+            task_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            last_read_comment_id INTEGER NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (task_id, user_id)
+        )""")
+    # Migrate: add edited_at to comments (for "(изменено)" badge)
+    try:
+        c.execute("SELECT edited_at FROM comments LIMIT 1")
+    except sqlite3.OperationalError:
+        try: c.execute("ALTER TABLE comments ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
+        except: pass
+    # Migrate: task_reads — per-user last-read marker per task (for unread badge in chat)
+    try:
+        c.execute("SELECT task_id FROM task_reads LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("""CREATE TABLE IF NOT EXISTS task_reads (
+            task_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            last_read_comment_id INTEGER NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (task_id, user_id)
+        )""")
 
     # Migrate: create task_messages table if missing
     try:
@@ -1273,11 +1307,16 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
             query = """SELECT t.*, u1.full_name as creator_name, u2.full_name as assignee_name,
                 d.name as department_name, d.color as department_color,
-                (SELECT COUNT(*) FROM comments c WHERE c.task_id = t.id) as comment_count
+                (SELECT COUNT(*) FROM comments c WHERE c.task_id = t.id) as comment_count,
+                (SELECT COUNT(*) FROM comments c WHERE c.task_id = t.id
+                    AND c.user_id != ?
+                    AND c.id > COALESCE((SELECT last_read_comment_id FROM task_reads
+                                         WHERE task_id = t.id AND user_id = ?), 0)
+                ) as unread_count
                 FROM tasks t LEFT JOIN users u1 ON t.created_by = u1.id
                 LEFT JOIN users u2 ON t.assigned_to = u2.id
                 LEFT JOIN departments d ON t.department_id = d.id"""
-            conds, params = [], []
+            conds, params = [], [u["id"], u["id"]]  # for unread_count subquery
 
             # Role-based visibility filter
             if user_role == "admin":
@@ -1901,6 +1940,56 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.commit(); conn.close()
             return self._json({"ok": True, "id": task_id})
 
+        if path.startswith("/api/tasks/") and path.endswith("/read"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                task_id = int(path.split("/")[3])
+            except:
+                return self._json({"error": "bad task id"}, 400)
+            conn = get_db()
+            _t, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _t:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
+            max_row = conn.execute("SELECT MAX(id) as m FROM comments WHERE task_id=?", (task_id,)).fetchone()
+            max_id = (max_row["m"] or 0) if max_row else 0
+            conn.execute(
+                "INSERT INTO task_reads (task_id, user_id, last_read_comment_id, updated_at) "
+                "VALUES (?,?,?, CURRENT_TIMESTAMP) "
+                "ON CONFLICT(task_id, user_id) DO UPDATE SET "
+                "last_read_comment_id=excluded.last_read_comment_id, updated_at=CURRENT_TIMESTAMP",
+                (task_id, u["id"], max_id)
+            )
+            conn.commit(); conn.close()
+            return self._json({"ok": True, "last_read": max_id})
+
+        if path.startswith("/api/tasks/") and path.endswith("/read"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                task_id = int(path.split("/")[3])
+            except:
+                return self._json({"error": "bad task id"}, 400)
+            conn = get_db()
+            _t, _ok = _can_access_task(conn, u["id"], task_id)
+            if not _t:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            if not _ok:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
+            max_row = conn.execute("SELECT MAX(id) as m FROM comments WHERE task_id=?", (task_id,)).fetchone()
+            max_id = (max_row["m"] or 0) if max_row else 0
+            conn.execute(
+                "INSERT INTO task_reads (task_id, user_id, last_read_comment_id, updated_at) "
+                "VALUES (?,?,?, CURRENT_TIMESTAMP) "
+                "ON CONFLICT(task_id, user_id) DO UPDATE SET "
+                "last_read_comment_id=excluded.last_read_comment_id, updated_at=CURRENT_TIMESTAMP",
+                (task_id, u["id"], max_id)
+            )
+            conn.commit(); conn.close()
+            return self._json({"ok": True, "last_read": max_id})
+
         if path.startswith("/api/tasks/") and "/comments" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
@@ -2510,9 +2599,39 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
         self.send_response(404); self.end_headers()
 
+    def do_PATCH(self):
+        # Делегируем PATCH в do_PUT (для /api/comments/{id})
+        return self.do_PUT()
+
     def do_PUT(self):
         path = urllib.parse.urlparse(self.path).path
         data = self._body()
+
+        # Редактирование комментария — автор или админ
+        if path.startswith("/api/comments/") and path.count("/") == 3:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                comment_id = int(path.split("/")[3])
+            except:
+                return self._json({"error": "bad comment id"}, 400)
+            new_text = _sanitize_text((data.get("text") or "").strip())
+            if not new_text:
+                return self._json({"error": "Пустой текст"}, 400)
+            conn = get_db()
+            row = conn.execute("SELECT user_id FROM comments WHERE id=?", (comment_id,)).fetchone()
+            if not row:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            is_admin = bool(me) and me["role"] == "admin"
+            if row["user_id"] != u["id"] and not is_admin:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
+            conn.execute(
+                "UPDATE comments SET text=?, edited_at=CURRENT_TIMESTAMP WHERE id=?",
+                (new_text, comment_id)
+            )
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
 
         if path == "/api/profile":
             u = self._user()
@@ -2806,6 +2925,27 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         path = urllib.parse.urlparse(self.path).path
+
+        # Удалить комментарий — автор или админ
+        if path.startswith("/api/comments/") and path.count("/") == 3:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                comment_id = int(path.split("/")[3])
+            except:
+                return self._json({"error": "bad comment id"}, 400)
+            conn = get_db()
+            row = conn.execute("SELECT user_id FROM comments WHERE id=?", (comment_id,)).fetchone()
+            if not row:
+                conn.close(); return self._json({"error": "not found"}, 404)
+            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            is_admin = bool(me) and me["role"] == "admin"
+            if row["user_id"] != u["id"] and not is_admin:
+                conn.close(); return self._json({"error": "forbidden"}, 403)
+            conn.execute("DELETE FROM comments WHERE id=?", (comment_id,))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
         if path.startswith("/api/tasks/"):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)

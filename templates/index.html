@@ -8168,7 +8168,11 @@ function renderSubtasks(parentTaskId) {
                     + '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap;">'
                         + (assignee ? '<span style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;">' + avatarHTML(assignee.full_name, assignee.avatar_color, 14, assignee.avatar_url) + assignee.full_name.split(' ')[0] + '</span>' : '')
                         + (deadline.text ? '<span style="font-size:11px;color:var(--' + deadline.class + ');font-weight:600;">📅 ' + deadline.text + '</span>' : '')
-                        + ((s.comment_count && s.comment_count > 0) ? '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#3b82f6;font-weight:600;background:#eff6ff;padding:2px 7px;border-radius:10px;cursor:pointer;">💬 ' + s.comment_count + '</span>' : '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#94a3b8;font-weight:500;cursor:pointer;">💬 Обсудить</span>')
+                        + ((s.comment_count && s.comment_count > 0)
+                            ? '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#3b82f6;font-weight:600;background:#eff6ff;padding:2px 7px;border-radius:10px;cursor:pointer;position:relative;">💬 ' + s.comment_count
+                                + ((s.unread_count && s.unread_count > 0) ? ' <span style="display:inline-block;min-width:16px;height:16px;line-height:16px;padding:0 5px;background:#ef4444;color:white;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle;">' + s.unread_count + '</span>' : '')
+                                + '</span>'
+                            : '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#94a3b8;font-weight:500;cursor:pointer;">💬 Обсудить</span>')
                     + '</div>'
                 + '</div>'
                 + '<button onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Обсуждение" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseenter="this.style.background=\'#eff6ff\';this.style.color=\'#3b82f6\'" onmouseleave="this.style.background=\'none\';this.style.color=\'#cbd5e1\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button>'
@@ -8283,45 +8287,152 @@ function openSubtaskFull(subtaskId) {
     // Check if chat panel already open — toggle it off
     const existingPanel = row.nextElementSibling;
     if (existingPanel && existingPanel.classList.contains('subtask-chat-panel')) {
-        existingPanel.remove();
+        _closeSubtaskChat(subtaskId);
         return;
     }
-    // Close any other open chat panels
-    document.querySelectorAll('.subtask-chat-panel').forEach(p => p.remove());
+    // Close any other open chat panels (and their polls)
+    document.querySelectorAll('.subtask-chat-panel').forEach(function(p) {
+        var sid = parseInt(p.dataset.subtaskId, 10);
+        if (sid) _closeSubtaskChat(sid); else p.remove();
+    });
     // Create inline chat panel
     const panel = document.createElement('div');
     panel.className = 'subtask-chat-panel';
     panel.dataset.subtaskId = subtaskId;
+    var safeTitle = (typeof _catsEscape === 'function')
+        ? _catsEscape(sub.title || 'Подзадача')
+        : (sub.title || 'Подзадача').replace(/</g,'&lt;');
     panel.innerHTML =
         '<div class="subtask-chat-header">' +
-            '<div class="subtask-chat-header-title">💬 ' + (sub.title || 'Подзадача').replace(/</g,'&lt;') + '</div>' +
-            '<button class="subtask-chat-close" onclick="this.closest(\'.subtask-chat-panel\').remove()" title="Закрыть">✕</button>' +
+            '<div class="subtask-chat-header-title">💬 ' + safeTitle + '</div>' +
+            '<button class="subtask-chat-close" onclick="_closeSubtaskChat(' + subtaskId + ')" title="Закрыть (Esc)">✕</button>' +
         '</div>' +
         '<div class="subtask-chat-messages" id="stChat_msgs_' + subtaskId + '">' +
             '<div class="subtask-chat-empty">Загрузка...</div>' +
         '</div>' +
         '<div class="subtask-chat-attach-preview" id="stChat_preview_' + subtaskId + '"></div>' +
-        '<div class="subtask-chat-composer">' +
-            '<input type="text" class="subtask-chat-input" id="stChat_input_' + subtaskId + '" placeholder="Написать... (@имя для упоминания)" onkeydown="if(event.key===\'Enter\')sendSubtaskComment(' + subtaskId + ')">' +
+        '<div class="subtask-chat-composer" style="align-items:flex-end;">' +
+            '<textarea class="subtask-chat-input" id="stChat_input_' + subtaskId + '" rows="1" ' +
+                'placeholder="Написать... (Enter — отправить, Shift+Enter — новая строка)" ' +
+                'style="resize:none;max-height:120px;overflow-y:auto;line-height:1.4;padding:8px 12px;" ' +
+                'oninput="_chatAutogrow(this);_saveChatDraft(' + subtaskId + ',this.value);" ' +
+                'onkeydown="if(event.key===\'Enter\' && !event.shiftKey){event.preventDefault();sendSubtaskComment(' + subtaskId + ');}"></textarea>' +
             '<input type="file" id="stChat_file_' + subtaskId + '" style="display:none;" onchange="handleSubtaskChatFile(' + subtaskId + ')" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">' +
             '<button class="subtask-chat-btn" title="Прикрепить файл" onclick="document.getElementById(\'stChat_file_' + subtaskId + '\').click()">📎</button>' +
             '<button class="subtask-chat-btn" id="stChat_voice_' + subtaskId + '" title="Голосовое" onclick="toggleSubtaskChatVoice(' + subtaskId + ')">🎤</button>' +
-            '<button class="subtask-chat-send" onclick="sendSubtaskComment(' + subtaskId + ')">Отправить</button>' +
+            '<button class="subtask-chat-send" id="stChat_send_' + subtaskId + '" onclick="sendSubtaskComment(' + subtaskId + ')">Отправить</button>' +
         '</div>';
     row.after(panel);
-    // Load comments
-    loadSubtaskChatComments(subtaskId);
-    // Init @-mention on the input
+    // Esc closes panel
+    panel._escHandler = function(e) {
+        if (e.key === 'Escape') {
+            // Only close if focus is inside this panel
+            if (panel.contains(document.activeElement) || document.activeElement === document.body) {
+                _closeSubtaskChat(subtaskId);
+            }
+        }
+    };
+    document.addEventListener('keydown', panel._escHandler);
+    // Load comments + mark read + start live polling
+    loadSubtaskChatComments(subtaskId, true);
+    _markSubtaskRead(subtaskId);
+    _startChatPoll(subtaskId);
+    // Init @-mention on the input + restore draft
     setTimeout(function() {
         var inp = document.getElementById('stChat_input_' + subtaskId);
-        if (inp) { initMentionDropdown(inp); inp.focus(); }
+        if (inp) {
+            initMentionDropdown(inp);
+            var draft = _loadChatDraft(subtaskId);
+            if (draft) { inp.value = draft; _chatAutogrow(inp); }
+            inp.focus();
+        }
     }, 50);
+}
+
+// Корректное закрытие панели: остановить поллинг и снять Esc-хэндлер
+function _closeSubtaskChat(subtaskId) {
+    var panel = document.querySelector('.subtask-chat-panel[data-subtask-id="' + subtaskId + '"]');
+    if (!panel) return;
+    _stopChatPoll(subtaskId);
+    if (panel._escHandler) {
+        document.removeEventListener('keydown', panel._escHandler);
+        panel._escHandler = null;
+    }
+    panel.remove();
+}
+
+// Textarea автоматически растёт под текст
+function _chatAutogrow(ta) {
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+}
+
+// Черновик сообщения — чтобы не терять при случайном закрытии
+function _saveChatDraft(subtaskId, text) {
+    try {
+        if (text && text.trim()) localStorage.setItem('stChatDraft_' + subtaskId, text);
+        else localStorage.removeItem('stChatDraft_' + subtaskId);
+    } catch(e) {}
+}
+function _loadChatDraft(subtaskId) {
+    try { return localStorage.getItem('stChatDraft_' + subtaskId) || ''; }
+    catch(e) { return ''; }
+}
+function _clearChatDraft(subtaskId) {
+    try { localStorage.removeItem('stChatDraft_' + subtaskId); } catch(e) {}
+}
+
+// Отметка задачи как прочитанной
+async function _markSubtaskRead(subtaskId) {
+    try {
+        await apiCall('/api/tasks/' + subtaskId + '/read', { method: 'POST', body: JSON.stringify({}) });
+        // Сбросим локальный unread_count сразу, чтобы значок исчез без перезагрузки
+        var sub = allTasks.find(t => t.id === subtaskId);
+        if (sub) sub.unread_count = 0;
+        var parentId = sub && sub.parent_task_id;
+        if (parentId) renderSubtasks(parentId);
+    } catch(e) {}
+}
+
+// Живое обновление чата (раз в 5 сек пока панель открыта)
+var _subtaskChatPolls = {};
+function _startChatPoll(subtaskId) {
+    _stopChatPoll(subtaskId);
+    _subtaskChatPolls[subtaskId] = setInterval(function() {
+        var panel = document.querySelector('.subtask-chat-panel[data-subtask-id="' + subtaskId + '"]');
+        if (!panel) { _stopChatPoll(subtaskId); return; }
+        loadSubtaskChatComments(subtaskId, false);
+    }, 5000);
+}
+function _stopChatPoll(subtaskId) {
+    if (_subtaskChatPolls[subtaskId]) {
+        clearInterval(_subtaskChatPolls[subtaskId]);
+        delete _subtaskChatPolls[subtaskId];
+    }
+}
+
+// Разделитель по дате — «Сегодня / Вчера / 12 апреля»
+function _formatChatDateSep(iso) {
+    if (!iso) return '';
+    var d = new Date(iso.replace(' ', 'T') + (iso.indexOf('Z') === -1 ? 'Z' : ''));
+    if (isNaN(d.getTime())) return '';
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = Math.round((today - msgDay) / 86400000);
+    if (diff === 0) return 'Сегодня';
+    if (diff === 1) return 'Вчера';
+    var months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    var res = d.getDate() + ' ' + months[d.getMonth()];
+    if (d.getFullYear() !== now.getFullYear()) res += ' ' + d.getFullYear();
+    return res;
 }
 
 // ═══ INLINE SUBTASK CHAT FUNCTIONS ═══
 var _subtaskChatAttachments = {};
 
-async function loadSubtaskChatComments(subtaskId) {
+async function loadSubtaskChatComments(subtaskId, scrollToBottom) {
     var container = document.getElementById('stChat_msgs_' + subtaskId);
     if (!container) return;
     var comments = await apiCall('/api/tasks/' + subtaskId + '/comments');
@@ -8329,23 +8440,132 @@ async function loadSubtaskChatComments(subtaskId) {
         container.innerHTML = '<div class="subtask-chat-empty"><div style="font-size:24px;margin-bottom:6px;">💬</div>Нет сообщений. Начните обсуждение!</div>';
         return;
     }
-    container.innerHTML = comments.map(function(c) {
+    // Не перерисовываем, если ничего не изменилось (поллинг)
+    var sig = comments.map(function(c){ return c.id + ':' + (c.edited_at || '0'); }).join('|');
+    if (container.dataset.sig === sig && !scrollToBottom) return;
+    container.dataset.sig = sig;
+    // Запомним, был ли пользователь у самого низа — чтобы автоскроллить только тогда
+    var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 60;
+
+    var escFn = (typeof _catsEscape === 'function') ? _catsEscape : function(s){ return String(s==null?'':s).replace(/[&<>"\']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); };
+    var me = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
+    var myId = me ? me.id : null;
+    var myIsAdmin = !!(me && me.role === 'admin');
+
+    var prevDay = null;
+    var html = '';
+    comments.forEach(function(c) {
+        var day = _formatChatDateSep(c.created_at);
+        if (day && day !== prevDay) {
+            html += '<div class="subtask-chat-day-sep" style="text-align:center;margin:10px 0 6px;color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:0.02em;"><span style="background:#f1f5f9;padding:2px 10px;border-radius:10px;">' + escFn(day) + '</span></div>';
+            prevDay = day;
+        }
         var author = allUsers.find(u => u.id === c.user_id) || {};
-        var textHtml = (c.text || '').replace(/</g,'&lt;').replace(/@(\S+)/g, '<span class="mention-tag">@$1</span>');
-        return '<div class="subtask-chat-msg">' +
+        // Экранируем, потом подсвечиваем @-упоминания (только буквы/цифры/_, не знаки препинания)
+        var textHtml = escFn(c.text || '').replace(/@([A-Za-z\u0400-\u04FF0-9_]+)/g, '<span class="mention-tag">@$1</span>');
+        // Переносы строк -> <br>
+        textHtml = textHtml.replace(/\n/g, '<br>');
+        var canEdit = (c.user_id === myId) || myIsAdmin;
+        var menuBtn = canEdit
+            ? ('<button onclick="event.stopPropagation();_toggleChatMsgMenu(event,' + c.id + ',' + subtaskId + ')" title="Действия" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0 4px;line-height:1;margin-left:6px;opacity:0.5;" onmouseenter="this.style.opacity=\'1\'" onmouseleave="this.style.opacity=\'0.5\'">⋯</button>')
+            : '';
+        var editedMark = c.edited_at ? '<span style="color:#94a3b8;font-size:10px;margin-left:4px;" title="' + escFn(formatDateTime(c.edited_at)) + '">(изменено)</span>' : '';
+        html += '<div class="subtask-chat-msg" data-cid="' + c.id + '">' +
             '<div class="subtask-chat-msg-avatar">' + avatarHTML(c.author_name || '?', author.avatar_color || '#94a3b8', 28, author.avatar_url) + '</div>' +
-            '<div class="subtask-chat-msg-body">' +
-                '<div class="subtask-chat-msg-header">' +
-                    '<span class="subtask-chat-msg-name">' + _catsEscape(c.author_name || '') + '</span>' +
+            '<div class="subtask-chat-msg-body" style="flex:1;min-width:0;">' +
+                '<div class="subtask-chat-msg-header" style="display:flex;align-items:center;">' +
+                    '<span class="subtask-chat-msg-name">' + escFn(c.author_name || '') + '</span>' +
                     '<span class="subtask-chat-msg-time">' + formatDateTime(c.created_at) + '</span>' +
+                    editedMark +
+                    '<span style="flex:1;"></span>' +
+                    menuBtn +
                 '</div>' +
-                (textHtml ? '<div class="subtask-chat-msg-text">' + textHtml + '</div>' : '') +
+                (textHtml ? '<div class="subtask-chat-msg-text" id="stChat_text_' + c.id + '">' + textHtml + '</div>' : '') +
                 _renderSubtaskChatAttachment(c) +
             '</div>' +
         '</div>';
-    }).join('');
-    // Scroll to bottom
-    container.scrollTop = container.scrollHeight;
+    });
+    container.innerHTML = html;
+    // Scroll to bottom только если пользователь уже внизу (или явно просили)
+    if (scrollToBottom || nearBottom) container.scrollTop = container.scrollHeight;
+}
+
+// Меню «Изменить / Удалить» над сообщением
+function _toggleChatMsgMenu(ev, commentId, subtaskId) {
+    // Удалим другие открытые меню
+    document.querySelectorAll('.stChat-msg-menu').forEach(function(m){ m.remove(); });
+    var menu = document.createElement('div');
+    menu.className = 'stChat-msg-menu';
+    menu.style.cssText = 'position:absolute;background:white;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.12);padding:4px;z-index:10000;min-width:140px;';
+    menu.innerHTML =
+        '<button onclick="editSubtaskComment(' + commentId + ',' + subtaskId + ');this.parentNode.remove();" style="display:block;width:100%;text-align:left;padding:7px 10px;background:none;border:none;border-radius:5px;cursor:pointer;font-size:13px;color:#1e293b;" onmouseenter="this.style.background=\'#f1f5f9\'" onmouseleave="this.style.background=\'none\'">✏️ Изменить</button>' +
+        '<button onclick="deleteSubtaskComment(' + commentId + ',' + subtaskId + ');this.parentNode.remove();" style="display:block;width:100%;text-align:left;padding:7px 10px;background:none;border:none;border-radius:5px;cursor:pointer;font-size:13px;color:#ef4444;" onmouseenter="this.style.background=\'#fef2f2\'" onmouseleave="this.style.background=\'none\'">🗑️ Удалить</button>';
+    document.body.appendChild(menu);
+    var r = ev.target.getBoundingClientRect();
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+    menu.style.top = (r.bottom + window.scrollY + 4) + 'px';
+    // Клик вне меню — закрыть
+    setTimeout(function(){
+        document.addEventListener('click', function h(e){
+            if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', h); }
+        });
+    }, 0);
+}
+
+// Редактирование сообщения — простая инлайн-форма
+function editSubtaskComment(commentId, subtaskId) {
+    var textEl = document.getElementById('stChat_text_' + commentId);
+    if (!textEl) return;
+    var old = textEl.textContent || '';
+    var ta = document.createElement('textarea');
+    ta.value = old;
+    ta.rows = 2;
+    ta.style.cssText = 'width:100%;resize:vertical;padding:6px 8px;border:1px solid #3b82f6;border-radius:6px;font-size:13px;outline:none;font-family:inherit;';
+    var saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Сохранить';
+    saveBtn.style.cssText = 'padding:4px 10px;background:#3b82f6;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;margin-right:6px;margin-top:4px;';
+    var cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Отмена';
+    cancelBtn.style.cssText = 'padding:4px 10px;background:#f1f5f9;color:#475569;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px;';
+    var wrap = document.createElement('div');
+    wrap.appendChild(ta);
+    wrap.appendChild(saveBtn);
+    wrap.appendChild(cancelBtn);
+    textEl.replaceWith(wrap);
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    cancelBtn.onclick = function() { loadSubtaskChatComments(subtaskId, false); };
+    saveBtn.onclick = async function() {
+        var newText = (ta.value || '').trim();
+        if (!newText) { showToast('Пустое сообщение', 'error'); return; }
+        if (newText === old.trim()) { loadSubtaskChatComments(subtaskId, false); return; }
+        saveBtn.disabled = true; saveBtn.textContent = 'Сохраняю...';
+        var resp = await apiCall('/api/comments/' + commentId, { method: 'PATCH', body: JSON.stringify({ text: newText }) });
+        if (resp && !resp.error) {
+            loadSubtaskChatComments(subtaskId, false);
+        } else {
+            showToast((resp && resp.error) || 'Не удалось сохранить', 'error');
+            saveBtn.disabled = false; saveBtn.textContent = 'Сохранить';
+        }
+    };
+    ta.onkeydown = function(e) {
+        if (e.key === 'Escape') { e.preventDefault(); cancelBtn.click(); }
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveBtn.click(); }
+    };
+}
+
+async function deleteSubtaskComment(commentId, subtaskId) {
+    if (!confirm('Удалить это сообщение?')) return;
+    var resp = await apiCall('/api/comments/' + commentId, { method: 'DELETE' });
+    if (resp && !resp.error) {
+        // Локально уменьшим счётчик
+        var sub = allTasks.find(t => t.id === subtaskId);
+        if (sub && sub.comment_count) sub.comment_count = Math.max(0, sub.comment_count - 1);
+        loadSubtaskChatComments(subtaskId, false);
+        if (sub && sub.parent_task_id) renderSubtasks(sub.parent_task_id);
+    } else {
+        showToast((resp && resp.error) || 'Не удалось удалить', 'error');
+    }
 }
 
 function _renderSubtaskChatAttachment(c) {
@@ -8381,10 +8601,19 @@ function _showSubtaskChatPreview(subtaskId) {
     if (!preview) return;
     var att = _subtaskChatAttachments[subtaskId];
     if (!att) { preview.style.display = 'none'; return; }
-    var icon = att.type.startsWith('image/') ? '🖼️' : att.type.startsWith('audio/') ? '🎵' : att.type.startsWith('video/') ? '🎬' : '📄';
+    var escFn = (typeof _catsEscape === 'function') ? _catsEscape : function(s){ return String(s==null?'':s).replace(/[&<>"\']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); };
+    var isImg = att.type && att.type.indexOf('image/') === 0;
+    var isAud = att.type && att.type.indexOf('audio/') === 0;
+    var isVid = att.type && att.type.indexOf('video/') === 0;
+    var thumb = isImg
+        ? ('<img src="' + att.data + '" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">')
+        : ('<span style="font-size:22px;width:40px;text-align:center;">' + (isAud ? '🎵' : isVid ? '🎬' : '📄') + '</span>');
     preview.style.display = 'flex';
-    preview.innerHTML = '<span>' + icon + '</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569;">' + att.name + '</span>' +
-        '<button onclick="_clearSubtaskChatAttach(' + subtaskId + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-weight:600;">✕</button>';
+    preview.style.alignItems = 'center';
+    preview.style.gap = '10px';
+    preview.innerHTML = thumb +
+        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569;">' + escFn(att.name) + '</span>' +
+        '<button onclick="_clearSubtaskChatAttach(' + subtaskId + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-weight:600;font-size:16px;">✕</button>';
 }
 
 function _clearSubtaskChatAttach(subtaskId) {
@@ -8395,6 +8624,7 @@ function _clearSubtaskChatAttach(subtaskId) {
     if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
 }
 
+var _stChatVoiceTimers = {};
 async function toggleSubtaskChatVoice(subtaskId) {
     var recKey = 'stChat_' + subtaskId;
     var rec = commentRecorders[recKey];
@@ -8407,8 +8637,15 @@ async function toggleSubtaskChatVoice(subtaskId) {
         var mr = mimeType ? new MediaRecorder(stream, {mimeType}) : new MediaRecorder(stream);
         var chunks = [];
         mr.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        var startedAt = Date.now();
+        var tick = function() {
+            var sec = Math.floor((Date.now() - startedAt) / 1000);
+            var mm = Math.floor(sec / 60), ss = sec % 60;
+            if (btn) btn.innerHTML = '⏹ ' + mm + ':' + (ss < 10 ? '0' + ss : ss);
+        };
         mr.onstop = function() {
             stream.getTracks().forEach(t => t.stop());
+            if (_stChatVoiceTimers[recKey]) { clearInterval(_stChatVoiceTimers[recKey]); delete _stChatVoiceTimers[recKey]; }
             var blob = new Blob(chunks, {type: mimeType || 'audio/webm'});
             if (blob.size > 8*1024*1024) { showToast('Запись слишком длинная', 'error'); commentRecorders[recKey]=null; if(btn){btn.textContent='🎤';btn.style.background='';} return; }
             var reader = new FileReader();
@@ -8422,7 +8659,9 @@ async function toggleSubtaskChatVoice(subtaskId) {
         };
         mr.start();
         commentRecorders[recKey] = mr;
-        if (btn) { btn.textContent = '⏹'; btn.style.background = '#fecaca'; }
+        if (btn) { btn.textContent = '⏹ 0:00'; btn.style.background = '#fecaca'; }
+        tick();
+        _stChatVoiceTimers[recKey] = setInterval(tick, 1000);
         showToast('Запись... Нажмите ⏹ для остановки', 'info');
         setTimeout(function() { if (commentRecorders[recKey] && commentRecorders[recKey].state === 'recording') commentRecorders[recKey].stop(); }, 120000);
     } catch(err) { showToast('Нет доступа к микрофону', 'error'); }
@@ -8430,21 +8669,32 @@ async function toggleSubtaskChatVoice(subtaskId) {
 
 async function sendSubtaskComment(subtaskId) {
     var input = document.getElementById('stChat_input_' + subtaskId);
+    var sendBtn = document.getElementById('stChat_send_' + subtaskId);
     var text = input ? input.value.trim() : '';
     var att = _subtaskChatAttachments[subtaskId];
     if (!text && !att) return;
+    // Блокируем кнопку пока идёт отправка
+    var origLabel = sendBtn ? sendBtn.textContent : 'Отправить';
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Отправка...'; sendBtn.style.opacity = '0.6'; }
     var body = { text: text };
     if (att) { body.attachment_data = att.data; body.attachment_name = att.name; body.attachment_type = att.type; }
-    var resp = await apiCall('/api/tasks/' + subtaskId + '/comments', { method:'POST', body:JSON.stringify(body) });
-    if (resp && !resp.error) {
-        if (input) input.value = '';
-        _clearSubtaskChatAttach(subtaskId);
-        loadSubtaskChatComments(subtaskId);
-        // Update comment count locally
-        var sub = allTasks.find(t => t.id === subtaskId);
-        if (sub) sub.comment_count = (sub.comment_count || 0) + 1;
-    } else {
-        showToast((resp && resp.error) || 'Ошибка', 'error');
+    try {
+        var resp = await apiCall('/api/tasks/' + subtaskId + '/comments', { method:'POST', body:JSON.stringify(body) });
+        if (resp && !resp.error) {
+            if (input) { input.value = ''; _chatAutogrow(input); input.focus(); }
+            _clearChatDraft(subtaskId);
+            _clearSubtaskChatAttach(subtaskId);
+            loadSubtaskChatComments(subtaskId, true);
+            // Update comment count locally
+            var sub = allTasks.find(t => t.id === subtaskId);
+            if (sub) sub.comment_count = (sub.comment_count || 0) + 1;
+            // Сами своё сообщение сразу считаем прочитанным
+            _markSubtaskRead(subtaskId);
+        } else {
+            showToast((resp && resp.error) || 'Ошибка', 'error');
+        }
+    } finally {
+        if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = origLabel; sendBtn.style.opacity = ''; }
     }
 }
 
