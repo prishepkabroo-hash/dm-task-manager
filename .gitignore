@@ -7,3 +7,7 @@ openssl.cnf
 .fuse_hidden*
 dm_tasks.db
 dm_tasks.db-journal
+
+# Страховочные копии патчей
+*.bak
+*.before-*
