@@ -1097,13 +1097,22 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/static/"):
             return self._static(os.path.join(STATIC_DIR, path[8:]))
         if path.startswith("/uploads/"):
-            upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-            filepath = os.path.join(upload_dir, path[9:])
-            if os.path.exists(filepath):
+            upload_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"))
+            # Разрешаем только имя файла (без подпапок и ../)
+            requested = path[9:]
+            safe_name = os.path.basename(requested)
+            if not safe_name or safe_name != requested or safe_name.startswith("."):
+                self.send_response(404); self.end_headers(); return
+            filepath = os.path.abspath(os.path.join(upload_dir, safe_name))
+            # Финальная проверка: путь должен быть внутри uploads
+            if not filepath.startswith(upload_dir + os.sep):
+                self.send_response(404); self.end_headers(); return
+            if os.path.exists(filepath) and os.path.isfile(filepath):
                 self.send_response(200)
                 ext = filepath.rsplit(".", 1)[-1].lower()
                 ct = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}.get(ext, "application/octet-stream")
                 self.send_header("Content-Type", ct)
+                self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.end_headers()
                 with open(filepath, "rb") as f:
@@ -1690,6 +1699,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Parse boundary
             boundary = content_type.split("boundary=")[1].strip()
             length = int(self.headers.get("Content-Length", 0))
+            # Лимит на размер запроса: 5 МБ
+            AVATAR_MAX = 5 * 1024 * 1024
+            if length <= 0 or length > AVATAR_MAX + 2048:
+                return self._json({"error": "Файл слишком большой (макс 5 МБ)"}, 413)
             body = self.rfile.read(length)
 
             # Simple multipart parser
@@ -1707,10 +1720,23 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
             if not file_data:
                 return self._json({"error": "No file uploaded"}, 400)
+            if len(file_data) > AVATAR_MAX:
+                return self._json({"error": "Файл слишком большой (макс 5 МБ)"}, 413)
+
+            # Проверка: файл должен быть картинкой (по magic-байтам)
+            def _detect_image_ext(b):
+                if b[:3] == b"\xff\xd8\xff": return "jpg"
+                if b[:8] == b"\x89PNG\r\n\x1a\n": return "png"
+                if b[:6] in (b"GIF87a", b"GIF89a"): return "gif"
+                if b[:4] == b"RIFF" and b[8:12] == b"WEBP": return "webp"
+                return None
+            detected_ext = _detect_image_ext(file_data)
+            if not detected_ext:
+                return self._json({"error": "Формат не поддерживается. Разрешены JPEG, PNG, GIF, WEBP."}, 415)
 
             # Save file
             import uuid as uuid_mod
-            ext = "jpg"
+            ext = detected_ext
             filename = f"avatar_{u['id']}_{uuid_mod.uuid4().hex[:8]}.{ext}"
             upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
             os.makedirs(upload_dir, exist_ok=True)

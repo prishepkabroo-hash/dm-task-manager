@@ -5658,7 +5658,7 @@ async function renderDashboard() {
     const deptVal = deptSel.value;
     deptSel.innerHTML = '<option value="">Все отделы</option>';
     allDepartments.forEach(d => {
-        deptSel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+        deptSel.innerHTML += `<option value="${d.id}">${_catsEscape(d.name)}</option>`;
     });
     deptSel.value = deptVal || dashFilterState.dept;
 
@@ -5667,7 +5667,7 @@ async function renderDashboard() {
     const assVal = assSel.value;
     assSel.innerHTML = '<option value="">Все исполнители</option>';
     allUsers.forEach(u => {
-        assSel.innerHTML += `<option value="${u.id}">${u.full_name}</option>`;
+        assSel.innerHTML += `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`;
     });
     assSel.value = assVal || dashFilterState.assignee;
 
@@ -7324,11 +7324,11 @@ async function renderList() {
         tr.addEventListener('click', () => showTaskDetail(task.id));
         
         tr.innerHTML = `
-            <td style="font-weight:600;">${task.title}</td>
+            <td style="font-weight:600;">${_catsEscape(task.title)}</td>
             <td><span style="background: var(--status-${task.status}); color: white; padding: 3px 8px; border-radius: 6px; font-size: 12px;">${statusName(task.status)}</span></td>
             <td><span style="background: var(--priority-${task.priority}); color: white; padding: 3px 8px; border-radius: 6px; font-size: 12px;">${priorityName(task.priority)}</span></td>
-            <td><div style="display:flex;align-items:center;gap:8px;">${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 24, assignee.avatar_url) + `<span style="font-size:13px;">${assignee.full_name}</span>` : '<span style="color:#94a3b8;">—</span>'}</div></td>
-            <td>${dept ? `<span style="background:${dept.color||'#ccc'}20;color:${dept.color||'#666'};padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600;">${dept.name}</span>` : '-'}</td>
+            <td><div style="display:flex;align-items:center;gap:8px;">${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 24, assignee.avatar_url) + `<span style="font-size:13px;">${_catsEscape(assignee.full_name)}</span>` : '<span style="color:#94a3b8;">—</span>'}</div></td>
+            <td>${dept ? `<span style="background:${dept.color||'#ccc'}20;color:${dept.color||'#666'};padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600;">${_catsEscape(dept.name)}</span>` : '-'}</td>
             <td>${deadline.text ? `<span style="color: var(--${deadline.class}); font-weight: 600;">${deadline.text}</span>` : '-'}</td>
         `;
         
@@ -7672,14 +7672,14 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
     const deptSelect = document.getElementById('taskDepartment');
     deptSelect.innerHTML = '<option value="">Выберите отдел</option>';
     allDepartments.forEach(d => {
-        deptSelect.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+        deptSelect.innerHTML += `<option value="${d.id}">${_catsEscape(d.name)}</option>`;
     });
 
     // Populate assignee dropdown
     const assigneeSelect = document.getElementById('taskAssignee');
     assigneeSelect.innerHTML = '<option value="">Не назначен</option>';
     allUsers.forEach(u => {
-        assigneeSelect.innerHTML += `<option value="${u.id}">${u.full_name}</option>`;
+        assigneeSelect.innerHTML += `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`;
     });
 
     // Store editing task id
@@ -7884,7 +7884,7 @@ async function showTaskDetail(taskId) {
     document.getElementById('detailHeader').innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
             <div style="flex:1;">
-                <div style="font-size:18px;font-weight:700;color:#1e293b;line-height:1.3;margin-bottom:6px;">${task.title}</div>
+                <div style="font-size:18px;font-weight:700;color:#1e293b;line-height:1.3;margin-bottom:6px;">${_catsEscape(task.title)}</div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <span style="background:${pc.c}18;color:${pc.c};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">${pc.l}</span>
                     ${dept ? `<span style="background:${dept.color||'#94a3b8'}18;color:${dept.color||'#64748b'};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">${dept.name}</span>` : ''}
@@ -7918,7 +7918,7 @@ async function showTaskDetail(taskId) {
     document.getElementById('detailStageBar').innerHTML = stageBarHtml;
 
     // Main tab - instant render from local data
-    const assigneeOptions = allUsers.map(u => `<option value="${u.id}" ${u.id === task.assigned_to ? 'selected' : ''}>${u.full_name}</option>`).join('');
+    const assigneeOptions = allUsers.map(u => `<option value="${u.id}" ${u.id === task.assigned_to ? 'selected' : ''}>${_catsEscape(u.full_name)}</option>`).join('');
     const statusOptions = allStages.map(s => `<option value="${s.key}" ${s.key === task.status ? 'selected' : ''}>${s.label}</option>`).join('') + `<option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>Отменена</option>`;
     const priorityOptions = Object.entries(priCfg).map(([k,v]) => `<option value="${k}" ${k === task.priority ? 'selected' : ''}>${v.l}</option>`).join('');
 
@@ -7926,7 +7926,7 @@ async function showTaskDetail(taskId) {
         <!-- Description -->
         ${task.description ? `<div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid #e8ecf1;">
             <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Описание</div>
-            <div style="font-size:13px;color:#475569;line-height:1.6;white-space:pre-wrap;">${task.description}</div>
+            <div style="font-size:13px;color:#475569;line-height:1.6;white-space:pre-wrap;">${_catsEscape(task.description)}</div>
         </div>` : ''}
 
         <!-- Inline-editable fields -->
@@ -7947,14 +7947,14 @@ async function showTaskDetail(taskId) {
                 <div style="display:flex;align-items:flex-start;margin-bottom:6px;gap:8px;">
                     <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;flex-shrink:0;padding-top:4px;">Соисполнители</div>
                     <div id="detailCoexecutorsDisplay" style="flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-height:26px;">
-                        ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${c.full_name}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
+                        ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${_catsEscape(c.full_name)}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
                         ${(!task.coexecutors || !task.coexecutors.length) ? '<span style="color:#cbd5e1;font-size:12px;">Нет соисполнителей</span>' : ''}
                     </div>
                     <button id="coexecToggleBtn" onclick="toggleCoexecList()" style="flex-shrink:0;border:1px solid #e0e7ff;background:#eff6ff;color:#3b82f6;font-size:18px;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.2s;line-height:1;padding:0;" onmouseenter="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseleave="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Добавить соисполнителя">+</button>
                 </div>
                 <div id="detailCoexecList" style="display:none;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #f1f5f9;">
                     ${allUsers.filter(u => u.id !== task.assigned_to).map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;cursor:pointer;padding:4px 0;">
-                        <input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})"> ${u.full_name}
+                        <input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})"> ${_catsEscape(u.full_name)}
                     </label>`).join('')}
                 </div>
             </div>
@@ -8024,7 +8024,7 @@ async function showTaskDetail(taskId) {
             <div id="detailWatchersDisplay" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
             <div id="detailWatchersList" style="display:none;flex-direction:column;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">
                 ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;cursor:pointer;padding:4px 0;">
-                    <input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})"> ${u.full_name}
+                    <input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})"> ${_catsEscape(u.full_name)}
                 </label>`).join('')}
             </div>
         </div>
@@ -8336,7 +8336,7 @@ async function loadSubtaskChatComments(subtaskId) {
             '<div class="subtask-chat-msg-avatar">' + avatarHTML(c.author_name || '?', author.avatar_color || '#94a3b8', 28, author.avatar_url) + '</div>' +
             '<div class="subtask-chat-msg-body">' +
                 '<div class="subtask-chat-msg-header">' +
-                    '<span class="subtask-chat-msg-name">' + (c.author_name || '') + '</span>' +
+                    '<span class="subtask-chat-msg-name">' + _catsEscape(c.author_name || '') + '</span>' +
                     '<span class="subtask-chat-msg-time">' + formatDateTime(c.created_at) + '</span>' +
                 '</div>' +
                 (textHtml ? '<div class="subtask-chat-msg-text">' + textHtml + '</div>' : '') +
@@ -8352,7 +8352,7 @@ function _renderSubtaskChatAttachment(c) {
     if (!c.attachment_name) return '';
     var type = c.attachment_type || '';
     if (type.startsWith('image/')) {
-        return '<div style="margin-top:6px;"><img src="/api/comments/' + c.id + '/attachment" alt="' + c.attachment_name + '" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;" onclick="window.open(this.src,\'_blank\')"></div>';
+        return '<div style="margin-top:6px;"><img src="/api/comments/' + c.id + '/attachment" alt="' + _catsEscape(c.attachment_name) + '" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;" onclick="window.open(this.src,\'_blank\')"></div>';
     }
     if (type.startsWith('audio/')) {
         return '<div style="margin-top:6px;"><audio controls src="/api/comments/' + c.id + '/attachment" style="max-width:100%;height:36px;"></audio></div>';
@@ -8360,7 +8360,7 @@ function _renderSubtaskChatAttachment(c) {
     if (type.startsWith('video/')) {
         return '<div style="margin-top:6px;"><video controls src="/api/comments/' + c.id + '/attachment" style="max-width:100%;max-height:180px;border-radius:8px;"></video></div>';
     }
-    return '<div style="margin-top:6px;"><a href="/api/comments/' + c.id + '/attachment" target="_blank" download style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f1f5f9;border-radius:6px;font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;">📄 ' + c.attachment_name + '</a></div>';
+    return '<div style="margin-top:6px;"><a href="/api/comments/' + c.id + '/attachment" target="_blank" download style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f1f5f9;border-radius:6px;font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;">📄 ' + _catsEscape(c.attachment_name) + '</a></div>';
 }
 
 function handleSubtaskChatFile(subtaskId) {
@@ -8940,10 +8940,10 @@ async function loadMainTabComments(taskId) {
             comments.slice().reverse().map(function(c) {
                 return '<div style="background:white;border-radius:10px;padding:10px 14px;margin-bottom:6px;border:1px solid #e8ecf1;">' +
                     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-                        '<span style="font-weight:600;font-size:12px;color:#1e293b;">' + (c.author_name || '') + '</span>' +
+                        '<span style="font-weight:600;font-size:12px;color:#1e293b;">' + _catsEscape(c.author_name || '') + '</span>' +
                         '<span style="font-size:10px;color:#94a3b8;">' + formatDateTime(c.created_at) + '</span>' +
                     '</div>' +
-                    (c.text ? '<div style="font-size:13px;color:#475569;line-height:1.5;">' + c.text + '</div>' : '') +
+                    (c.text ? '<div style="font-size:13px;color:#475569;line-height:1.5;">' + _catsEscape(c.text) + '</div>' : '') +
                     renderCommentAttachment(c) +
                 '</div>';
             }).join('');
@@ -8974,10 +8974,10 @@ async function loadDetailComments(taskId) {
         html += comments.map(function(c) {
             return '<div style="background:white;border-radius:10px;padding:12px 16px;margin-bottom:8px;border:1px solid #e8ecf1;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-                    '<span style="font-weight:600;font-size:13px;color:#1e293b;">' + (c.author_name || '') + '</span>' +
+                    '<span style="font-weight:600;font-size:13px;color:#1e293b;">' + _catsEscape(c.author_name || '') + '</span>' +
                     '<span style="font-size:11px;color:#94a3b8;">' + formatDateTime(c.created_at) + '</span>' +
                 '</div>' +
-                (c.text ? '<div style="font-size:13px;color:#475569;line-height:1.5;">' + c.text + '</div>' : '') +
+                (c.text ? '<div style="font-size:13px;color:#475569;line-height:1.5;">' + _catsEscape(c.text) + '</div>' : '') +
                 renderCommentAttachment(c) +
             '</div>';
         }).join('');
@@ -9442,8 +9442,8 @@ async function renderAdmin() {
                 <div style="display:flex; align-items:center; gap:12px;">
                     ${avatarHTML(user.full_name, user.avatar_color, 40, user.avatar_url)}
                     <div>
-                        <div style="font-weight:600; font-size:14px;">${user.full_name} <span style="color:${roleColor}; font-size:11px; font-weight:700;">${roleName}</span></div>
-                        <div style="font-size:12px; color:var(--text-secondary);">@${user.username} ${user.department_name ? '• ' + user.department_name : ''}</div>
+                        <div style="font-weight:600; font-size:14px;">${_catsEscape(user.full_name)} <span style="color:${roleColor}; font-size:11px; font-weight:700;">${roleName}</span></div>
+                        <div style="font-size:12px; color:var(--text-secondary);">@${_catsEscape(user.username)} ${user.department_name ? '• ' + _catsEscape(user.department_name) : ''}</div>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -9497,10 +9497,10 @@ async function loadAdminFeedback() {
         const date = f.created_at ? new Date(f.created_at).toLocaleString('ru-RU') : '';
         return `<div style="padding:16px;border:1px solid var(--border-color);border-radius:10px;margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-weight:600;font-size:14px;">${f.full_name} <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@${f.username}</span></div>
+                <div style="font-weight:600;font-size:14px;">${_catsEscape(f.full_name)} <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@${_catsEscape(f.username)}</span></div>
                 <div style="font-size:12px;color:var(--text-secondary);">${date}</div>
             </div>
-            <div style="font-size:14px;color:var(--text-primary);line-height:1.5;">${f.text || '<em style="color:var(--text-secondary);">Без комментария</em>'}</div>
+            <div style="font-size:14px;color:var(--text-primary);line-height:1.5;">${f.text ? _catsEscape(f.text) : '<em style="color:var(--text-secondary);">Без комментария</em>'}</div>
         </div>`;
     }).join('');
 }
@@ -9518,10 +9518,10 @@ async function renderFeedbackPage() {
         const date = f.created_at ? new Date(f.created_at).toLocaleString('ru-RU') : '';
         return '<div style="padding:16px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:12px;background:var(--bg-secondary);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-                '<div style="font-weight:600;font-size:14px;">' + (f.full_name || '') + ' <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@' + (f.username || '') + '</span></div>' +
+                '<div style="font-weight:600;font-size:14px;">' + _catsEscape(f.full_name || '') + ' <span style="color:var(--text-secondary);font-size:12px;font-weight:400;">@' + _catsEscape(f.username || '') + '</span></div>' +
                 '<div style="font-size:12px;color:var(--text-secondary);">' + date + '</div>' +
             '</div>' +
-            '<div style="font-size:14px;color:var(--text-primary);line-height:1.5;">' + (f.text || '<em style="color:var(--text-secondary);">Без комментария</em>') + '</div>' +
+            '<div style="font-size:14px;color:var(--text-primary);line-height:1.5;">' + (f.text ? _catsEscape(f.text) : '<em style="color:var(--text-secondary);">Без комментария</em>') + '</div>' +
         '</div>';
     }).join('');
 }
@@ -9873,7 +9873,7 @@ function showDeptForm(deptId = null) {
     document.getElementById('deptName').value = '';
     document.getElementById('deptColor').value = '#2563eb';
     const headSelect = document.getElementById('deptHead');
-    headSelect.innerHTML = '<option value="">Не назначен</option>' + allUsers.map(u => `<option value="${u.id}">${u.full_name}</option>`).join('');
+    headSelect.innerHTML = '<option value="">Не назначен</option>' + allUsers.map(u => `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`).join('');
 
     if (deptId) {
         const dept = allDepartments.find(d => d.id === deptId);
