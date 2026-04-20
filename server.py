@@ -994,6 +994,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
         if path == "/api/stages":
             u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
             # Parse query params
             qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             dept_id = qs.get("department_id", [None])[0]
@@ -1012,6 +1013,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json([dict(r) for r in rows])
 
         if path == "/api/departments":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
             r = conn.execute(
                 "SELECT d.*, u.full_name as head_user_name FROM departments d "
@@ -1040,6 +1043,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return self._json([dict(r) for r in rows])
 
         if path == "/api/users":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
             r = conn.execute(
                 "SELECT u.id, u.username, u.full_name, u.department_id, u.role, u.avatar_color, u.avatar_url, d.name as department_name "
