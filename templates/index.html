@@ -3634,9 +3634,23 @@
             bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
             right: calc(24px + env(safe-area-inset-right, 0px)) !important;
         }
+        /* #feedbackBtn — десктопное позиционирование через inline-стиль
+           (left:280px). Защищаемся от конфликта left+right, который
+           растягивает кнопку: явно фиксируем auto-ширину. */
         #feedbackBtn {
-            bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
-            right: calc(20px + env(safe-area-inset-right, 0px)) !important;
+            width: auto !important;
+            max-width: 220px !important;
+            right: auto !important;
+        }
+        @media (max-width: 900px) {
+            /* На мобиле у кнопки уже стоит width:40px !important, так что
+               отключаем max-width и снова разрешаем right (приклеить к правому
+               краю для маленького экрана). */
+            #feedbackBtn {
+                max-width: none !important;
+                right: 14px !important;
+                left: auto !important;
+            }
         }
         @media (max-width: 900px) {
             #fabCreateTask {
