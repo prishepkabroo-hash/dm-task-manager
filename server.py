@@ -841,6 +841,13 @@ def init_db():
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP DEFAULT NULL")
 
+    # Migrate: add km_awarded flag to tasks (чтобы не начислять km дважды
+    # при последовательности done → new → done)
+    try:
+        c.execute("SELECT km_awarded FROM tasks LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE tasks ADD COLUMN km_awarded INTEGER DEFAULT 0")
+
     # Seed admin
     if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
         c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (?,?,?,?,?,?,?)",
@@ -2560,13 +2567,21 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not task_id:
                 return self._json({"error": "Missing task_id"}, 400)
 
-            task = conn.execute("SELECT created_at, deadline, assigned_to FROM tasks WHERE id=?", (task_id,)).fetchone()
+            task = conn.execute("SELECT created_at, deadline, assigned_to, km_awarded FROM tasks WHERE id=?", (task_id,)).fetchone()
             if not task or task["assigned_to"] != u["id"]:
                 conn.close()
                 return self._json({"error": "Invalid task"}, 400)
 
+            # Защита от дубля: если КМ уже начислены — выходим молча
+            # (реопен-сценарий done → new → done не должен давать второй бонус)
+            if task["km_awarded"]:
+                conn.close()
+                return self._json({"ok": True, "already_awarded": True})
+
             # Task completion award: +10 km
             update_km(conn, u["id"], 10)
+            # Помечаем, что бонус уже выдан за эту задачу
+            conn.execute("UPDATE tasks SET km_awarded=1 WHERE id=?", (task_id,))
 
             # Complete before deadline bonus: +5 km
             if task["deadline"]:
@@ -2814,6 +2829,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 return self._json({"error": "forbidden"}, 403)
             old_task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
             sets, params = [], []
+            # Подзадача не может иметь отдел, отличный от родителя: это ломает
+            # права доступа (юзеры родителя теряют подзадачу из видимости).
+            # Если пользователь пытается сменить department_id у подзадачи —
+            # игнорируем это поле тихо.
+            if old_task and old_task.get("parent_task_id"):
+                if "department_id" in data:
+                    data.pop("department_id", None)
             for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline", "sort_order", "parent_task_id"]:
                 if field in data:
                     sets.append(f"{field} = ?")
@@ -2835,7 +2857,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     if new_status == "in_progress":
                         conn.execute("UPDATE tasks SET taken_at = CURRENT_TIMESTAMP WHERE id = ? AND taken_at IS NULL", (task_id,))
                     elif new_status == "done":
-                        conn.execute("UPDATE tasks SET completed_at = CURRENT_TIMESTAMP WHERE id = ?", (task_id,))
+                        # Только если ещё не выставлен — иначе реопен-сценарий
+                        # затирает исходное время закрытия и ломает аналитику.
+                        conn.execute("UPDATE tasks SET completed_at = CURRENT_TIMESTAMP WHERE id = ? AND completed_at IS NULL", (task_id,))
                     elif new_status == "new":
                         # Reset timestamps when task goes back to new
                         conn.execute("UPDATE tasks SET taken_at = NULL, completed_at = NULL WHERE id = ?", (task_id,))
@@ -2912,6 +2936,24 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                             "INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
                             (_new_a, task_id, "assigned",
                              f"Вам назначена задача: {old_task['title']}"))
+                    # Прошлый исполнитель не должен терять контекст: делаем его watcher.
+                    if _old_a and _old_a != _new_a:
+                        conn.execute(
+                            "INSERT OR IGNORE INTO task_watchers (task_id, user_id) VALUES (?,?)",
+                            (task_id, _old_a))
+
+                # Deadline change notification: если руководитель подвинул дедлайн,
+                # исполнитель должен узнать.
+                if "deadline" in data and old_task:
+                    _old_dl = old_task["deadline"] or ""
+                    _new_dl = data.get("deadline") or ""
+                    if str(_old_dl) != str(_new_dl) and old_task["assigned_to"] and old_task["assigned_to"] != u["id"]:
+                        _msg_dl = (f"Дедлайн задачи «{old_task['title']}» изменён"
+                                   if _new_dl else
+                                   f"У задачи «{old_task['title']}» снят дедлайн")
+                        conn.execute(
+                            "INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                            (old_task["assigned_to"], task_id, "deadline_changed", _msg_dl))
 
                 conn.commit()
             conn.close()
@@ -3123,6 +3165,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not _can_delete:
                 conn.close()
                 return self._json({"error": "forbidden"}, 403)
+            # Каскад: удаляем подзадачи вместе с родителем, чтобы не оставлять
+            # сирот с битым parent_task_id (у SQLite нет FK ON DELETE CASCADE
+            # из-за миграции ALTER TABLE).
+            conn.execute("DELETE FROM tasks WHERE parent_task_id = ?", (task_id,))
             conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
             conn.commit(); conn.close()
             return self._json({"ok": True})

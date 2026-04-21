@@ -8832,7 +8832,10 @@ async function createSubtask(parentTaskId) {
         parent_task_id: parentTaskId,
         department_id: parent.department_id || null,
         assigned_to: parent.assigned_to || null,
-        priority: 'medium',
+        // Наследуем приоритет и дедлайн от родителя — это логично:
+        // подзадачи urgent-задачи по умолчанию тоже urgent, и к тому же дедлайну.
+        priority: parent.priority || 'medium',
+        deadline: parent.deadline || null,
         sort_order: maxOrder + 1
     };
     const resp = await apiCall('/api/tasks', { method: 'POST', body: JSON.stringify(body) });
