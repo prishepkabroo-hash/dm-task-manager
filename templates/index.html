@@ -5459,7 +5459,10 @@ async function loadTasks() {
 }
 
 async function loadStats() {
-    const ft = getFilteredTasks();
+    // На дашборде — учитываем срез по времени; на других страницах — как было
+    const ft = (currentPage === 'dashboard')
+        ? _filterByPeriod(getFilteredTasks(), _timePeriod)
+        : getFilteredTasks();
     const today = new Date().toISOString().split('T')[0];
     const overdueCount = ft.filter(t => t.deadline && t.deadline < today && !['done','cancelled'].includes(t.status)).length;
     const totalCount = ft.length;
@@ -5593,6 +5596,64 @@ function renderCurrentPage() {
 // =================================
 
 // Dashboard filter state
+// ─── Срез по времени (Неделя / Месяц / Всё время) ─────────────────
+// Глобальный: используется и на Дашборде, и в «Все отделы».
+var _timePeriod = (function() {
+    try {
+        var v = localStorage.getItem('dm_time_period');
+        if (v === 'week' || v === 'month' || v === 'all') return v;
+    } catch(e) {}
+    return 'all';
+})();
+
+function _setTimePeriod(p) {
+    if (p !== 'week' && p !== 'month' && p !== 'all') p = 'all';
+    _timePeriod = p;
+    try { localStorage.setItem('dm_time_period', p); } catch(e) {}
+    // Перерисовать то, что видно сейчас
+    if (currentPage === 'dashboard') renderDashboard();
+    else if (currentPage === 'kanban') { try { renderCatsView(); } catch(e) {} }
+}
+
+function _periodCutoffISO(p) {
+    if (p !== 'week' && p !== 'month') return null;
+    var days = (p === 'week') ? 7 : 30;
+    var d = new Date();
+    d.setDate(d.getDate() - days);
+    // ISO 'YYYY-MM-DD HH:MM:SS' (SQLite формат) — сравнение строк работает
+    return d.toISOString().replace('T', ' ').slice(0, 19);
+}
+
+function _filterByPeriod(tasks, period) {
+    if (!period || period === 'all') return tasks;
+    var cutoff = _periodCutoffISO(period);
+    if (!cutoff) return tasks;
+    return tasks.filter(function(t) {
+        if (!t.created_at) return true;  // без даты — не вырезаем
+        return String(t.created_at) >= cutoff;
+    });
+}
+
+// Кнопки-переключатели периода (единый стиль)
+function _renderPeriodSwitcher(ctxId) {
+    var p = _timePeriod;
+    function b(val, label) {
+        var active = p === val;
+        return '<button type="button" onclick="_setTimePeriod(\'' + val + '\')" ' +
+            'style="padding:6px 14px;font-size:12px;font-weight:600;border:none;cursor:pointer;' +
+            (active ? 'background:#3b82f6;color:white;' : 'background:white;color:#475569;') +
+            'transition:all 0.15s;">' + label + '</button>';
+    }
+    return '<div data-period-switcher="' + (ctxId || '') + '" ' +
+        'style="display:inline-flex;align-items:center;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:white;">' +
+        b('all', 'Всё время') +
+        '<span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>' +
+        b('month', 'Месяц') +
+        '<span style="width:1px;background:#e2e8f0;align-self:stretch;"></span>' +
+        b('week', 'Неделя') +
+    '</div>';
+}
+
 var dashFilterState = { dept: '', status: '', priority: '', deadline: '', assignee: '' };
 
 function setDashFilter(key, value) {
@@ -5626,7 +5687,7 @@ function resetDashFilters() {
 }
 
 function getDashFilteredTasks() {
-    let tasks = allTasks;
+    let tasks = _filterByPeriod(allTasks, _timePeriod);
     const f = dashFilterState;
     if (f.dept) tasks = tasks.filter(t => t.department_id == f.dept);
     if (f.status) tasks = tasks.filter(t => t.status === f.status);
@@ -5651,6 +5712,18 @@ function getDashFilteredTasks() {
 }
 
 async function renderDashboard() {
+    // Вставим (или обновим) переключатель периода в панель фильтров
+    var filtersBar = document.getElementById('dashFilters');
+    if (filtersBar && !document.getElementById('dashPeriodSwitcher')) {
+        var wrap = document.createElement('div');
+        wrap.id = 'dashPeriodSwitcher';
+        wrap.style.cssText = 'display:inline-flex;align-items:center;margin-right:8px;';
+        wrap.innerHTML = _renderPeriodSwitcher('dash');
+        filtersBar.insertBefore(wrap, filtersBar.firstChild);
+    } else if (document.getElementById('dashPeriodSwitcher')) {
+        document.getElementById('dashPeriodSwitcher').innerHTML = _renderPeriodSwitcher('dash');
+    }
+
     await loadStats();
 
     // Populate dept filter dropdown
@@ -6187,10 +6260,25 @@ function _renderDeptFunnel(deptId, allCats, tasks) {
 // Overview for "All departments" — summary cards per department + task table
 function _renderAllDeptsOverview(tasks) {
     const depts = allDepartments || [];
-    const topLevel = allTasks.filter(t => !t.parent_task_id && t.status !== 'done' && t.status !== 'cancelled');
+    // Применяем срез по времени к исходной выборке (для списка) и к данным плиток
+    const filteredTasks = _filterByPeriod(tasks, _timePeriod);
+    const topLevel = _filterByPeriod(
+        allTasks.filter(t => !t.parent_task_id && t.status !== 'done' && t.status !== 'cancelled'),
+        _timePeriod
+    );
+    tasks = filteredTasks;
+
+    // Заголовок с переключателем периода
+    var periodLabel = (_timePeriod === 'week') ? 'за последнюю неделю'
+                     : (_timePeriod === 'month') ? 'за последний месяц'
+                     : 'за всё время';
+    var headerHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap;">' +
+        '<div style="font-size:13px;color:#64748b;">Сводка по отделам <span style="color:#94a3b8;">· ' + periodLabel + '</span></div>' +
+        _renderPeriodSwitcher('overview') +
+    '</div>';
 
     // Department summary tiles
-    let tilesHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px;">';
+    let tilesHtml = headerHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px;">';
     for (const dept of depts) {
         const dTasks = topLevel.filter(t => t.department_id === dept.id);
         const newCount = dTasks.filter(t => t.status === 'new').length;
