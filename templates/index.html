@@ -6068,14 +6068,25 @@ async function renderDashboard() {
     });
     deptSel.value = deptVal || dashFilterState.dept;
 
-    // Populate assignee filter dropdown
+    // Populate assignee filter dropdown (каскад: если выбран отдел — только его сотрудники)
     const assSel = document.getElementById('dashAssigneeFilter');
     const assVal = assSel.value;
     assSel.innerHTML = '<option value="">Все исполнители</option>';
-    allUsers.forEach(u => {
+    const _dashDept = parseInt(dashFilterState.dept) || null;
+    const _dashUsers = _dashDept
+        ? allUsers.filter(u => u.department_id === _dashDept || u.role === 'admin')
+        : allUsers;
+    _dashUsers.forEach(u => {
         assSel.innerHTML += `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`;
     });
-    assSel.value = assVal || dashFilterState.assignee;
+    // Если ранее выбранного исполнителя нет в новом списке (сменили отдел) — сбрасываем
+    const _prevAss = assVal || dashFilterState.assignee;
+    if (_prevAss && !_dashUsers.some(u => String(u.id) === String(_prevAss))) {
+        assSel.value = '';
+        if (dashFilterState) dashFilterState.assignee = '';
+    } else {
+        assSel.value = _prevAss || '';
+    }
 
     // Get filtered tasks
     const tasks = getDashFilteredTasks();
@@ -8140,9 +8151,112 @@ function _renderCategoryPickerForDept(presetIds) {
     }
 }
 
-// Called when department dropdown changes — re-filter categories
+// Called when department dropdown changes — re-filter categories, assignee and watchers
 function onTaskDeptChange() {
     _renderCategoryPickerForDept();
+    const deptId = parseInt(document.getElementById('taskDepartment').value) || null;
+    _renderTaskAssigneeOptions(deptId);
+    _renderTaskWatchersForDept(deptId);
+}
+
+// Фильтр списка исполнителей по отделу.
+// Админу и действующему пользователю не режем — они видны всегда.
+// Если deptId пустой — показываем всех (старый путь).
+function _renderTaskAssigneeOptions(deptId) {
+    const sel = document.getElementById('taskAssignee');
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Не назначен</option>';
+    const list = (typeof allUsers !== 'undefined' && allUsers) ? allUsers.slice() : [];
+    const filtered = deptId
+        ? list.filter(u => u.department_id === deptId
+                           || u.id === (currentUser && currentUser.id)
+                           || (u.role === 'admin'))
+        : list;
+    filtered.forEach(u => {
+        sel.innerHTML += `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`;
+    });
+    // Если предыдущий выбор теперь отфильтрован — не теряем его, добавляем
+    if (prev && !filtered.some(u => String(u.id) === String(prev))) {
+        const prevU = (list).find(u => String(u.id) === String(prev));
+        if (prevU) {
+            sel.innerHTML += `<option value="${prevU.id}">${_catsEscape(prevU.full_name)} (другой отдел)</option>`;
+        }
+    }
+    sel.value = prev || '';
+}
+
+// Плашка-бейдж "Отдел: Склад" вместо селекта, когда отдел очевиден из контекста.
+function _renderTaskDeptBadge(contextDeptId, isEditing) {
+    const deptSel = document.getElementById('taskDepartment');
+    if (!deptSel) return;
+    const group = deptSel.closest('.form-group');
+    if (!group) return;
+    // Убираем ранее нарисованный бейдж (если модалка открывается повторно)
+    const prev = group.querySelector('.task-dept-badge');
+    if (prev) prev.remove();
+    // При редактировании — всегда показываем селект (админ/рук может менять отдел)
+    if (isEditing) {
+        deptSel.style.display = '';
+        return;
+    }
+    if (!contextDeptId) {
+        // Нет контекста — показываем селект как обычно
+        deptSel.style.display = '';
+        return;
+    }
+    const dept = (typeof allDepartments !== 'undefined' && allDepartments || [])
+        .find(d => d.id === contextDeptId);
+    if (!dept) {
+        deptSel.style.display = '';
+        return;
+    }
+    // Скрываем селект, рисуем бейдж
+    deptSel.style.display = 'none';
+    const badge = document.createElement('div');
+    badge.className = 'task-dept-badge';
+    badge.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:13px;';
+    badge.innerHTML =
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + (dept.color || '#6366f1') + ';flex-shrink:0;"></span>' +
+        '<span style="flex:1;color:#1e293b;font-weight:600;">' + _catsEscape(dept.name) + '</span>' +
+        '<a href="#" class="task-dept-badge-change" style="color:#3b82f6;font-size:12px;text-decoration:none;">сменить</a>';
+    deptSel.parentNode.insertBefore(badge, deptSel);
+    badge.querySelector('.task-dept-badge-change').onclick = function(e) {
+        e.preventDefault();
+        badge.remove();
+        deptSel.style.display = '';
+        deptSel.focus();
+    };
+}
+
+// Пересобрать чекбоксы наблюдателей под отдел
+function _renderTaskWatchersForDept(deptId) {
+    const wg = document.getElementById('taskWatchersGroup');
+    if (!wg) return;
+    // Запомнить уже отмеченных — чтобы не потерялись при рефильтрации
+    const checkedIds = new Set(
+        Array.from(wg.querySelectorAll('input:checked')).map(cb => parseInt(cb.value))
+    );
+    wg.innerHTML = '';
+    const list = (typeof allUsers !== 'undefined' && allUsers) ? allUsers.slice() : [];
+    const filtered = deptId
+        ? list.filter(u => u.department_id === deptId
+                           || u.id === (currentUser && currentUser.id)
+                           || (u.role === 'admin')
+                           || checkedIds.has(u.id))
+        : list;
+    filtered.forEach(u => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text-primary);';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = u.id;
+        cb.name = 'taskWatchers';
+        if (checkedIds.has(u.id)) cb.checked = true;
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(u.full_name));
+        wg.appendChild(label);
+    });
 }
 // =================================
 
@@ -8160,15 +8274,23 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
         deptSelect.innerHTML += `<option value="${d.id}">${_catsEscape(d.name)}</option>`;
     });
 
-    // Populate assignee dropdown
+    // (Селект исполнителя заполняем ниже — уже под отфильтрованных юзеров)
     const assigneeSelect = document.getElementById('taskAssignee');
-    assigneeSelect.innerHTML = '<option value="">Не назначен</option>';
-    allUsers.forEach(u => {
-        assigneeSelect.innerHTML += `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`;
-    });
 
     // Store editing task id
     form.setAttribute('data-task-id', taskId || '');
+
+    // Определяем, задан ли отдел из контекста (пользователь на странице отдела)
+    // — тогда селект отдела скроем и покажем бейдж "Отдел: X".
+    let _contextDeptId = null;
+    let _isCreating = !taskId;
+    if (_isCreating) {
+        // Явный контекст: фильтр канбана или выбранный отдел в категориях
+        _contextDeptId = kanbanDeptFilter
+            || (typeof catsTreeState !== 'undefined' && catsTreeState.selectedDeptId)
+            || selectedDepartment
+            || null;
+    }
 
     if (taskId) {
         const task = allTasks.find(t => t.id === taskId);
@@ -8186,17 +8308,30 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
         const dlTime = task.deadline && task.deadline.includes('T') ? task.deadline.split('T')[1].slice(0, 5) : '09:00';
         setCustomDate(document.getElementById('taskDeadlineDate'), dlDate);
         setCustomTime(document.getElementById('taskDeadlineTime'), dlTime);
-        document.getElementById('taskAssignee').value = task.assigned_to || '';
     } else {
         titleSpan.textContent = 'Новая задача';
         form.reset();
         // #4: Hide status when creating — always defaults to 'new'
         if (statusGroup) statusGroup.style.display = 'none';
-        document.getElementById('taskAssignee').value = currentUser.id;
-        const defaultDept = kanbanDeptFilter || selectedDepartment || currentUser.department_id;
+        const defaultDept = _contextDeptId || currentUser.department_id;
         if (defaultDept) {
             document.getElementById('taskDepartment').value = defaultDept;
         }
+    }
+
+    // Если отдел задан контекстом (или задача редактируется с отделом) —
+    // скрываем селект и показываем компактный бейдж "Отдел: X".
+    _renderTaskDeptBadge(_contextDeptId, !!taskId);
+
+    // Заполняем селект исполнителя (отфильтрован под отдел, если задан)
+    _renderTaskAssigneeOptions(
+        _contextDeptId || (taskId ? (allTasks.find(t=>t.id===taskId)||{}).department_id : null)
+    );
+    if (taskId) {
+        const _t = allTasks.find(t => t.id === taskId);
+        if (_t) assigneeSelect.value = _t.assigned_to || '';
+    } else {
+        assigneeSelect.value = currentUser.id;
     }
 
     // #7: Load categories and render filtered by selected department
@@ -8228,20 +8363,10 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
 
     modal.style.display = 'flex';
 
-    // Populate watchers checkbox group
+    // Populate watchers checkbox group (отфильтрован под отдел из контекста/селекта)
     const watchersGroup = document.getElementById('taskWatchersGroup');
-    watchersGroup.innerHTML = '';
-    allUsers.forEach(u => {
-        const label = document.createElement('label');
-        label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text-primary);';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = u.id;
-        cb.name = 'taskWatchers';
-        label.appendChild(cb);
-        label.appendChild(document.createTextNode(u.full_name));
-        watchersGroup.appendChild(label);
-    });
+    const _watchDept = parseInt(document.getElementById('taskDepartment').value) || null;
+    _renderTaskWatchersForDept(_watchDept);
     watchersGroup.style.display = 'none';
 
     // Toggle watchers list on button click
