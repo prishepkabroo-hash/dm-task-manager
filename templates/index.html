@@ -1409,6 +1409,46 @@
             display: none !important;
         }
 
+        /* ── Свернутая панель: правила для текущих классов cats-dept-item ── */
+        .cats-sidebar.collapsed .cats-dept-item {
+            justify-content: center;
+            padding: 10px 4px;
+            gap: 0;
+            position: relative;
+        }
+        .cats-sidebar.collapsed .cats-dept-item > span:not(.cats-dept-item-dot):not(.cats-dept-item-count) {
+            display: none;
+        }
+        .cats-sidebar.collapsed .cats-dept-item-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+        }
+        .cats-sidebar.collapsed .cats-dept-item-count {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            margin: 0;
+            padding: 0 4px;
+            font-size: 9px;
+            min-width: 14px;
+            height: 14px;
+            background: #3b82f6;
+            color: #fff;
+            line-height: 14px;
+            border-radius: 7px;
+        }
+        .cats-sidebar.collapsed .cats-dept-item-count:empty {
+            display: none;
+        }
+        .cats-sidebar.collapsed .cats-sidebar-divider {
+            margin: 8px 6px;
+        }
+        .cats-sidebar.collapsed .cat-tree-section {
+            /* Заголовок "🏢 Отделы" в свернутом виде убираем */
+            display: none !important;
+        }
+
         /* ── Kanban board layout ── */
         .cats-funnel-wrap {
             display: flex;
@@ -3518,10 +3558,9 @@
             bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
             right: calc(24px + env(safe-area-inset-right, 0px)) !important;
         }
-        #feedbackBtn {
-            bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
-            right: calc(20px + env(safe-area-inset-right, 0px)) !important;
-        }
+        /* #feedbackBtn — десктопное позиционирование через inline-стиль
+           (left:280px). Не переопределяем тут right/bottom, чтобы не получить
+           конфликт left+right и растяжение кнопки. */
         @media (max-width: 900px) {
             #fabCreateTask {
                 bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
