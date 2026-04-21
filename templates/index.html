@@ -3438,6 +3438,83 @@
             }
         }
 
+        /* ─── Mobile polish: iOS zoom fix, safe-area, tap delay ─── */
+        @media (max-width: 900px) {
+            /* iOS не зумит инпуты только если font-size >= 16px */
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="search"],
+            input[type="tel"],
+            input[type="url"],
+            input[type="number"],
+            input[type="date"],
+            input[type="datetime-local"],
+            input[type="time"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+
+            /* Убираем 300 ms задержку тапа на всех кнопках/ссылках */
+            button, a, .btn-icon, .filter-chip, .sidebar-nav-item {
+                touch-action: manipulation;
+            }
+
+            /* Плавный инерционный скролл в контенте и модалках */
+            .content,
+            .modal-content,
+            .kanban-column,
+            #taskDetailModal > div {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Минимальный tap target 44x44 для иконочных кнопок.
+               Не трогаем те, где уже задан явный width/height inline. */
+            .btn-icon:not([style*="width"]) {
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            /* Широкие таблицы: горизонтальный скролл вместо вылезания */
+            .leaderboard-table,
+            table {
+                max-width: 100%;
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Длинные ссылки в комментариях переносим по символам */
+            .comment-body,
+            .subtask-chat-message {
+                word-wrap: break-word;
+                overflow-wrap: anywhere;
+            }
+        }
+
+        /* Safe-area insets для iPhone с челкой/динамическим островом.
+           Работает на всех размерах экрана, но реальный эффект — только
+           когда env() возвращает ненулевое значение (notched iOS). */
+        #fabCreateTask {
+            bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+            right: calc(24px + env(safe-area-inset-right, 0px)) !important;
+        }
+        #feedbackBtn {
+            bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+            right: calc(20px + env(safe-area-inset-right, 0px)) !important;
+        }
+        @media (max-width: 900px) {
+            #fabCreateTask {
+                bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+                right: calc(18px + env(safe-area-inset-right, 0px)) !important;
+            }
+            #feedbackBtn {
+                bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+                right: calc(14px + env(safe-area-inset-right, 0px)) !important;
+            }
+        }
+
         /* Onboarding overlay */
         .onboarding-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
