@@ -826,6 +826,54 @@ def init_db():
         c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (?,?,?,?,?,?,?)",
             ("admin", "Администратор", hash_password("admin123"), "admin", "#1a1a1a", 1, 1))
 
+    # Seed команды DM: 6 аккаунтов, идемпотентно (INSERT OR IGNORE).
+    # Пароли: <username>123. Пример: parshin / parshin123
+    _dept_id = {}
+    for row in c.execute("SELECT id, name FROM departments").fetchall():
+        _dept_id[row[1]] = row[0]
+    _seed_team = [
+        # (username,    full_name,              role,     dept_name,        color)
+        ("parshin",     "Егор Паршин",          "head",   "Клуб",           "#7c3aed"),
+        ("chistovsky",  "Лукьян Чистовский",    "head",   "Отдел продаж",   "#2563eb"),
+        ("dudarev",     "Александр Дударев",    "admin",  None,             "#dc2626"),
+        ("serebrov",    "Егор Серебров",        "member", "Склад",          "#059669"),
+        ("hripko",      "Николай Хрипко",       "member", "Отдел продаж",   "#0891b2"),
+        ("selihin",     "Никита Селихин",       "member", "Отдел продаж",   "#f59e0b"),
+    ]
+    for username, full_name, role, dept_name, color in _seed_team:
+        did = _dept_id.get(dept_name) if dept_name else None
+        try:
+            c.execute(
+                "INSERT OR IGNORE INTO users "
+                "(username, full_name, password_hash, department_id, role, avatar_color, onboarding_done) "
+                "VALUES (?,?,?,?,?,?,1)",
+                (username, full_name, hash_password(username + "123"), did, role, color)
+            )
+        except Exception:
+            pass
+
+    # Привязать head_user_id в departments — чтобы "рук отдела" знал кто это
+    try:
+        for username, full_name, role, dept_name, color in _seed_team:
+            if role == "head" and dept_name:
+                u_row = c.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone()
+                if u_row:
+                    c.execute(
+                        "UPDATE departments SET head_user_id=? WHERE name=? AND (head_user_id IS NULL OR head_user_id=0)",
+                        (u_row[0], dept_name)
+                    )
+    except Exception:
+        pass
+
+    # user_stats для каждого
+    for username, *_ in _seed_team:
+        try:
+            u_row = c.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone()
+            if u_row:
+                c.execute("INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)", (u_row[0],))
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -1955,6 +2003,34 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
                 except: pass
 
+            # Default watchers: все админы + head отдела (идемпотентно)
+            try:
+                default_watcher_ids = set()
+                # Админы
+                for row in conn.execute("SELECT id FROM users WHERE role='admin'").fetchall():
+                    default_watcher_ids.add(row["id"])
+                # Head отдела, если задача в отделе
+                dept_id_for_head = data.get("department_id")
+                if dept_id_for_head:
+                    for row in conn.execute(
+                        "SELECT id FROM users WHERE role='head' AND department_id=?",
+                        (dept_id_for_head,)
+                    ).fetchall():
+                        default_watcher_ids.add(row["id"])
+                # Не добавляем тех, кто и так участвует или уже в watchers
+                skip_ids = {u["id"]}
+                if data.get("assigned_to"):
+                    try: skip_ids.add(int(data.get("assigned_to")))
+                    except: pass
+                for wid in default_watcher_ids:
+                    if wid in skip_ids: continue
+                    try:
+                        conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
             # Add coexecutors
             coexecutors = data.get("coexecutors", [])
             for cid in coexecutors:
@@ -1982,31 +2058,6 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
             conn.commit(); conn.close()
             return self._json({"ok": True, "id": task_id})
-
-        if path.startswith("/api/tasks/") and path.endswith("/read"):
-            u = self._user()
-            if not u: return self._json({"error": "unauthorized"}, 401)
-            try:
-                task_id = int(path.split("/")[3])
-            except:
-                return self._json({"error": "bad task id"}, 400)
-            conn = get_db()
-            _t, _ok = _can_access_task(conn, u["id"], task_id)
-            if not _t:
-                conn.close(); return self._json({"error": "not found"}, 404)
-            if not _ok:
-                conn.close(); return self._json({"error": "forbidden"}, 403)
-            max_row = conn.execute("SELECT MAX(id) as m FROM comments WHERE task_id=?", (task_id,)).fetchone()
-            max_id = (max_row["m"] or 0) if max_row else 0
-            conn.execute(
-                "INSERT INTO task_reads (task_id, user_id, last_read_comment_id, updated_at) "
-                "VALUES (?,?,?, CURRENT_TIMESTAMP) "
-                "ON CONFLICT(task_id, user_id) DO UPDATE SET "
-                "last_read_comment_id=excluded.last_read_comment_id, updated_at=CURRENT_TIMESTAMP",
-                (task_id, u["id"], max_id)
-            )
-            conn.commit(); conn.close()
-            return self._json({"ok": True, "last_read": max_id})
 
         if path.startswith("/api/tasks/") and path.endswith("/read"):
             u = self._user()

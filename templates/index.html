@@ -3515,6 +3515,83 @@
             }
         }
 
+        /* ─── Mobile polish: iOS zoom fix, safe-area, tap delay ─── */
+        @media (max-width: 900px) {
+            /* iOS не зумит инпуты только если font-size >= 16px */
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="search"],
+            input[type="tel"],
+            input[type="url"],
+            input[type="number"],
+            input[type="date"],
+            input[type="datetime-local"],
+            input[type="time"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+
+            /* Убираем 300 ms задержку тапа на всех кнопках/ссылках */
+            button, a, .btn-icon, .filter-chip, .sidebar-nav-item {
+                touch-action: manipulation;
+            }
+
+            /* Плавный инерционный скролл в контенте и модалках */
+            .content,
+            .modal-content,
+            .kanban-column,
+            #taskDetailModal > div {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Минимальный tap target 44x44 для иконочных кнопок.
+               Не трогаем те, где уже задан явный width/height inline. */
+            .btn-icon:not([style*="width"]) {
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            /* Широкие таблицы: горизонтальный скролл вместо вылезания */
+            .leaderboard-table,
+            table {
+                max-width: 100%;
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Длинные ссылки в комментариях переносим по символам */
+            .comment-body,
+            .subtask-chat-message {
+                word-wrap: break-word;
+                overflow-wrap: anywhere;
+            }
+        }
+
+        /* Safe-area insets для iPhone с челкой/динамическим островом.
+           Работает на всех размерах экрана, но реальный эффект — только
+           когда env() возвращает ненулевое значение (notched iOS). */
+        #fabCreateTask {
+            bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+            right: calc(24px + env(safe-area-inset-right, 0px)) !important;
+        }
+        #feedbackBtn {
+            bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+            right: calc(20px + env(safe-area-inset-right, 0px)) !important;
+        }
+        @media (max-width: 900px) {
+            #fabCreateTask {
+                bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+                right: calc(18px + env(safe-area-inset-right, 0px)) !important;
+            }
+            #feedbackBtn {
+                bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+                right: calc(14px + env(safe-area-inset-right, 0px)) !important;
+            }
+        }
+
         /* Onboarding overlay */
         .onboarding-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -12137,6 +12214,189 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// @mention autocomplete — автокомплит упоминаний в чатах задач/подзадач
+// ═══════════════════════════════════════════════════════════════════
+(function() {
+    var _dd = null;           // DOM-нод дропдауна
+    var _target = null;       // input/textarea, к которому сейчас привязан пикер
+    var _atStart = -1;        // индекс символа '@' в value
+    var _list = [];           // отфильтрованные пользователи
+    var _idx = 0;             // индекс выделенного пункта
+
+    function _ensureDropdown() {
+        if (_dd) return _dd;
+        _dd = document.createElement('div');
+        _dd.id = 'mentionPicker';
+        _dd.style.cssText = 'position:fixed;display:none;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.14);z-index:10000;min-width:220px;max-width:320px;max-height:240px;overflow-y:auto;font-family:inherit;';
+        document.body.appendChild(_dd);
+        return _dd;
+    }
+
+    function _getCaret(el) { try { return el.selectionStart || 0; } catch(e) { return 0; } }
+
+    function _findAtWord(text, caret) {
+        // От курсора идём влево до первого @ (если перед ним пробел/начало/новая строка)
+        var i = caret - 1;
+        while (i >= 0) {
+            var ch = text.charAt(i);
+            if (ch === '@') {
+                var prev = (i > 0) ? text.charAt(i - 1) : ' ';
+                if (i === 0 || prev === ' ' || prev === '\n' || prev === '\t') {
+                    return { start: i, query: text.substring(i + 1, caret) };
+                }
+                return null;
+            }
+            if (ch === ' ' || ch === '\n' || ch === '\t' || ch === '@') return null;
+            i--;
+        }
+        return null;
+    }
+
+    function _isChatInput(el) {
+        if (!el) return false;
+        if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return false;
+        var id = el.id || '';
+        if (id === 'detailQuickComment') return true;
+        if (id === 'tabCommentInput') return true;
+        if (id.indexOf('stChat_input_') === 0) return true;
+        return false;
+    }
+
+    function _hide() {
+        if (_dd) _dd.style.display = 'none';
+        _target = null;
+        _atStart = -1;
+        _list = [];
+    }
+
+    function _escape(s) {
+        try {
+            if (typeof _catsEscape === 'function') return _catsEscape(s);
+        } catch(e) {}
+        return String(s || '').replace(/[&<>"']/g, function(c) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+    }
+
+    function _render() {
+        var dd = _ensureDropdown();
+        if (!_list.length) { _hide(); return; }
+        var html = '';
+        for (var i = 0; i < _list.length; i++) {
+            var u = _list[i];
+            var bg = (i === _idx) ? '#eff6ff' : 'white';
+            var color = u.avatar_color || '#64748b';
+            var initial = ((u.full_name || '?')[0] || '?').toUpperCase();
+            html +=
+                '<div data-mention-idx="' + i + '" ' +
+                    'style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;background:' + bg + ';font-size:13px;color:#1e293b;border-bottom:1px solid #f8fafc;">' +
+                    '<div style="width:26px;height:26px;border-radius:50%;background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">' + initial + '</div>' +
+                    '<span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _escape(u.full_name) + '</span>' +
+                '</div>';
+        }
+        dd.innerHTML = html;
+        dd.style.display = 'block';
+    }
+
+    function _positionUnder(el) {
+        var dd = _ensureDropdown();
+        var r = el.getBoundingClientRect();
+        var vh = window.innerHeight || 800;
+        var spaceBelow = vh - r.bottom;
+        // Если снизу мало места — показать сверху
+        if (spaceBelow < 180 && r.top > 180) {
+            dd.style.top = Math.max(8, r.top - 200 - 4) + 'px';
+        } else {
+            dd.style.top = (r.bottom + 4) + 'px';
+        }
+        dd.style.left = Math.max(8, r.left) + 'px';
+    }
+
+    function _selectAt(idx) {
+        if (!_target || _atStart < 0) { _hide(); return; }
+        var u = _list[idx];
+        if (!u) { _hide(); return; }
+        var el = _target;
+        var caret = _getCaret(el);
+        var text = el.value;
+        var before = text.substring(0, _atStart);
+        var after = text.substring(caret);
+        var insert = '@' + u.full_name + ' ';
+        el.value = before + insert + after;
+        var newCaret = before.length + insert.length;
+        try { el.setSelectionRange(newCaret, newCaret); } catch(e) {}
+        el.focus();
+        // Триггерим input-событие, чтобы реагировали другие слушатели (автосайз и т.д.)
+        try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
+        _hide();
+    }
+
+    function _handleInput(e) {
+        var el = e.target;
+        if (!_isChatInput(el)) { if (_target === el) _hide(); return; }
+        var caret = _getCaret(el);
+        var found = _findAtWord(el.value || '', caret);
+        if (!found) { _hide(); return; }
+        var q = (found.query || '').toLowerCase();
+        var users = (typeof allUsers !== 'undefined' && allUsers) ? allUsers : [];
+        _list = users.filter(function(u) {
+            if (!u || !u.full_name) return false;
+            if (!q) return true;
+            return u.full_name.toLowerCase().indexOf(q) !== -1;
+        }).slice(0, 8);
+        if (!_list.length) { _hide(); return; }
+        _idx = 0;
+        _target = el;
+        _atStart = found.start;
+        _positionUnder(el);
+        _render();
+    }
+
+    function _isOpen() {
+        return !!(_dd && _dd.style.display !== 'none' && _target);
+    }
+
+    function _handleKeydown(e) {
+        if (!_isOpen()) return;
+        if (e.target !== _target) return;
+        var k = e.key;
+        if (k === 'ArrowDown') {
+            e.preventDefault(); e.stopPropagation();
+            _idx = Math.min(_list.length - 1, _idx + 1); _render();
+        } else if (k === 'ArrowUp') {
+            e.preventDefault(); e.stopPropagation();
+            _idx = Math.max(0, _idx - 1); _render();
+        } else if (k === 'Enter' || k === 'Tab') {
+            // Перехватываем Enter, чтобы не сработал sendComment через inline onkeydown
+            e.preventDefault(); e.stopPropagation();
+            _selectAt(_idx);
+        } else if (k === 'Escape') {
+            e.preventDefault(); e.stopPropagation();
+            _hide();
+        }
+    }
+
+    function _handleClick(e) {
+        if (!_dd) return;
+        var t = e.target.closest && e.target.closest('[data-mention-idx]');
+        if (t && _dd.contains(t)) {
+            e.preventDefault(); e.stopPropagation();
+            _selectAt(parseInt(t.getAttribute('data-mention-idx'), 10) || 0);
+            return;
+        }
+        if (_isOpen() && !_dd.contains(e.target) && e.target !== _target) _hide();
+    }
+
+    // Capture-phase для keydown — критично, чтобы перехватить Enter ДО inline onkeydown
+    document.addEventListener('input', _handleInput, true);
+    document.addEventListener('keydown', _handleKeydown, true);
+    document.addEventListener('click', _handleClick, true);
+    // При скролле или ресайзе прячем дропдаун (иначе висит не там)
+    window.addEventListener('scroll', function() { if (_isOpen()) _hide(); }, true);
+    window.addEventListener('resize', function() { if (_isOpen()) _hide(); });
+})();
 
 </script>
 </body>
