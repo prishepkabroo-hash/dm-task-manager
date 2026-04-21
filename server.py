@@ -2897,6 +2897,22 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                         conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
                             (nid, task_id, "status_change", msg))
 
+                # Assignee change notification (рук отдела назначает задачу)
+                if "assigned_to" in data and old_task:
+                    try:
+                        _new_a = int(data["assigned_to"]) if data["assigned_to"] else None
+                    except (ValueError, TypeError):
+                        _new_a = None
+                    try:
+                        _old_a = int(old_task["assigned_to"]) if old_task["assigned_to"] else None
+                    except (ValueError, TypeError):
+                        _old_a = None
+                    if _new_a and _new_a != _old_a and _new_a != u["id"]:
+                        conn.execute(
+                            "INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                            (_new_a, task_id, "assigned",
+                             f"Вам назначена задача: {old_task['title']}"))
+
                 conn.commit()
             conn.close()
             return self._json({"ok": True})

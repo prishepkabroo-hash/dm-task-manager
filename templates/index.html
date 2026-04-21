@@ -1420,9 +1420,26 @@
             display: none;
         }
         .cats-sidebar.collapsed .cats-dept-item-dot {
-            width: 18px;
-            height: 18px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Буква внутри кружка: по умолчанию скрыта, показываем только в
+           свёрнутом режиме. */
+        .cats-dept-item-letter {
+            display: none;
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            line-height: 1;
+            pointer-events: none;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+        }
+        .cats-sidebar.collapsed .cats-dept-item-letter {
+            display: block;
         }
         .cats-sidebar.collapsed .cats-dept-item-count {
             position: absolute;
@@ -3725,9 +3742,23 @@
             bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
             right: calc(24px + env(safe-area-inset-right, 0px)) !important;
         }
+        /* #feedbackBtn — десктопное позиционирование через inline-стиль
+           (left:280px). Защищаемся от конфликта left+right, который
+           растягивает кнопку: явно фиксируем auto-ширину. */
         #feedbackBtn {
-            bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
-            right: calc(20px + env(safe-area-inset-right, 0px)) !important;
+            width: auto !important;
+            max-width: 220px !important;
+            right: auto !important;
+        }
+        @media (max-width: 900px) {
+            /* На мобиле у кнопки уже стоит width:40px !important, так что
+               отключаем max-width и снова разрешаем right (приклеить к правому
+               краю для маленького экрана). */
+            #feedbackBtn {
+                max-width: none !important;
+                right: 14px !important;
+                left: auto !important;
+            }
         }
         @media (max-width: 900px) {
             #fabCreateTask {
@@ -6357,7 +6388,9 @@ async function renderKanban() {
     const allCount = topLevelTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length;
     sbHtml += '<div class="cat-tree-section" title="Отделы компании">🏢 Отделы</div>';
     sbHtml += '<div class="cats-dept-item' + (allActive ? ' active' : '') + '" onclick="selectCatsDept(null)">' +
-        '<span class="cats-dept-item-dot" style="background:#6366f1;"></span>' +
+        '<span class="cats-dept-item-dot" style="background:#6366f1;">' +
+            '<span class="cats-dept-item-letter">В</span>' +
+        '</span>' +
         '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Все отделы</span>' +
         '<span class="cats-dept-item-count">' + allCount + '</span>' +
     '</div>';
@@ -6367,8 +6400,12 @@ async function renderKanban() {
         const dCount = topLevelTasks.filter(t => t.department_id === dept.id && t.status !== 'done' && t.status !== 'cancelled').length;
         const isActive = deptId === dept.id;
         const color = dept.color || '#3b82f6';
+        // Первая буква названия отдела для свёрнутой панели
+        const _deptLetter = _catsEscape(((dept.name || '').trim().charAt(0) || '?').toUpperCase());
         sbHtml += '<div class="cats-dept-item' + (isActive ? ' active' : '') + '" onclick="selectCatsDept(' + dept.id + ')">' +
-            '<span class="cats-dept-item-dot" style="background:' + color + ';"></span>' +
+            '<span class="cats-dept-item-dot" style="background:' + color + ';">' +
+                '<span class="cats-dept-item-letter">' + _deptLetter + '</span>' +
+            '</span>' +
             '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _catsEscape(dept.name) + '</span>' +
             '<span class="cats-dept-item-count">' + dCount + '</span>' +
         '</div>';
@@ -8764,7 +8801,7 @@ function openSubtaskFull(subtaskId) {
                 'placeholder="Написать... (Enter — отправить, Shift+Enter — новая строка)" ' +
                 'style="resize:none;max-height:120px;overflow-y:auto;line-height:1.4;padding:8px 12px;" ' +
                 'oninput="_chatAutogrow(this);_saveChatDraft(' + subtaskId + ',this.value);" ' +
-                'onkeydown="if(event.key===\'Enter\' && !event.shiftKey){event.preventDefault();sendSubtaskComment(' + subtaskId + ');}"></textarea>' +
+                'onkeydown="if(event.key===\'Enter\' && !event.shiftKey && !(typeof _mentionState!==\'undefined\' && _mentionState && _mentionState.active)){event.preventDefault();sendSubtaskComment(' + subtaskId + ');}"></textarea>' +
             '<input type="file" id="stChat_file_' + subtaskId + '" style="display:none;" onchange="handleSubtaskChatFile(' + subtaskId + ')" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">' +
             '<button class="subtask-chat-btn" title="Прикрепить файл" onclick="document.getElementById(\'stChat_file_' + subtaskId + '\').click()">📎</button>' +
             '<button class="subtask-chat-btn" id="stChat_voice_' + subtaskId + '" title="Голосовое" onclick="toggleSubtaskChatVoice(' + subtaskId + ')">🎤</button>' +
@@ -9579,6 +9616,7 @@ function handleMentionKeydown(e, input, dropdown) {
     } else if (e.key === 'Enter' && _mentionState.active && _mentionState.items.length) {
         e.preventDefault();
         e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         selectMention(_mentionState.selectedIdx);
     } else if (e.key === 'Escape') {
         dropdown.style.display = 'none';
