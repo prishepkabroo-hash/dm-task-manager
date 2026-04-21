@@ -1008,48 +1008,91 @@ def check_and_award_achievements(conn, user_id):
 
     achievements_to_award = []
 
+    def _has(t):
+        row = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type=?", (user_id, t)).fetchone()
+        return bool(row)
+
     # first_task: complete first task
-    if stats["tasks_completed"] == 1:
+    if stats["tasks_completed"] == 1 and not _has("first_task"):
         achievements_to_award.append(("first_task", "Первый старт", "Завершили первую задачу"))
 
-    # speed_demon: complete task same day (check in the calling function logic)
-    # This is handled when a task is marked done
+    # speed_demon / department_star / early_bird — выдаются в обработчике завершения задачи
 
     # consistent: 7-day streak
-    if stats["streak_days"] >= 7:
-        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='consistent'", (user_id,)).fetchone()
-        if not existing:
-            achievements_to_award.append(("consistent", "Стабильность", "7-дневная активность"))
+    if stats["streak_days"] >= 7 and not _has("consistent"):
+        achievements_to_award.append(("consistent", "Стабильность", "7-дневная активность"))
+
+    # streak_master: 14-day streak (НОВОЕ)
+    if stats["streak_days"] >= 14 and not _has("streak_master"):
+        achievements_to_award.append(("streak_master", "Железная дисциплина", "14-дневная серия активности"))
 
     # team_player: create 10 tasks for others
-    if stats["tasks_created"] >= 10:
-        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='team_player'", (user_id,)).fetchone()
-        if not existing:
-            achievements_to_award.append(("team_player", "Командный игрок", "Создали 10 задач для других"))
-
-    # commentator: leave 50 comments
-    if stats["comments_count"] >= 50:
-        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='commentator'", (user_id,)).fetchone()
-        if not existing:
-            achievements_to_award.append(("commentator", "Комментатор", "50+ комментариев"))
-
-    # century: complete 100 tasks
-    if stats["tasks_completed"] >= 100:
-        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='century'", (user_id,)).fetchone()
-        if not existing:
-            achievements_to_award.append(("century", "Сотня", "100+ задач завершено"))
-
-    # marathon: complete 25 tasks
-    if stats["tasks_completed"] >= 25:
-        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='marathon'", (user_id,)).fetchone()
-        if not existing:
-            achievements_to_award.append(("marathon", "Марафон", "25+ задач завершено"))
+    if stats["tasks_created"] >= 10 and not _has("team_player"):
+        achievements_to_award.append(("team_player", "Командный игрок", "Создали 10 задач для других"))
 
     # social: leave 10 comments
-    if stats["comments_count"] >= 10:
-        existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='social'", (user_id,)).fetchone()
-        if not existing:
-            achievements_to_award.append(("social", "Общительный", "10+ комментариев"))
+    if stats["comments_count"] >= 10 and not _has("social"):
+        achievements_to_award.append(("social", "Общительный", "10+ комментариев"))
+
+    # commentator: leave 50 comments
+    if stats["comments_count"] >= 50 and not _has("commentator"):
+        achievements_to_award.append(("commentator", "Комментатор", "50+ комментариев"))
+
+    # chat_hero: leave 100 comments (НОВОЕ)
+    if stats["comments_count"] >= 100 and not _has("chat_hero"):
+        achievements_to_award.append(("chat_hero", "Болтун", "100+ комментариев"))
+
+    # marathon: complete 25 tasks
+    if stats["tasks_completed"] >= 25 and not _has("marathon"):
+        achievements_to_award.append(("marathon", "Марафон", "25+ задач завершено"))
+
+    # half_century: 50 tasks completed (НОВОЕ)
+    if stats["tasks_completed"] >= 50 and not _has("half_century"):
+        achievements_to_award.append(("half_century", "Полусотня", "50+ задач завершено"))
+
+    # century: complete 100 tasks
+    if stats["tasks_completed"] >= 100 and not _has("century"):
+        achievements_to_award.append(("century", "Сотня", "100+ задач завершено"))
+
+    # legend: complete 500 tasks (НОВОЕ)
+    if stats["tasks_completed"] >= 500 and not _has("legend"):
+        achievements_to_award.append(("legend", "Легенда", "500+ задач завершено"))
+
+    # leader: 500+ km (ФИКС — раньше был только во фронте)
+    if (stats["total_km"] or 0) >= 500 and not _has("leader"):
+        achievements_to_award.append(("leader", "Лидер", "Набрали 500 км"))
+
+    # perfectionist: 10 tasks completed on-or-before deadline (ФИКС)
+    if not _has("perfectionist"):
+        ontime = conn.execute(
+            "SELECT COUNT(*) as c FROM tasks "
+            "WHERE assigned_to=? AND status='done' AND deadline IS NOT NULL "
+            "AND DATE(updated_at) <= deadline",
+            (user_id,)
+        ).fetchone()
+        if ontime and (ontime["c"] or 0) >= 10:
+            achievements_to_award.append(("perfectionist", "Перфекционист", "10 задач до дедлайна"))
+
+    # priority_pro: 10 high-priority tasks completed (НОВОЕ)
+    if not _has("priority_pro"):
+        hp = conn.execute(
+            "SELECT COUNT(*) as c FROM tasks "
+            "WHERE assigned_to=? AND status='done' AND priority='high'",
+            (user_id,)
+        ).fetchone()
+        if hp and (hp["c"] or 0) >= 10:
+            achievements_to_award.append(("priority_pro", "Тяжеловес", "10 задач высокого приоритета"))
+
+    # weekly_hero: 10 tasks completed in the last 7 days (НОВОЕ)
+    if not _has("weekly_hero"):
+        wh = conn.execute(
+            "SELECT COUNT(*) as c FROM tasks "
+            "WHERE assigned_to=? AND status='done' "
+            "AND DATE(updated_at) >= DATE('now','-7 days')",
+            (user_id,)
+        ).fetchone()
+        if wh and (wh["c"] or 0) >= 10:
+            achievements_to_award.append(("weekly_hero", "Герой недели", "10+ задач за 7 дней"))
 
     for ach_type, ach_name, ach_desc in achievements_to_award:
         try:
@@ -2047,6 +2090,20 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
             # Check achievement for 50 comments
             check_and_award_achievements(conn, u["id"])
+            # first_comment — самый первый комментарий пользователя
+            try:
+                _first_check = conn.execute(
+                    "SELECT id FROM achievements WHERE user_id=? AND type='first_comment'", (u["id"],)
+                ).fetchone()
+                if not _first_check:
+                    _cnt = conn.execute("SELECT COUNT(*) as c FROM comments WHERE user_id=?", (u["id"],)).fetchone()
+                    if _cnt and (_cnt["c"] or 0) >= 1:
+                        conn.execute(
+                            "INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                            (u["id"], "first_comment", "Первое слово", "Оставили первый комментарий")
+                        )
+            except Exception:
+                pass
 
             # Notify watchers and assignee about new comment
             watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()

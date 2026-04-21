@@ -9604,20 +9604,7 @@ async function renderLeaderboard() {
 
     // Achievements
     const achievementGrid = document.getElementById('achievementGrid');
-    const allAchievements = [
-        {type:'first_task', name:'Первый старт', description:'Завершите первую задачу', icon:'🚀'},
-        {type:'speed_demon', name:'Быстрый круг', description:'Завершите задачу в день создания', icon:'⚡'},
-        {type:'consistent', name:'Стабильность', description:'7-дневная серия активности', icon:'📅'},
-        {type:'team_player', name:'Командный игрок', description:'Создайте 10 задач для других', icon:'🤝'},
-        {type:'commentator', name:'Комментатор', description:'Оставьте 50 комментариев', icon:'💬'},
-        {type:'century', name:'Сотня', description:'Завершите 100 задач', icon:'💯'},
-        {type:'marathon', name:'Марафон', description:'Завершите 25 задач', icon:'🏃'},
-        {type:'social', name:'Общительный', description:'Оставьте 10 комментариев', icon:'🗣️'},
-        {type:'department_star', name:'Звезда отдела', description:'5 задач за день', icon:'⭐'},
-        {type:'early_bird', name:'Ранняя пташка', description:'Завершите до дедлайна', icon:'🐦'},
-        {type:'perfectionist', name:'Перфекционист', description:'10 задач до дедлайна', icon:'💎'},
-        {type:'leader', name:'Лидер', description:'Наберите 500 км', icon:'👑'}
-    ];
+    const allAchievements = _getAllAchievements();
     window._earnedAchievements = myStats && myStats.achievements ? myStats.achievements.map(a => a.type) : [];
     const earned = window._earnedAchievements;
     const visibleAchievements = allAchievements.slice(0, 6);
@@ -9670,21 +9657,38 @@ async function renderLeaderboard() {
   }
 }
 
-function showAllAchievements() {
-    const allAchievements = [
-        {type:'first_task', name:'Первый старт', description:'Завершите первую задачу', icon:'🚀'},
-        {type:'speed_demon', name:'Быстрый круг', description:'Завершите задачу в день создания', icon:'⚡'},
-        {type:'consistent', name:'Стабильность', description:'7-дневная серия активности', icon:'📅'},
-        {type:'team_player', name:'Командный игрок', description:'Создайте 10 задач для других', icon:'🤝'},
-        {type:'commentator', name:'Комментатор', description:'Оставьте 50 комментариев', icon:'💬'},
-        {type:'century', name:'Сотня', description:'Завершите 100 задач', icon:'💯'},
-        {type:'marathon', name:'Марафон', description:'Завершите 25 задач', icon:'🏃'},
-        {type:'social', name:'Общительный', description:'Оставьте 10 комментариев', icon:'🗣️'},
-        {type:'department_star', name:'Звезда отдела', description:'5 задач за день', icon:'⭐'},
-        {type:'early_bird', name:'Ранняя пташка', description:'Завершите до дедлайна', icon:'🐦'},
-        {type:'perfectionist', name:'Перфекционист', description:'10 задач до дедлайна', icon:'💎'},
-        {type:'leader', name:'Лидер', description:'Наберите 500 км', icon:'👑'}
+// Единый источник правды для списка достижений (синхронизирован с server.py)
+function _getAllAchievements() {
+    return [
+        // Начинающим
+        {type:'first_task',      name:'Первый старт',    description:'Завершите первую задачу',            icon:'🚀'},
+        {type:'first_comment',   name:'Первое слово',    description:'Оставьте первый комментарий',        icon:'💭'},
+        {type:'speed_demon',     name:'Быстрый круг',    description:'Завершите задачу в день создания',   icon:'⚡'},
+        {type:'early_bird',      name:'Ранняя пташка',   description:'Завершите задачу до дедлайна',       icon:'🐦'},
+        // Объём работы
+        {type:'marathon',        name:'Марафон',         description:'Завершите 25 задач',                 icon:'🏃'},
+        {type:'half_century',    name:'Полусотня',       description:'Завершите 50 задач',                 icon:'🏅'},
+        {type:'century',         name:'Сотня',           description:'Завершите 100 задач',                icon:'💯'},
+        {type:'legend',          name:'Легенда',         description:'Завершите 500 задач',                icon:'🌟'},
+        // Интенсивность
+        {type:'department_star', name:'Звезда отдела',   description:'5+ задач за день',                   icon:'⭐'},
+        {type:'weekly_hero',     name:'Герой недели',    description:'10+ задач за 7 дней',                icon:'🔥'},
+        {type:'priority_pro',    name:'Тяжеловес',       description:'10 задач высокого приоритета',       icon:'⚔️'},
+        // Регулярность
+        {type:'consistent',      name:'Стабильность',    description:'7-дневная серия активности',         icon:'📅'},
+        {type:'streak_master',   name:'Железная дисциплина', description:'14-дневная серия активности',    icon:'🏆'},
+        // Команда и общение
+        {type:'social',          name:'Общительный',     description:'Оставьте 10 комментариев',           icon:'🗣️'},
+        {type:'commentator',     name:'Комментатор',     description:'Оставьте 50 комментариев',           icon:'💬'},
+        {type:'chat_hero',       name:'Болтун',          description:'100+ комментариев',                  icon:'🗨️'},
+        {type:'team_player',     name:'Командный игрок', description:'Создайте 10 задач для других',       icon:'🤝'},
+        {type:'perfectionist',   name:'Перфекционист',   description:'10 задач завершено до дедлайна',     icon:'💎'},
+        {type:'leader',          name:'Лидер',           description:'Наберите 500 км',                    icon:'👑'}
     ];
+}
+
+function showAllAchievements() {
+    const allAchievements = _getAllAchievements();
     const earned = window._earnedAchievements || [];
     const grid = document.getElementById('achievementGrid');
 
