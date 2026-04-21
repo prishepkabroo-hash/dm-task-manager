@@ -108,11 +108,31 @@ def _record_login_failure(ip):
 def _clear_login_attempts(ip):
     login_attempts.pop(ip, None)
 
+SESSION_TTL_DAYS = 30  # Сессия живёт 30 дней с момента создания
+
 def load_sessions_from_db():
-    """Загрузить все активные сессии из БД в память при старте сервера."""
+    """Загрузить все активные сессии из БД в память при старте сервера.
+    Просроченные (>SESSION_TTL_DAYS) — чистим автоматически."""
     global sessions
     try:
         conn = get_db()
+        # Миграция: добавить created_at если нет
+        try:
+            conn.execute("SELECT created_at FROM sessions_db LIMIT 1")
+        except Exception:
+            try: conn.execute("ALTER TABLE sessions_db ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+            except Exception: pass
+            conn.commit()
+        # Удалить просроченные
+        try:
+            conn.execute(
+                "DELETE FROM sessions_db WHERE created_at IS NOT NULL "
+                "AND datetime(created_at, '+' || ? || ' days') < datetime('now')",
+                (SESSION_TTL_DAYS,)
+            )
+            conn.commit()
+        except Exception as _e:
+            print(f"[sessions] cleanup error: {_e}")
         rows = conn.execute("SELECT token, user_id, username, role FROM sessions_db").fetchall()
         sessions.clear()
         for r in rows:
@@ -1981,6 +2001,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not u: return self._json({"error": "unauthorized"}, 401)
             title = _sanitize_text(data.get("title", "").strip())
             if not title: return self._json({"error": "Введите название задачи"}, 400)
+            # Лимиты длины (против спама и раздувания БД)
+            if len(title) > 500:
+                title = title[:500]
+            _desc_val = data.get("description", "")
+            if isinstance(_desc_val, str) and len(_desc_val) > 20000:
+                data["description"] = _desc_val[:20000]
             conn = get_db()
             c = conn.execute(
                 "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline, parent_task_id, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -2095,6 +2121,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Accept comment if it has text OR an attachment
             if not text and not attachment_data:
                 return self._json({"error": "Пустой комментарий"}, 400)
+            # Лимит длины текста (10 000 симв)
+            if len(text) > 10000:
+                text = text[:10000]
             # Limit attachment size (base64 ~8MB raw = ~11MB encoded)
             if attachment_data and len(attachment_data) > 12_000_000:
                 return self._json({"error": "Файл слишком большой (макс 8 МБ)"}, 400)
@@ -2726,6 +2755,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             new_text = _sanitize_text((data.get("text") or "").strip())
             if not new_text:
                 return self._json({"error": "Пустой текст"}, 400)
+            if len(new_text) > 10000:
+                new_text = new_text[:10000]
             conn = get_db()
             row = conn.execute("SELECT user_id FROM comments WHERE id=?", (comment_id,)).fetchone()
             if not row:
@@ -2789,6 +2820,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     _val = data[field] if data[field] != "" else None
                     if field in ("title", "description") and isinstance(_val, str):
                         _val = _sanitize_text(_val)
+                        # Лимиты длины
+                        if field == "title" and len(_val) > 500: _val = _val[:500]
+                        elif field == "description" and len(_val) > 20000: _val = _val[:20000]
                     params.append(_val)
             if sets:
                 sets.append("updated_at = CURRENT_TIMESTAMP")

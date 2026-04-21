@@ -1473,16 +1473,34 @@
         .cats-funnel-header:hover { background: var(--bg-surface); }
         .cats-funnel-col-handle {
             cursor: grab;
-            opacity: 0;
-            transition: opacity 0.15s;
+            opacity: 0.5;                 /* ВИДНА всегда, чтобы было понятно — двигать можно */
+            transition: opacity 0.15s, color 0.15s;
             font-size: 14px;
             color: var(--text-light);
             padding: 2px 4px;
             user-select: none;
         }
-        .cats-funnel-header:hover .cats-funnel-col-handle { opacity: 0.7; }
+        .cats-funnel-header:hover .cats-funnel-col-handle { opacity: 0.9; }
         .cats-funnel-col-handle:hover { opacity: 1 !important; color: var(--text-primary); }
         .cats-funnel-col-handle:active { cursor: grabbing; }
+        .cats-funnel-reorder-btns { display:inline-flex; align-items:center; gap:0; margin-left:auto; padding-right:2px; }
+        .cats-funnel-reorder-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-light);
+            font-size: 14px;
+            line-height: 1;
+            font-weight: 700;
+            padding: 3px 7px;
+            border-radius: 6px;
+            opacity: 0.55;
+            transition: opacity 0.15s, background 0.15s, color 0.15s;
+        }
+        .cats-funnel-header:hover .cats-funnel-reorder-btn { opacity: 0.9; }
+        .cats-funnel-reorder-btn:hover { opacity: 1; background: rgba(15,23,42,0.06); color: var(--text-primary); }
+        .cats-funnel-reorder-btn:disabled { opacity: 0.18; cursor: not-allowed; }
+        .cats-funnel-reorder-btn:disabled:hover { background: none; }
         .cats-funnel-group.col-drop-left { border-left: 3px solid var(--blue) !important; }
         .cats-funnel-group.col-drop-right { border-right: 3px solid var(--blue) !important; }
         .cats-funnel-caret {
@@ -3435,6 +3453,83 @@
             }
             .content {
                 padding: 10px 8px !important;
+            }
+        }
+
+        /* ─── Mobile polish: iOS zoom fix, safe-area, tap delay ─── */
+        @media (max-width: 900px) {
+            /* iOS не зумит инпуты только если font-size >= 16px */
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="search"],
+            input[type="tel"],
+            input[type="url"],
+            input[type="number"],
+            input[type="date"],
+            input[type="datetime-local"],
+            input[type="time"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+
+            /* Убираем 300 ms задержку тапа на всех кнопках/ссылках */
+            button, a, .btn-icon, .filter-chip, .sidebar-nav-item {
+                touch-action: manipulation;
+            }
+
+            /* Плавный инерционный скролл в контенте и модалках */
+            .content,
+            .modal-content,
+            .kanban-column,
+            #taskDetailModal > div {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Минимальный tap target 44x44 для иконочных кнопок.
+               Не трогаем те, где уже задан явный width/height inline. */
+            .btn-icon:not([style*="width"]) {
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            /* Широкие таблицы: горизонтальный скролл вместо вылезания */
+            .leaderboard-table,
+            table {
+                max-width: 100%;
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Длинные ссылки в комментариях переносим по символам */
+            .comment-body,
+            .subtask-chat-message {
+                word-wrap: break-word;
+                overflow-wrap: anywhere;
+            }
+        }
+
+        /* Safe-area insets для iPhone с челкой/динамическим островом.
+           Работает на всех размерах экрана, но реальный эффект — только
+           когда env() возвращает ненулевое значение (notched iOS). */
+        #fabCreateTask {
+            bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+            right: calc(24px + env(safe-area-inset-right, 0px)) !important;
+        }
+        #feedbackBtn {
+            bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+            right: calc(20px + env(safe-area-inset-right, 0px)) !important;
+        }
+        @media (max-width: 900px) {
+            #fabCreateTask {
+                bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+                right: calc(18px + env(safe-area-inset-right, 0px)) !important;
+            }
+            #feedbackBtn {
+                bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+                right: calc(14px + env(safe-area-inset-right, 0px)) !important;
             }
         }
 
@@ -6671,15 +6766,26 @@ function _renderFunnelSectionHTML(sec, collapsedSet) {
             '<span class="cats-funnel-quick-add-label">Добавить задачу</span>' +
         '</button>';
 
+    // Можно ли двигать эту секцию (только категории, не 'new-tasks'/'done-view')
+    const _reorderable = _isFunnelSectionReorderable(sec.key);
+    const _reorderBtns = _reorderable
+        ? ('<span class="cats-funnel-reorder-btns" onclick="event.stopPropagation()">' +
+               '<button type="button" class="cats-funnel-reorder-btn" onclick="event.stopPropagation();moveFunnelSection(\'' + sec.key + '\',\'left\')" title="Переместить влево">◀</button>' +
+               '<button type="button" class="cats-funnel-reorder-btn" onclick="event.stopPropagation();moveFunnelSection(\'' + sec.key + '\',\'right\')" title="Переместить вправо">▶</button>' +
+           '</span>')
+        : '';
     return '<div class="' + groupClass + '" data-sec-key="' + sec.key + '" ' +
             'ondragover="catSecDragOver(event);colDragOver(event)" ondragleave="catSecDragLeave(event);colDragLeave(event)" ondrop="if(_colDragState.key){colDrop(event)}else{catSecDrop(event,\'' + sec.key + '\')}" ' +
             'style="--sec-color:' + sec.color + ';--sec-bg:' + bg + ';--sec-bg-hover:' + bgHover + ';">' +
         '<div class="cats-funnel-header" onclick="toggleCatsSection(\'' + sec.key + '\')">' +
-            '<span class="cats-funnel-col-handle" draggable="true" ondragstart="colDragStart(event,\'' + sec.key + '\')" ondragend="colDragEnd(event)" onclick="event.stopPropagation()" title="Перетащите для изменения порядка">⠿</span>' +
+            (_reorderable
+                ? '<span class="cats-funnel-col-handle" draggable="true" ondragstart="colDragStart(event,\'' + sec.key + '\')" ondragend="colDragEnd(event)" onclick="event.stopPropagation()" title="Перетащите или жмите стрелки →">⠿</span>'
+                : '<span class="cats-funnel-col-handle" style="opacity:0;pointer-events:none;">⠿</span>') +
             '<span class="cats-funnel-caret">' + caret + '</span>' +
             iconPart +
             '<span class="cats-funnel-title">' + _catsEscape(sec.name) + '</span>' +
             '<span class="cats-funnel-count">' + sec.tasks.length + '</span>' +
+            _reorderBtns +
         '</div>' +
         quickAddHtml +
         '<div class="cats-funnel-body">' + body + '</div>' +
@@ -6944,6 +7050,53 @@ function catSecDrop(ev, toKey) {
 }
 
 // ═══ COLUMN REORDER DRAG STATE ═══
+// Можно ли переупорядочить секцию воронки
+function _isFunnelSectionReorderable(secKey) {
+    if (typeof secKey !== 'string' || !secKey) return false;
+    // Пропускаем системные (без категорий и "выполнено")
+    if (secKey === 'none-view' || secKey === 'done-view' || secKey === 'new-tasks' || secKey === 'all') return false;
+    // Оставляем только категории (числовой ID или self-<id>)
+    const raw = secKey.indexOf('self-') === 0 ? secKey.slice(5) : secKey;
+    return !isNaN(parseInt(raw));
+}
+
+// Передвинуть секцию на 1 позицию (left/right) среди соседних секций
+async function moveFunnelSection(secKey, direction) {
+    const wrap = document.querySelector('.cats-funnel-wrap');
+    if (!wrap) return;
+    const groups = Array.from(wrap.querySelectorAll('.cats-funnel-group[data-sec-key]'));
+    const idx = groups.findIndex(g => g.getAttribute('data-sec-key') === secKey);
+    if (idx < 0) return;
+    const group = groups[idx];
+    if (direction === 'left') {
+        if (idx === 0) { showToast && showToast('Уже первая', 'info'); return; }
+        wrap.insertBefore(group, groups[idx - 1]);
+    } else if (direction === 'right') {
+        if (idx >= groups.length - 1) { showToast && showToast('Уже последняя', 'info'); return; }
+        wrap.insertBefore(groups[idx + 1], group);
+    } else {
+        return;
+    }
+    // Пересобрать порядок и сохранить на бэк
+    const order = [];
+    wrap.querySelectorAll('.cats-funnel-group[data-sec-key]').forEach(g => {
+        const key = g.getAttribute('data-sec-key') || '';
+        const raw = key.indexOf('self-') === 0 ? key.slice(5) : key;
+        const num = parseInt(raw);
+        if (!isNaN(num)) order.push(num);
+    });
+    if (order.length) {
+        try {
+            await apiCall('/api/categories/reorder', {
+                method: 'POST',
+                body: JSON.stringify({ order })
+            });
+        } catch (e) {
+            showToast && showToast('Не удалось сохранить порядок', 'error');
+        }
+    }
+}
+
 let _colDragState = { key: null, el: null };
 
 function colDragStart(ev, secKey) {
@@ -8811,18 +8964,21 @@ async function deleteSubtaskComment(commentId, subtaskId) {
 }
 
 function _renderSubtaskChatAttachment(c) {
-    if (!c.attachment_name) return '';
+    // Используем base64 из c.attachment_data — эндпоинта /api/comments/{id}/attachment не существует.
+    if (!c.attachment_data) return '';
     var type = c.attachment_type || '';
-    if (type.startsWith('image/')) {
-        return '<div style="margin-top:6px;"><img src="/api/comments/' + c.id + '/attachment" alt="' + _catsEscape(c.attachment_name) + '" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;" onclick="window.open(this.src,\'_blank\')"></div>';
+    var name = c.attachment_name || 'файл';
+    var dataUrl = c.attachment_data;
+    if (type.indexOf('image/') === 0) {
+        return '<div style="margin-top:6px;"><img src="' + dataUrl + '" alt="' + _catsEscape(name) + '" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;" onclick="window.open(this.src,\'_blank\')"></div>';
     }
-    if (type.startsWith('audio/')) {
-        return '<div style="margin-top:6px;"><audio controls src="/api/comments/' + c.id + '/attachment" style="max-width:100%;height:36px;"></audio></div>';
+    if (type.indexOf('audio/') === 0) {
+        return '<div style="margin-top:6px;"><audio controls src="' + dataUrl + '" style="max-width:100%;height:36px;"></audio></div>';
     }
-    if (type.startsWith('video/')) {
-        return '<div style="margin-top:6px;"><video controls src="/api/comments/' + c.id + '/attachment" style="max-width:100%;max-height:180px;border-radius:8px;"></video></div>';
+    if (type.indexOf('video/') === 0) {
+        return '<div style="margin-top:6px;"><video controls src="' + dataUrl + '" style="max-width:100%;max-height:180px;border-radius:8px;"></video></div>';
     }
-    return '<div style="margin-top:6px;"><a href="/api/comments/' + c.id + '/attachment" target="_blank" download style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f1f5f9;border-radius:6px;font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;">📄 ' + _catsEscape(c.attachment_name) + '</a></div>';
+    return '<div style="margin-top:6px;"><a href="' + dataUrl + '" download="' + _catsEscape(name) + '" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f1f5f9;border-radius:6px;font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;">📄 ' + _catsEscape(name) + '</a></div>';
 }
 
 function handleSubtaskChatFile(subtaskId) {
