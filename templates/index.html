@@ -9761,7 +9761,19 @@ function initMentionDropdown(inputEl) {
     dd.className = 'mention-dropdown';
     inputEl.parentElement.appendChild(dd);
 
-    inputEl.addEventListener('input', function() { handleMentionInput(this, dd); });
+    // Перед показом СВОЕГО dropdown прячем все чужие — чтобы не было
+    // «дропдаун виден в двух местах» (есть ещё #detailQuickComment
+    // с таким же механизмом, плюс textarea'ы inline-чатов подзадач).
+    function _hideOtherMentionDropdowns() {
+        document.querySelectorAll('.mention-dropdown').forEach(function(other) {
+            if (other !== dd) other.style.display = 'none';
+        });
+    }
+    inputEl.addEventListener('focus', _hideOtherMentionDropdowns);
+    inputEl.addEventListener('input', function() {
+        _hideOtherMentionDropdowns();
+        handleMentionInput(this, dd);
+    });
     inputEl.addEventListener('keydown', function(e) { handleMentionKeydown(e, this, dd); });
     inputEl.addEventListener('blur', function() { setTimeout(() => { dd.style.display = 'none'; _mentionState.active = false; }, 200); });
 }
