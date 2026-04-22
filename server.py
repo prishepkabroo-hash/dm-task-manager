@@ -841,6 +841,13 @@ def init_db():
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP DEFAULT NULL")
 
+    # Migrate: add version column to tasks (optimistic locking).
+    # Каждый UPDATE инкрементит version; PUT /api/tasks/{id} проверяет if_version.
+    try:
+        c.execute("SELECT version FROM tasks LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE tasks ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+
     # Migrate: add km_awarded flag to tasks (чтобы не начислять km дважды
     # при последовательности done → new → done)
     try:
@@ -2828,6 +2835,29 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close()
                 return self._json({"error": "forbidden"}, 403)
             old_task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+
+            # Оптимистическая блокировка: если фронт прислал if_version —
+            # сверяем с текущей версией задачи. При расхождении — 409.
+            if old_task and "if_version" in data:
+                try:
+                    _client_ver = int(data.get("if_version"))
+                except (ValueError, TypeError):
+                    _client_ver = None
+                try:
+                    _cur_ver = int(old_task["version"]) if "version" in old_task.keys() else 0
+                except (ValueError, TypeError, IndexError):
+                    _cur_ver = 0
+                if _client_ver is not None and _client_ver != _cur_ver:
+                    _current = dict(old_task)
+                    conn.close()
+                    return self._json({
+                        "error": "conflict",
+                        "message": "Задача была изменена другим пользователем",
+                        "current": _current,
+                    }, 409)
+                # if_version — служебное поле, не должно попасть в UPDATE
+                data.pop("if_version", None)
+
             sets, params = [], []
             # Подзадача не может иметь отдел, отличный от родителя: это ломает
             # права доступа (юзеры родителя теряют подзадачу из видимости).
@@ -2848,6 +2878,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     params.append(_val)
             if sets:
                 sets.append("updated_at = CURRENT_TIMESTAMP")
+                sets.append("version = COALESCE(version, 0) + 1")
                 params.append(task_id)
                 conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
 
@@ -2956,8 +2987,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                             (old_task["assigned_to"], task_id, "deadline_changed", _msg_dl))
 
                 conn.commit()
+            # Вернуть свежую версию, чтобы фронт мог обновить локальную копию
+            _new_ver = 0
+            try:
+                _row = conn.execute("SELECT version FROM tasks WHERE id=?", (task_id,)).fetchone()
+                if _row: _new_ver = int(_row["version"] or 0)
+            except Exception:
+                _new_ver = 0
             conn.close()
-            return self._json({"ok": True})
+            return self._json({"ok": True, "version": _new_ver})
 
         # ================================================================
         # Update category (Todoist-style)

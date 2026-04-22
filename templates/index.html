@@ -5295,7 +5295,7 @@ let activeCalendarDp = null;
 function toggleCalendarPopup(btn) {
     if (activeCalendarPopup) { closeCalendarPopup(); return; }
     const dp = btn.closest('.date-picker-custom');
-    dp.style.position = 'relative';
+    // dp.style.position = 'relative';  // убрано: попап теперь в body (fixed)
     activeCalendarDp = dp;
     const curDay = parseInt(dp.querySelector('.dp-day').value) || new Date().getDate();
     const curMonth = parseInt(dp.querySelector('.dp-month').value) || (new Date().getMonth() + 1);
@@ -5313,6 +5313,10 @@ function renderCalendarPopup(year, month, selectedDay) {
     if (activeCalendarPopup) activeCalendarPopup.remove();
     const cal = document.createElement('div');
     cal.className = 'dp-calendar';
+    // Popup рендерим в body с position:fixed: это спасает от обрезки
+    // overflow'ом .modal-content и от z-index стэкинг-контекстов.
+    cal.style.position = 'fixed';
+    cal.style.zIndex = '10000';
     // Stop all clicks inside calendar from bubbling
     cal.addEventListener('mousedown', function(e) { e.stopPropagation(); });
     activeCalendarPopup = cal;
@@ -5360,7 +5364,36 @@ function renderCalendarPopup(year, month, selectedDay) {
     cal.dataset.year = year;
     cal.dataset.month = month;
     cal.dataset.selDay = selectedDay;
-    dp.appendChild(cal);
+    document.body.appendChild(cal);
+
+    // Позиционируем попап относительно кнопки календаря (или dp, если кнопки нет).
+    // Снизу не лезет — открываем вверх. Справа не лезет — сдвигаем влево.
+    try {
+        const anchor = dp.querySelector('.dp-cal-btn') || dp;
+        const r = anchor.getBoundingClientRect();
+        const ch = cal.offsetHeight || 280;
+        const cw = cal.offsetWidth  || 280;
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+        const margin = 6;
+        // По вертикали
+        let top;
+        if (r.bottom + margin + ch <= vh - 8) {
+            top = r.bottom + margin;                          // снизу
+        } else if (r.top - margin - ch >= 8) {
+            top = r.top - margin - ch;                        // сверху
+        } else {
+            top = Math.max(8, vh - ch - 8);                   // прижимаем к низу viewport
+        }
+        // По горизонтали: выровнять по левому краю dp, но не выпадать за vw
+        const dpRect = dp.getBoundingClientRect();
+        let left = dpRect.left;
+        if (left + cw > vw - 8) left = Math.max(8, vw - cw - 8);
+        if (left < 8) left = 8;
+        cal.style.top  = top  + 'px';
+        cal.style.left = left + 'px';
+    } catch (e) { /* тихо: в худшем случае popup нарисуется в (0,0) */ }
+
     document.removeEventListener('mousedown', calOutsideClick);
     setTimeout(() => document.addEventListener('mousedown', calOutsideClick), 10);
 }
@@ -6068,25 +6101,14 @@ async function renderDashboard() {
     });
     deptSel.value = deptVal || dashFilterState.dept;
 
-    // Populate assignee filter dropdown (каскад: если выбран отдел — только его сотрудники)
+    // Populate assignee filter dropdown
     const assSel = document.getElementById('dashAssigneeFilter');
     const assVal = assSel.value;
     assSel.innerHTML = '<option value="">Все исполнители</option>';
-    const _dashDept = parseInt(dashFilterState.dept) || null;
-    const _dashUsers = _dashDept
-        ? allUsers.filter(u => u.department_id === _dashDept || u.role === 'admin')
-        : allUsers;
-    _dashUsers.forEach(u => {
+    allUsers.forEach(u => {
         assSel.innerHTML += `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`;
     });
-    // Если ранее выбранного исполнителя нет в новом списке (сменили отдел) — сбрасываем
-    const _prevAss = assVal || dashFilterState.assignee;
-    if (_prevAss && !_dashUsers.some(u => String(u.id) === String(_prevAss))) {
-        assSel.value = '';
-        if (dashFilterState) dashFilterState.assignee = '';
-    } else {
-        assSel.value = _prevAss || '';
-    }
+    assSel.value = assVal || dashFilterState.assignee;
 
     // Get filtered tasks
     const tasks = getDashFilteredTasks();
@@ -8159,30 +8181,18 @@ function onTaskDeptChange() {
     _renderTaskWatchersForDept(deptId);
 }
 
-// Фильтр списка исполнителей по отделу.
-// Админу и действующему пользователю не режем — они видны всегда.
-// Если deptId пустой — показываем всех (старый путь).
+// Список исполнителей: всегда ВСЕ активные пользователи.
+// (Откат каскада по отделу — заказчик подтвердил: кросс-отдельные задачи норма.)
+// Аргумент deptId оставлен для совместимости вызовов, но игнорируется.
 function _renderTaskAssigneeOptions(deptId) {
     const sel = document.getElementById('taskAssignee');
     if (!sel) return;
     const prev = sel.value;
     sel.innerHTML = '<option value="">Не назначен</option>';
     const list = (typeof allUsers !== 'undefined' && allUsers) ? allUsers.slice() : [];
-    const filtered = deptId
-        ? list.filter(u => u.department_id === deptId
-                           || u.id === (currentUser && currentUser.id)
-                           || (u.role === 'admin'))
-        : list;
-    filtered.forEach(u => {
+    list.forEach(u => {
         sel.innerHTML += `<option value="${u.id}">${_catsEscape(u.full_name)}</option>`;
     });
-    // Если предыдущий выбор теперь отфильтрован — не теряем его, добавляем
-    if (prev && !filtered.some(u => String(u.id) === String(prev))) {
-        const prevU = (list).find(u => String(u.id) === String(prev));
-        if (prevU) {
-            sel.innerHTML += `<option value="${prevU.id}">${_catsEscape(prevU.full_name)} (другой отдел)</option>`;
-        }
-    }
     sel.value = prev || '';
 }
 
@@ -8229,23 +8239,18 @@ function _renderTaskDeptBadge(contextDeptId, isEditing) {
     };
 }
 
-// Пересобрать чекбоксы наблюдателей под отдел
+// Наблюдатели: всегда ВСЕ активные пользователи.
+// (Откат каскада по отделу — любой может быть наблюдателем в любой задаче.)
+// Аргумент deptId оставлен для совместимости вызовов, но игнорируется.
 function _renderTaskWatchersForDept(deptId) {
     const wg = document.getElementById('taskWatchersGroup');
     if (!wg) return;
-    // Запомнить уже отмеченных — чтобы не потерялись при рефильтрации
     const checkedIds = new Set(
         Array.from(wg.querySelectorAll('input:checked')).map(cb => parseInt(cb.value))
     );
     wg.innerHTML = '';
     const list = (typeof allUsers !== 'undefined' && allUsers) ? allUsers.slice() : [];
-    const filtered = deptId
-        ? list.filter(u => u.department_id === deptId
-                           || u.id === (currentUser && currentUser.id)
-                           || (u.role === 'admin')
-                           || checkedIds.has(u.id))
-        : list;
-    filtered.forEach(u => {
+    list.forEach(u => {
         const label = document.createElement('label');
         label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text-primary);';
         const cb = document.createElement('input');
@@ -8441,6 +8446,13 @@ async function saveTask() {
         : [];
 
     const payload = {title, description, status, priority, department_id, deadline: deadline || null, assigned_to, category_ids};
+    // Оптимистическая блокировка: шлём версию, которую видим в local allTasks
+    if (taskId) {
+        const _t = (typeof allTasks !== 'undefined') ? allTasks.find(x => x.id === taskId) : null;
+        if (_t && typeof _t.version !== 'undefined' && _t.version !== null) {
+            payload.if_version = _t.version;
+        }
+    }
     console.log('saveTask payload:', JSON.stringify(payload));
 
     let resp;
@@ -8453,9 +8465,19 @@ async function saveTask() {
     console.log('saveTask response:', JSON.stringify(resp));
 
     if (resp && resp.ok) {
+        // Обновить локальную версию, чтобы следующий save не конфликтовал
+        if (taskId && typeof resp.version !== 'undefined') {
+            const _t = allTasks.find(x => x.id === taskId);
+            if (_t) _t.version = resp.version;
+        }
         document.getElementById('taskModal').style.display = 'none';
         await loadTasks();
         showToast(taskId ? 'Задача обновлена' : 'Задача создана', 'success');
+    } else if (resp && resp.error === 'conflict') {
+        // Кто-то успел изменить раньше — перезагружаем и просим повторить
+        showToast('Задача была изменена другим пользователем — перезагружаю', 'info');
+        document.getElementById('taskModal').style.display = 'none';
+        await loadTasks();
     } else if (resp && resp.error) {
         alert('Ошибка: ' + resp.error);
     } else {
@@ -9436,11 +9458,29 @@ async function detailChangeField(field, value) {
     else if (field === 'deadline') body.deadline = value || null;
     else body[field] = value;
 
+    // Оптимистическая блокировка: отправляем локальную версию
+    const _localTask = allTasks.find(t => t.id === detailTaskId);
+    if (_localTask && typeof _localTask.version !== 'undefined' && _localTask.version !== null) {
+        body.if_version = _localTask.version;
+    }
+
     const resp = await apiCall('/api/tasks/' + detailTaskId, {method:'PUT', body:JSON.stringify(body)});
+    if (resp && resp.error === 'conflict') {
+        showToast('Задача была изменена другим пользователем — перезагружаю', 'info');
+        await loadTasks();
+        // Перерисовать карточку деталей из обновлённых данных
+        if (detailTaskId) setTimeout(() => showTaskDetail(detailTaskId), 100);
+        return;
+    }
     if (resp && !resp.error) {
         // Update local data
         const task = allTasks.find(t => t.id === detailTaskId);
-        if (task) Object.assign(task, body);
+        if (task) {
+            Object.assign(task, body);
+            if (typeof resp.version !== 'undefined') task.version = resp.version;
+            // if_version — служебное поле, не храним в локальной задаче
+            delete task.if_version;
+        }
         renderCurrentPage();
         showToast('Задача обновлена', 'success');
 
