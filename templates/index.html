@@ -4966,7 +4966,7 @@
                 <button class="td-tab" data-tdtab="td-activity" style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">История изменений</button>
             </div>
             <!-- Tab Contents -->
-            <div style="padding:20px 24px 24px;background:#f8fafc;max-height:60vh;overflow-y:auto;">
+            <div style="padding:20px 24px 24px;background:#ffffff;max-height:60vh;overflow-y:auto;">
                 <div id="td-main"></div>
                 <!-- legacy hidden container kept for backward compat (not rendered) -->
                 <div id="td-subtasks" style="display:none;"></div>
@@ -8514,21 +8514,21 @@ async function showTaskDetail(taskId) {
     const currentIdx = allStatuses.indexOf(task.status);
 
     document.getElementById('detailHeader').innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-            <div style="flex:1;">
-                <div style="font-size:18px;font-weight:700;color:#1e293b;line-height:1.3;margin-bottom:6px;">${_catsEscape(task.title)}</div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <span style="background:${pc.c}18;color:${pc.c};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">${pc.l}</span>
-                    ${dept ? `<span style="background:${dept.color||'#94a3b8'}18;color:${dept.color||'#64748b'};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">${dept.name}</span>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;">
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:22px;font-weight:700;color:#1e293b;line-height:1.25;margin-bottom:10px;letter-spacing:-0.2px;word-break:break-word;">${_catsEscape(task.title)}</div>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                    <span style="display:inline-flex;align-items:center;gap:5px;color:${pc.c};font-size:12px;font-weight:600;"><span style="width:8px;height:8px;border-radius:50%;background:${pc.c};display:inline-block;"></span>${pc.l}</span>
+                    ${dept ? `<span style="color:#cbd5e1;font-size:11px;">•</span><span style="color:${dept.color||'#64748b'};font-size:12px;font-weight:600;">${dept.name}</span>` : ''}
                 </div>
             </div>
-            <div style="display:flex;gap:6px;flex-shrink:0;">
-                <button onclick="closeTaskDetail();showTaskForm(${task.id})" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background='#3b82f6';this.style.color='white'" onmouseleave="this.style.background='white';this.style.color='#3b82f6'">Редактировать</button>
-                <button onclick="closeTaskDetail()" style="width:32px;height:32px;border:none;background:none;color:#94a3b8;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s;" onmouseenter="this.style.background='#f1f5f9';this.style.color='#1e293b'" onmouseleave="this.style.background='none';this.style.color='#94a3b8'">&times;</button>
+            <div style="display:flex;gap:4px;flex-shrink:0;">
+                <button onclick="closeTaskDetail();showTaskForm(${task.id})" title="Редактировать" style="width:34px;height:34px;border:none;background:none;color:#94a3b8;cursor:pointer;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseenter="this.style.background='#eff6ff';this.style.color='#3b82f6'" onmouseleave="this.style.background='none';this.style.color='#94a3b8'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button onclick="closeTaskDetail()" title="Закрыть" style="width:34px;height:34px;border:none;background:none;color:#94a3b8;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.15s;line-height:1;" onmouseenter="this.style.background='#f1f5f9';this.style.color='#1e293b'" onmouseleave="this.style.background='none';this.style.color='#94a3b8'">&times;</button>
             </div>
         </div>
-        <!-- Bitrix24-style stage switcher -->
-        <div id="detailStageBar" style="display:flex;align-items:center;gap:0;margin-bottom:8px;background:#f8fafc;border-radius:10px;padding:3px;border:1px solid #e8ecf1;"></div>
+        <!-- Stage switcher -->
+        <div id="detailStageBar" style="display:flex;align-items:center;gap:0;margin-bottom:4px;background:#f8fafc;border-radius:10px;padding:3px;border:1px solid #eef2f7;"></div>
     `;
 
     // Build stage bar with proper JS (no template literal issues)
@@ -8554,128 +8554,139 @@ async function showTaskDetail(taskId) {
     const statusOptions = allStages.map(s => `<option value="${s.key}" ${s.key === task.status ? 'selected' : ''}>${s.label}</option>`).join('') + `<option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>Отменена</option>`;
     const priorityOptions = Object.entries(priCfg).map(([k,v]) => `<option value="${k}" ${k === task.priority ? 'selected' : ''}>${v.l}</option>`).join('');
 
+    // Todoist-style редизайн: один слой, без карточек-в-карточках,
+    // цветовые акценты только точками/цветным текстом, больше воздуха.
     document.getElementById('td-main').innerHTML = `
         <!-- Description -->
-        ${task.description ? `<div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid #e8ecf1;">
-            <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Описание</div>
-            <div style="font-size:13px;color:#475569;line-height:1.6;white-space:pre-wrap;">${_catsEscape(task.description)}</div>
+        ${task.description ? `<div style="padding:2px 0 18px;margin-bottom:18px;border-bottom:1px solid #eef2f7;">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">Описание</div>
+            <div style="font-size:14px;color:#334155;line-height:1.65;white-space:pre-wrap;">${_catsEscape(task.description)}</div>
         </div>` : ''}
 
-        <!-- Inline-editable fields -->
-        <div style="background:white;border-radius:10px;padding:4px 0;margin-bottom:14px;border:1px solid #e8ecf1;">
+        <!-- Inline-editable fields (плоский список) -->
+        <div style="display:flex;flex-direction:column;">
             <!-- Assignee -->
-            <div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;">
-                <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;">Исполнитель</div>
-                <div style="flex:1;display:flex;align-items:center;gap:8px;">
-                    ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 28, assignee.avatar_url) : ''}
-                    <select id="detailAssignee" onchange="detailChangeField('assigned_to',this.value)" style="border:none;background:none;font-size:13px;font-weight:500;color:#1e293b;cursor:pointer;padding:4px 0;flex:1;outline:none;">
+            <div style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;">
+                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Исполнитель</div>
+                <div style="flex:1;display:flex;align-items:center;gap:10px;min-width:0;">
+                    ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 28, assignee.avatar_url) : '<span style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:inline-flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:14px;flex-shrink:0;">?</span>'}
+                    <select id="detailAssignee" onchange="detailChangeField('assigned_to',this.value)" style="border:none;background:none;font-size:14px;font-weight:500;color:#1e293b;cursor:pointer;padding:2px 0;flex:1;outline:none;min-width:0;">
                         <option value="">Не назначен</option>
                         ${assigneeOptions}
                     </select>
                 </div>
             </div>
+
             <!-- Co-executors -->
-            <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;">
-                <div style="display:flex;align-items:flex-start;margin-bottom:6px;gap:8px;">
-                    <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;flex-shrink:0;padding-top:4px;">Соисполнители</div>
-                    <div id="detailCoexecutorsDisplay" style="flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-height:26px;">
-                        ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${_catsEscape(c.full_name)}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
-                        ${(!task.coexecutors || !task.coexecutors.length) ? '<span style="color:#cbd5e1;font-size:12px;">Нет соисполнителей</span>' : ''}
+            <div style="padding:14px 4px;border-bottom:1px solid #eef2f7;">
+                <div style="display:flex;align-items:flex-start;gap:14px;">
+                    <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;padding-top:4px;">Соисполнители</div>
+                    <div id="detailCoexecutorsDisplay" style="flex:1;display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:28px;">
+                        ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;color:#3b82f6;padding:4px 10px;border-radius:14px;font-size:12px;font-weight:600;">${_catsEscape(c.full_name)}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:15px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
+                        ${(!task.coexecutors || !task.coexecutors.length) ? '<span style="color:#cbd5e1;font-size:13px;">—</span>' : ''}
                     </div>
-                    <button id="coexecToggleBtn" onclick="toggleCoexecList()" style="flex-shrink:0;border:1px solid #e0e7ff;background:#eff6ff;color:#3b82f6;font-size:18px;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.2s;line-height:1;padding:0;" onmouseenter="this.style.background='#dbeafe';this.style.transform='scale(1.05)'" onmouseleave="this.style.background='#eff6ff';this.style.transform='scale(1)'" title="Добавить соисполнителя">+</button>
+                    <button id="coexecToggleBtn" onclick="toggleCoexecList()" style="flex-shrink:0;border:1px dashed #cbd5e1;background:transparent;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;padding:4px 10px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:14px;transition:all 0.2s;line-height:1;gap:4px;" onmouseenter="this.style.borderColor='#3b82f6';this.style.color='#3b82f6';this.style.borderStyle='solid'" onmouseleave="this.style.borderColor='#cbd5e1';this.style.color='#64748b';this.style.borderStyle='dashed'" title="Добавить соисполнителя">+ Добавить</button>
                 </div>
-                <div id="detailCoexecList" style="display:none;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #f1f5f9;">
-                    ${allUsers.filter(u => u.id !== task.assigned_to).map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;cursor:pointer;padding:4px 0;">
+                <div id="detailCoexecList" style="display:none;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #eef2f7;">
+                    ${allUsers.filter(u => u.id !== task.assigned_to).map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer;padding:4px 0;">
                         <input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})"> ${_catsEscape(u.full_name)}
                     </label>`).join('')}
                 </div>
             </div>
+
             <!-- Status -->
-            <div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;">
-                <div style="width:110px;font-size:12px;color:#94a3b8;font-weight:500;">Статус</div>
-                <select id="detailStatus" onchange="detailChangeField('status',this.value)" style="border:none;background:none;font-size:13px;font-weight:500;color:#1e293b;cursor:pointer;padding:4px 0;outline:none;">
-                    ${statusOptions}
-                </select>
+            <div style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;">
+                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Статус</div>
+                <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${sc.c};display:inline-block;flex-shrink:0;"></span>
+                    <select id="detailStatus" onchange="detailChangeField('status',this.value)" style="border:none;background:none;font-size:14px;font-weight:500;color:#1e293b;cursor:pointer;padding:2px 0;flex:1;outline:none;min-width:0;">
+                        ${statusOptions}
+                    </select>
+                </div>
             </div>
-            <!-- Priority -->
-            <div id="detailPriorityRow" style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;${
-                task.priority === 'high' ? 'background:#fef2f2;' :
-                task.priority === 'medium' ? 'background:#fffbeb;' :
-                'background:#f0fdf4;'
-            }transition:background 0.2s;" onmouseenter="this.style.background='${
-                task.priority === 'high' ? '#fee2e2' :
-                task.priority === 'medium' ? '#fef3c7' :
-                '#e0fce8'
-            }'" onmouseleave="this.style.background='${
-                task.priority === 'high' ? '#fef2f2' :
-                task.priority === 'medium' ? '#fffbeb' :
-                '#f0fdf4'
-            }'">
-                <div style="width:110px;font-size:12px;color:${task.priority === 'high' ? '#ef4444' : (task.priority === 'medium' ? '#f59e0b' : '#22c55e')};font-weight:600;">Приоритет</div>
-                <select id="detailPriority" onchange="detailChangeField('priority',this.value)" style="border:none;background:none;font-size:13px;font-weight:${task.priority !== 'low' ? '700' : '500'};color:${task.priority === 'high' ? '#ef4444' : (task.priority === 'medium' ? '#f59e0b' : '#22c55e')};cursor:pointer;padding:4px 0;outline:none;flex:1;">
-                    ${priorityOptions}
-                </select>
+
+            <!-- Priority (без цветного фона, только цветная точка + цветной текст) -->
+            <div id="detailPriorityRow" style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;">
+                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Приоритет</div>
+                <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${pc.c};display:inline-block;flex-shrink:0;"></span>
+                    <select id="detailPriority" onchange="detailChangeField('priority',this.value)" style="border:none;background:none;font-size:14px;font-weight:${task.priority !== 'low' ? '600' : '500'};color:${pc.c};cursor:pointer;padding:2px 0;outline:none;flex:1;min-width:0;">
+                        ${priorityOptions}
+                    </select>
+                </div>
             </div>
-            <!-- Deadline - only creator / admin / head can change -->
+
+            <!-- Deadline -->
             ${(() => {
                 const canEditDeadline = currentUser && (
                     currentUser.role === 'admin' ||
                     currentUser.role === 'head' ||
                     task.created_by === currentUser.id
                 );
-                const rowStyle = 'display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:' + (deadline.class === 'deadline-soon' ? '#fffbeb' : (deadline.class === 'deadline-overdue' ? '#fef2f2' : 'transparent')) + ';transition:background 0.2s;gap:12px;' + (canEditDeadline ? 'cursor:pointer;' : 'cursor:default;');
+                const dlColor = deadline.class === 'deadline-soon' ? '#f59e0b'
+                             : deadline.class === 'deadline-overdue' ? '#ef4444'
+                             : '#1e293b';
+                const labelColor = deadline.class === 'deadline-soon' ? '#f59e0b'
+                                : deadline.class === 'deadline-overdue' ? '#ef4444'
+                                : '#94a3b8';
                 const rowClick = canEditDeadline ? ' onclick="openDetailDeadlinePicker()"' : '';
-                const lockIcon = canEditDeadline ? '' : '<span title="Только создатель задачи может менять дедлайн" style="color:#94a3b8;font-size:14px;">🔒</span>';
-                const inputExtra = canEditDeadline ? 'onchange="detailChangeField(\'deadline\',this.value)"' : 'disabled style="pointer-events:none;opacity:0.75;"';
-                return '<div id="detailDeadlineRow" style="' + rowStyle + '"' + rowClick + '>' +
-                    '<div style="width:110px;font-size:12px;color:' + (deadline.class === 'deadline-soon' ? '#f59e0b' : (deadline.class === 'deadline-overdue' ? '#ef4444' : '#94a3b8')) + ';font-weight:600;">Дедлайн</div>' +
-                    '<input type="datetime-local" id="detailDeadline" value="' + (task.deadline ? task.deadline.slice(0,16) : '') + '" ' + inputExtra + ' style="border:none;background:transparent;font-size:13px;color:' + (deadline.class === 'deadline-soon' ? '#f59e0b' : (deadline.class === 'deadline-overdue' ? '#ef4444' : '#1e293b')) + ';' + (canEditDeadline ? 'cursor:pointer;' : 'cursor:default;') + 'padding:4px 0;outline:none;flex:1;font-weight:' + (deadline.class ? '600' : '500') + ';">' +
-                    (deadline.text ? '<span style="font-size:11px;font-weight:600;color:' + (deadline.class === 'deadline-soon' ? '#f59e0b' : (deadline.class === 'deadline-overdue' ? '#ef4444' : '#94a3b8')) + ';white-space:nowrap;">' + deadline.text + '</span>' : '') +
-                    lockIcon +
+                const lockIcon = canEditDeadline ? '' : '<span title="Только создатель задачи может менять дедлайн" style="color:#cbd5e1;font-size:14px;">🔒</span>';
+                const inputExtra = canEditDeadline ? 'onchange="detailChangeField(\'deadline\',this.value)"' : 'disabled style="pointer-events:none;opacity:0.6;"';
+                return '<div id="detailDeadlineRow" style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;' + (canEditDeadline ? 'cursor:pointer;' : '') + '"' + rowClick + '>' +
+                    '<div style="width:130px;font-size:10px;color:' + labelColor + ';font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Дедлайн</div>' +
+                    '<div style="flex:1;display:flex;align-items:center;gap:10px;min-width:0;">' +
+                        '<input type="datetime-local" id="detailDeadline" value="' + (task.deadline ? task.deadline.slice(0,16) : '') + '" ' + inputExtra + ' style="border:none;background:transparent;font-size:14px;color:' + dlColor + ';' + (canEditDeadline ? 'cursor:pointer;' : 'cursor:default;') + 'padding:2px 0;outline:none;flex:1;min-width:0;font-weight:' + (deadline.class ? '600' : '500') + ';">' +
+                        (deadline.text ? '<span style="font-size:12px;font-weight:600;color:' + labelColor + ';white-space:nowrap;background:' + (deadline.class === 'deadline-overdue' ? '#fef2f2' : deadline.class === 'deadline-soon' ? '#fffbeb' : '#f1f5f9') + ';padding:3px 10px;border-radius:10px;">' + deadline.text + '</span>' : '<span style="color:#cbd5e1;font-size:13px;">не задан</span>') +
+                        lockIcon +
+                    '</div>' +
                     '</div>';
             })()}
+
             <!-- Department -->
-            <div style="display:flex;align-items:center;padding:10px 16px;background:${task.department_id ? (allDepartments.find(d => d.id === task.department_id)?.color || '#94a3b8') + '12' : 'transparent'};transition:background 0.2s;border-bottom:1px solid #f1f5f9;" onmouseenter="this.style.background='${task.department_id ? (allDepartments.find(d => d.id === task.department_id)?.color || '#94a3b8') + '22' : '#f8fafc'}'" onmouseleave="this.style.background='${task.department_id ? (allDepartments.find(d => d.id === task.department_id)?.color || '#94a3b8') + '12' : 'transparent'}'">
-                <div style="width:110px;font-size:12px;color:${task.department_id ? (allDepartments.find(d => d.id === task.department_id)?.color || '#94a3b8') : '#94a3b8'};font-weight:600;">Отдел</div>
-                <select id="detailDepartment" onchange="detailChangeField('department_id',this.value)" style="border:none;background:transparent;font-size:13px;font-weight:${task.department_id ? '600' : '500'};color:${task.department_id ? (allDepartments.find(d => d.id === task.department_id)?.color || '#1e293b') : '#1e293b'};cursor:pointer;padding:4px 0;flex:1;outline:none;">
-                    <option value="">Не выбран</option>
-                    ${allDepartments.map(d => `<option value="${d.id}" ${d.id === task.department_id ? 'selected' : ''}>${d.name}</option>`).join('')}
-                </select>
+            <div style="display:flex;align-items:center;gap:14px;padding:14px 4px;">
+                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Отдел</div>
+                <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;">
+                    ${task.department_id ? `<span style="width:8px;height:8px;border-radius:50%;background:${(allDepartments.find(d => d.id === task.department_id)?.color) || '#94a3b8'};display:inline-block;flex-shrink:0;"></span>` : ''}
+                    <select id="detailDepartment" onchange="detailChangeField('department_id',this.value)" style="border:none;background:transparent;font-size:14px;font-weight:${task.department_id ? '600' : '500'};color:${task.department_id ? ((allDepartments.find(d => d.id === task.department_id)?.color) || '#1e293b') : '#1e293b'};cursor:pointer;padding:2px 0;flex:1;outline:none;min-width:0;">
+                        <option value="">Не выбран</option>
+                        ${allDepartments.map(d => `<option value="${d.id}" ${d.id === task.department_id ? 'selected' : ''}>${d.name}</option>`).join('')}
+                    </select>
+                </div>
             </div>
         </div>
 
-        <!-- Subtasks (inline, was a separate tab before) -->
-        <div id="td-subtasks-inline" style="margin-bottom:14px;"></div>
+        <!-- Subtasks (inline) -->
+        <div id="td-subtasks-inline" style="margin-top:22px;margin-bottom:4px;"></div>
 
         <!-- Watchers -->
-        <div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid #e8ecf1;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Наблюдатели</div>
-                <button onclick="document.getElementById('detailWatchersList').style.display=document.getElementById('detailWatchersList').style.display==='none'?'flex':'none'" style="border:none;background:none;color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;">+ Добавить</button>
+        <div style="padding:16px 0 0;margin-top:18px;border-top:1px solid #eef2f7;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;">Наблюдатели</div>
+                <button onclick="document.getElementById('detailWatchersList').style.display=document.getElementById('detailWatchersList').style.display==='none'?'flex':'none'" style="border:none;background:none;color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background 0.15s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'">+ Добавить</button>
             </div>
-            <div id="detailWatchersDisplay" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-            <div id="detailWatchersList" style="display:none;flex-direction:column;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">
-                ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;cursor:pointer;padding:4px 0;">
+            <div id="detailWatchersDisplay" style="display:flex;gap:6px;flex-wrap:wrap;min-height:20px;"></div>
+            <div id="detailWatchersList" style="display:none;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #eef2f7;max-height:220px;overflow-y:auto;">
+                ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer;padding:4px 0;">
                     <input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})"> ${_catsEscape(u.full_name)}
                 </label>`).join('')}
             </div>
         </div>
 
         <!-- Quick comment -->
-        <div style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid #e8ecf1;">
-            <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Комментарий</div>
-            <div id="mainAttachPreview" style="display:none;margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;"></div>
+        <div style="padding:16px 0 0;margin-top:18px;border-top:1px solid #eef2f7;">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:10px;">Быстрый комментарий</div>
+            <div id="mainAttachPreview" style="display:none;margin-bottom:8px;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #eef2f7;font-size:12px;"></div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                <input type="text" id="detailQuickComment" placeholder="Написать комментарий..." style="flex:1;min-width:140px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter')sendComment(${taskId},'main')">
+                <input type="text" id="detailQuickComment" placeholder="Написать комментарий..." style="flex:1;min-width:160px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;transition:all 0.15s;" onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" onkeydown="if(event.key==='Enter')sendComment(${taskId},'main')">
                 <input type="file" id="mainFileInput" style="display:none;" onchange="handleCommentFile('main')" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">
-                <button title="Прикрепить файл" onclick="document.getElementById('mainFileInput').click()" style="width:36px;height:36px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">📎</button>
-                <button id="mainVoiceBtn" title="Голосовое сообщение" onclick="toggleCommentVoice('main',${taskId})" style="width:36px;height:36px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">🎤</button>
-                <button onclick="sendComment(${taskId},'main')" style="padding:8px 16px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='#2563eb'" onmouseleave="this.style.background='#3b82f6'">Отправить</button>
+                <button title="Прикрепить файл" onclick="document.getElementById('mainFileInput').click()" style="width:40px;height:40px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseenter="this.style.background='#eff6ff';this.style.borderColor='#bfdbfe'" onmouseleave="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">📎</button>
+                <button id="mainVoiceBtn" title="Голосовое сообщение" onclick="toggleCommentVoice('main',${taskId})" style="width:40px;height:40px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseenter="this.style.background='#eff6ff';this.style.borderColor='#bfdbfe'" onmouseleave="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">🎤</button>
+                <button onclick="sendComment(${taskId},'main')" style="padding:10px 18px;background:#3b82f6;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background='#2563eb'" onmouseleave="this.style.background='#3b82f6'">Отправить</button>
             </div>
         </div>
 
         <!-- Comments in main tab (loaded async) -->
-        <div id="detailMainComments" style=""></div>
+        <div id="detailMainComments" style="margin-top:18px;"></div>
     `;
 
     // Show modal INSTANTLY (no awaits before this!)
@@ -8801,10 +8812,10 @@ function renderSubtasks(parentTaskId) {
                         + (assignee ? '<span style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;">' + avatarHTML(assignee.full_name, assignee.avatar_color, 14, assignee.avatar_url) + assignee.full_name.split(' ')[0] + '</span>' : '')
                         + (deadline.text ? '<span style="font-size:11px;color:var(--' + deadline.class + ');font-weight:600;">📅 ' + deadline.text + '</span>' : '')
                         + ((s.comment_count && s.comment_count > 0)
-                            ? '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#3b82f6;font-weight:600;background:#eff6ff;padding:2px 7px;border-radius:10px;cursor:pointer;position:relative;">💬 ' + s.comment_count
-                                + ((s.unread_count && s.unread_count > 0) ? ' <span style="display:inline-block;min-width:16px;height:16px;line-height:16px;padding:0 5px;background:#ef4444;color:white;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle;">' + s.unread_count + '</span>' : '')
-                                + '</span>'
-                            : '<span onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="font-size:11px;color:#94a3b8;font-weight:500;cursor:pointer;">💬 Обсудить</span>')
+                            ? '<button type="button" onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#3b82f6;font-weight:700;background:#eff6ff;border:1px solid #dbeafe;padding:3px 10px;border-radius:12px;cursor:pointer;transition:all 0.15s;position:relative;" onmouseenter="this.style.background=\'#dbeafe\';this.style.borderColor=\'#bfdbfe\'" onmouseleave="this.style.background=\'#eff6ff\';this.style.borderColor=\'#dbeafe\'">💬 ' + s.comment_count
+                                + ((s.unread_count && s.unread_count > 0) ? ' <span style="display:inline-block;min-width:16px;height:16px;line-height:16px;padding:0 5px;background:#ef4444;color:white;border-radius:8px;font-size:10px;font-weight:700;margin-left:2px;vertical-align:middle;">' + s.unread_count + '</span>' : '')
+                                + '</button>'
+                            : '<button type="button" onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;font-weight:600;background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 10px;border-radius:12px;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background=\'#eff6ff\';this.style.borderColor=\'#dbeafe\';this.style.color=\'#3b82f6\'" onmouseleave="this.style.background=\'#f1f5f9\';this.style.borderColor=\'#e2e8f0\';this.style.color=\'#64748b\'">💬 Обсудить</button>')
                     + '</div>'
                 + '</div>'
                 + '<button onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Обсуждение" style="width:26px;height:26px;border:none;background:none;color:#cbd5e1;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseenter="this.style.background=\'#eff6ff\';this.style.color=\'#3b82f6\'" onmouseleave="this.style.background=\'none\';this.style.color=\'#cbd5e1\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button>'
@@ -8812,6 +8823,17 @@ function renderSubtasks(parentTaskId) {
                 + '</div>';
         }).join('');
     }
+
+    // Сохраняем открытые inline-чаты подзадач: без этого renderSubtasks,
+    // который дёргается из _markSubtaskRead / sendSubtaskComment / toggleSubtaskDone,
+    // тупо затирает panel и визуально чат «мигает и исчезает».
+    var _keptChatPanels = {};
+    try {
+        container.querySelectorAll('.subtask-chat-panel').forEach(function(p) {
+            var sid = parseInt(p.dataset.subtaskId, 10);
+            if (sid) { _keptChatPanels[sid] = p; p.remove(); }
+        });
+    } catch (e) { /* noop */ }
 
     container.innerHTML =
         '<div style="background:white;border-radius:12px;padding:16px 18px;margin-bottom:14px;border:1px solid #e8ecf1;">'
@@ -8834,6 +8856,15 @@ function renderSubtasks(parentTaskId) {
             + '</div>'
             + listHtml
         + '</div>';
+
+    // Переприкрепляем сохранённые inline-чаты к соответствующим новым строкам.
+    try {
+        Object.keys(_keptChatPanels).forEach(function(sid) {
+            var newRow = container.querySelector('.subtask-row[data-sid="' + sid + '"]');
+            if (newRow) newRow.after(_keptChatPanels[sid]);
+            // если строки уже нет (подзадачу удалили) — panel не восстанавливаем.
+        });
+    } catch (e) { /* noop */ }
 
     // NOTE: autofocus removed — subtasks are now inline on the main tab
     // and auto-focusing would steal focus from the rest of the card.
