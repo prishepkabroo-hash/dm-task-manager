@@ -9749,6 +9749,12 @@ async function sendComment(taskId, prefix) {
 var _mentionState = { active: false, startIdx: -1, dropdown: null, items: [], selectedIdx: 0, inputEl: null };
 
 function initMentionDropdown(inputEl) {
+    // ОТКЛЮЧЕНО: в файле работает глобальный mention-механизм (IIFE в конце
+    // файла), который сам распознаёт chat-input'ы (#detailQuickComment,
+    // #tabCommentInput, stChat_input_*) и рисует красивый dropdown с
+    // аватарками. Два параллельных механизма давали двойной dropdown при
+    // вводе '@'. Остальное тело функции — dead code, оставлено для истории.
+    return;
     if (inputEl._mentionInit) return;
     inputEl._mentionInit = true;
     // Wrap input in relative container if needed
