@@ -238,6 +238,7 @@ def _run_ddl(cur, sql):
 
 def init_db():
     conn = get_db()
+    conn.autocommit = True  # init_db: каждая команда сама по себе, чтобы один упавший SELECT не ломал всю транзакцию
     c = conn.cursor()
     _run_ddl(c, """
     CREATE TABLE IF NOT EXISTS departments (
