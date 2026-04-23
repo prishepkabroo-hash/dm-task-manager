@@ -232,8 +232,7 @@ def init_db():
         name TEXT NOT NULL UNIQUE,
         head_name TEXT,
         color TEXT DEFAULT '#1a1a1a',
-        head_user_id INTEGER,
-        FOREIGN KEY (head_user_id) REFERENCES users(id)
+        head_user_id INTEGER
     );
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
