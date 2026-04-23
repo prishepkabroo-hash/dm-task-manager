@@ -9009,8 +9009,18 @@ function openSubtaskFull(subtaskId) {
         if (inp) {
             initMentionDropdown(inp);
             var draft = _loadChatDraft(subtaskId);
-            if (draft) { inp.value = draft; _chatAutogrow(inp); }
+            if (draft) {
+                inp.value = draft;
+                _chatAutogrow(inp);
+                // Курсор — в конец восстановленного текста, иначе он будет в 0.
+                try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e) {}
+            }
             inp.focus();
+            // Триггерим input-event, чтобы глобальный mention-механизм
+            // увидел уже стоящий '@' в черновике и сам открыл dropdown.
+            if (draft) {
+                try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
+            }
         }
     }, 50);
 }
@@ -12867,8 +12877,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.addEventListener('input', _handleInput, true);
     document.addEventListener('keydown', _handleKeydown, true);
     document.addEventListener('click', _handleClick, true);
-    // При скролле или ресайзе прячем дропдаун (иначе висит не там)
-    window.addEventListener('scroll', function() { if (_isOpen()) _hide(); }, true);
+    // Скролл страницы/модалки — НЕ прячем dropdown, а переносим его за textarea.
+    // Скролл внутри самого dd (колесиком по списку) игнорируем полностью.
+    window.addEventListener('scroll', function(e) {
+        if (!_isOpen()) return;
+        var t = e.target;
+        // Скролл внутри dd — ничего не делаем, даём пользователю листать список
+        if (_dd && (t === _dd || (_dd.contains && _dd.contains(t)))) return;
+        // Скролл внешний — dropdown «прилипает» к поля ввода, а не прячется
+        if (_target) _positionUnder(_target);
+    }, true);
     window.addEventListener('resize', function() { if (_isOpen()) _hide(); });
 })();
 
