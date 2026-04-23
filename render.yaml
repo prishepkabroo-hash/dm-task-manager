@@ -1,25 +1,18 @@
-# Render Blueprint — Persistent Disk для SQLite-файла.
-# После пуша этого файла зайди в Render Dashboard → Settings сервиса и убедись что:
-#  • Plan = Starter (или выше — на Free disk'ов нет)
-#  • Disk: mountPath=/data, size=1GB (должен создаться автоматически из этого файла)
-#  • Env var: DB_PATH=/data/dm_tasks.db (тоже должен подтянуться отсюда)
-# Если сервис ранее создан без Blueprint — зайти в Render → Blueprints → New
-# → подключить git-репо, или прописать Disk и env vars вручную.
+# Render Blueprint — БД теперь внешняя (Neon/Postgres), локальный диск не нужен.
+# В Render Dashboard → Environment добавь переменную:
+#   DATABASE_URL = postgresql://user:pass@host/neondb?sslmode=require
+# (строку возьми в Neon → Connection Details)
 
 services:
   - type: web
     name: dm-task-manager
     runtime: python
-    plan: starter
-    buildCommand: "pip install -r requirements.txt || true"
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "python server.py"
     autoDeploy: true
     envVars:
-      - key: DB_PATH
-        value: /data/dm_tasks.db
       - key: PYTHON_VERSION
         value: 3.11.9
-    disk:
-      name: dm-data
-      mountPath: /data
-      sizeGB: 1
+      # DATABASE_URL задаётся руками в Render Dashboard — в yaml его не храним,
+      # чтобы строка с паролем не попала в git.

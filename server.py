@@ -7,7 +7,8 @@ Dudarev Motorsport — Таск-менеджер v4
 
 import http.server
 import json
-import sqlite3
+import psycopg
+from psycopg.rows import dict_row as _dict_row
 import hashlib
 import secrets
 import os
@@ -62,11 +63,48 @@ def _sanitize_text(s):
         return s
     return _HTML_TAG_RE.sub('', s)
 
+class _SqliteCompatRow:
+    """Строка с доступом и по имени колонки (row["col"]), и по индексу (row[0]).
+    Имитирует sqlite3.Row, чтобы старый код работал без правок."""
+    __slots__ = ("_d", "_v")
+    def __init__(self, d, v):
+        self._d = d
+        self._v = v
+    def __getitem__(self, k):
+        if isinstance(k, int):
+            return self._v[k]
+        if k in self._d:
+            return self._d[k]
+        raise KeyError(k)
+    def __contains__(self, k):
+        return k in self._d
+    def __iter__(self):
+        return iter(self._v)
+    def __len__(self):
+        return len(self._v)
+    def get(self, k, default=None):
+        return self._d.get(k, default) if not isinstance(k, int) else (self._v[k] if 0 <= k < len(self._v) else default)
+    def keys(self):
+        return self._d.keys()
+    def values(self):
+        return self._v
+    def items(self):
+        return self._d.items()
+
+
+def _sqlite_compat_row_factory(cursor):
+    desc = cursor.description
+    cols = [d.name for d in desc] if desc else []
+    def make(values):
+        return _SqliteCompatRow(dict(zip(cols, values)), values)
+    return make
+
+
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
+    dsn = os.environ.get("DATABASE_URL")
+    if not dsn:
+        raise RuntimeError("DATABASE_URL не задан. Укажи строку подключения Postgres (например, из Neon).")
+    conn = psycopg.connect(dsn, row_factory=_sqlite_compat_row_factory, autocommit=False)
     return conn
 
 def load_sessions_from_db():
@@ -86,7 +124,7 @@ def load_sessions_from_db():
 def save_session_to_db(token, user_id, username, role):
     try:
         conn = get_db()
-        conn.execute("INSERT OR REPLACE INTO sessions_db (token, user_id, username, role) VALUES (?,?,?,?)",
+        conn.execute("INSERT INTO sessions_db (token, user_id, username, role) VALUES (%s,%s,%s,%s) ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, username=EXCLUDED.username, role=EXCLUDED.role",
                      (token, user_id, username, role))
         conn.commit(); conn.close()
     except Exception as e:
@@ -95,7 +133,7 @@ def save_session_to_db(token, user_id, username, role):
 def delete_session_from_db(token):
     try:
         conn = get_db()
-        conn.execute("DELETE FROM sessions_db WHERE token=?", (token,))
+        conn.execute("DELETE FROM sessions_db WHERE token=%s", (token,))
         conn.commit(); conn.close()
     except Exception as e:
         print(f"delete_session_from_db: {e}")
@@ -136,7 +174,7 @@ def load_sessions_from_db():
         try:
             conn.execute(
                 "DELETE FROM sessions_db WHERE created_at IS NOT NULL "
-                "AND datetime(created_at, '+' || ? || ' days') < datetime('now')",
+                "AND datetime(created_at, '+' || %s || ' days') < datetime('now')",
                 (SESSION_TTL_DAYS,)
             )
             conn.commit()
@@ -154,7 +192,7 @@ def load_sessions_from_db():
 def save_session_to_db(token, user_id, username, role):
     try:
         conn = get_db()
-        conn.execute("INSERT OR REPLACE INTO sessions_db (token, user_id, username, role) VALUES (?,?,?,?)",
+        conn.execute("INSERT INTO sessions_db (token, user_id, username, role) VALUES (%s,%s,%s,%s) ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, username=EXCLUDED.username, role=EXCLUDED.role",
                      (token, user_id, username, role))
         conn.commit(); conn.close()
     except Exception as e:
@@ -163,7 +201,7 @@ def save_session_to_db(token, user_id, username, role):
 def delete_session_from_db(token):
     try:
         conn = get_db()
-        conn.execute("DELETE FROM sessions_db WHERE token=?", (token,))
+        conn.execute("DELETE FROM sessions_db WHERE token=%s", (token,))
         conn.commit(); conn.close()
     except Exception as e:
         print(f"delete_session_from_db: {e}")
@@ -188,9 +226,9 @@ def _clear_login_attempts(ip):
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    c.executescript("""
+    c.execute("""
     CREATE TABLE IF NOT EXISTS departments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         head_name TEXT,
         color TEXT DEFAULT '#1a1a1a',
@@ -198,7 +236,7 @@ def init_db():
         FOREIGN KEY (head_user_id) REFERENCES users(id)
     );
     CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         username TEXT NOT NULL UNIQUE,
         full_name TEXT NOT NULL,
         password_hash TEXT NOT NULL,
@@ -210,7 +248,7 @@ def init_db():
         FOREIGN KEY (department_id) REFERENCES departments(id)
     );
     CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         description TEXT DEFAULT '',
         status TEXT DEFAULT 'new',
@@ -226,7 +264,7 @@ def init_db():
         FOREIGN KEY (department_id) REFERENCES departments(id)
     );
     CREATE TABLE IF NOT EXISTS task_watchers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         task_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
@@ -234,7 +272,7 @@ def init_db():
         UNIQUE(task_id, user_id)
     );
     CREATE TABLE IF NOT EXISTS task_coexecutors (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         task_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
@@ -242,7 +280,7 @@ def init_db():
         UNIQUE(task_id, user_id)
     );
     CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         task_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
         text TEXT NOT NULL,
@@ -251,7 +289,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id)
     );
     CREATE TABLE IF NOT EXISTS notifications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
         task_id INTEGER,
         type TEXT NOT NULL,
@@ -262,7 +300,7 @@ def init_db():
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS task_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         task_id INTEGER NOT NULL,
         sender_id INTEGER NOT NULL,
         recipient_id INTEGER NOT NULL,
@@ -274,7 +312,7 @@ def init_db():
         FOREIGN KEY (recipient_id) REFERENCES users(id)
     );
     CREATE TABLE IF NOT EXISTS task_activity (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         task_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
         action TEXT NOT NULL,
@@ -284,7 +322,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id)
     );
     CREATE TABLE IF NOT EXISTS direct_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         sender_id INTEGER NOT NULL,
         recipient_id INTEGER NOT NULL,
         text TEXT NOT NULL,
@@ -305,7 +343,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS achievements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
         type TEXT NOT NULL,
         name TEXT NOT NULL,
@@ -316,7 +354,7 @@ def init_db():
         UNIQUE(user_id, type)
     );
     CREATE TABLE IF NOT EXISTS feedback (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
         text TEXT NOT NULL,
         rating INTEGER DEFAULT 0,
@@ -324,7 +362,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS group_chats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         created_by INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -337,7 +375,7 @@ def init_db():
         PRIMARY KEY (group_id, user_id)
     );
     CREATE TABLE IF NOT EXISTS group_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         group_id INTEGER NOT NULL,
         sender_id INTEGER NOT NULL,
         text TEXT NOT NULL,
@@ -346,37 +384,22 @@ def init_db():
     """)
 
     # Migrate: add onboarding_done column if missing
-    try:
-        c.execute("SELECT onboarding_done FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE users ADD COLUMN onboarding_done INTEGER DEFAULT 0")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_done INTEGER DEFAULT 0")
 
     # Migrate: add admin_onboarding_done column if missing
-    try:
-        c.execute("SELECT admin_onboarding_done FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE users ADD COLUMN admin_onboarding_done INTEGER DEFAULT 0")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_onboarding_done INTEGER DEFAULT 0")
 
     # Fix: mark existing admin users as onboarding complete
     c.execute("UPDATE users SET onboarding_done=1, admin_onboarding_done=1 WHERE role='admin' AND admin_onboarding_done=0")
 
     # Migrate: add role column if missing
-    try:
-        c.execute("SELECT role FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'member'")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'member'")
 
     # Migrate: add parent_task_id column to tasks (for subtasks)
-    try:
-        c.execute("SELECT parent_task_id FROM tasks LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER DEFAULT NULL")
+    c.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_task_id INTEGER DEFAULT NULL")
 
     # Migrate: add sort_order column to tasks (for subtask reordering)
-    try:
-        c.execute("SELECT sort_order FROM tasks LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0")
+    c.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0")
 
     # Migrate: persistent sessions table (survives server restart)
     try:
@@ -403,28 +426,19 @@ def init_db():
         )""")
 
     # Migrate: add attachment columns to comments (files, voice)
-    try:
-        c.execute("SELECT attachment_data FROM comments LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comments ADD COLUMN attachment_data TEXT DEFAULT NULL")
-    try:
-        c.execute("SELECT attachment_name FROM comments LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comments ADD COLUMN attachment_name TEXT DEFAULT NULL")
-    try:
-        c.execute("SELECT attachment_type FROM comments LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE comments ADD COLUMN attachment_type TEXT DEFAULT NULL")
+    c.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_data TEXT DEFAULT NULL")
+    c.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_name TEXT DEFAULT NULL")
+    c.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_type TEXT DEFAULT NULL")
     # Migrate: add edited_at to comments (for "(изменено)" badge)
     try:
         c.execute("SELECT edited_at FROM comments LIMIT 1")
-    except sqlite3.OperationalError:
+    except Exception:
         try: c.execute("ALTER TABLE comments ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
         except: pass
     # Migrate: task_reads — per-user last-read marker per task (for unread badge in chat)
     try:
         c.execute("SELECT task_id FROM task_reads LIMIT 1")
-    except sqlite3.OperationalError:
+    except Exception:
         c.execute("""CREATE TABLE IF NOT EXISTS task_reads (
             task_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
@@ -435,13 +449,13 @@ def init_db():
     # Migrate: add edited_at to comments (for "(изменено)" badge)
     try:
         c.execute("SELECT edited_at FROM comments LIMIT 1")
-    except sqlite3.OperationalError:
+    except Exception:
         try: c.execute("ALTER TABLE comments ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
         except: pass
     # Migrate: task_reads — per-user last-read marker per task (for unread badge in chat)
     try:
         c.execute("SELECT task_id FROM task_reads LIMIT 1")
-    except sqlite3.OperationalError:
+    except Exception:
         c.execute("""CREATE TABLE IF NOT EXISTS task_reads (
             task_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
@@ -451,99 +465,81 @@ def init_db():
         )""")
 
     # Migrate: create task_messages table if missing
-    try:
-        c.execute("SELECT 1 FROM task_messages LIMIT 1")
-    except sqlite3.OperationalError:
-        c.executescript("""
-        CREATE TABLE task_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            task_id INTEGER NOT NULL,
-            sender_id INTEGER NOT NULL,
-            recipient_id INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            is_read INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-            FOREIGN KEY (sender_id) REFERENCES users(id),
-            FOREIGN KEY (recipient_id) REFERENCES users(id)
-        );
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS task_messages (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        recipient_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES users(id),
+        FOREIGN KEY (recipient_id) REFERENCES users(id)
+    );
+    """)
 
     # Migrate: create task_activity table if missing
-    try:
-        c.execute("SELECT 1 FROM task_activity LIMIT 1")
-    except sqlite3.OperationalError:
-        c.executescript("""
-        CREATE TABLE task_activity (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            task_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            action TEXT NOT NULL,
-            details TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS task_activity (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        details TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    """)
 
     # Migrate: create direct_messages table if missing
-    try:
-        c.execute("SELECT 1 FROM direct_messages LIMIT 1")
-    except sqlite3.OperationalError:
-        c.executescript("""
-        CREATE TABLE direct_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender_id INTEGER NOT NULL,
-            recipient_id INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            is_read INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (sender_id) REFERENCES users(id),
-            FOREIGN KEY (recipient_id) REFERENCES users(id)
-        );
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS direct_messages (
+        id SERIAL PRIMARY KEY,
+        sender_id INTEGER NOT NULL,
+        recipient_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id),
+        FOREIGN KEY (recipient_id) REFERENCES users(id)
+    );
+    """)
 
     # Migrate: create user_stats table if missing
-    try:
-        c.execute("SELECT 1 FROM user_stats LIMIT 1")
-    except sqlite3.OperationalError:
-        c.executescript("""
-        CREATE TABLE user_stats (
-            user_id INTEGER UNIQUE NOT NULL,
-            total_km REAL DEFAULT 0,
-            level TEXT DEFAULT 'Босоногий',
-            tasks_completed INTEGER DEFAULT 0,
-            tasks_created INTEGER DEFAULT 0,
-            comments_count INTEGER DEFAULT 0,
-            streak_days INTEGER DEFAULT 0,
-            last_active DATE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS user_stats (
+        user_id INTEGER UNIQUE NOT NULL,
+        total_km REAL DEFAULT 0,
+        level TEXT DEFAULT 'Босоногий',
+        tasks_completed INTEGER DEFAULT 0,
+        tasks_created INTEGER DEFAULT 0,
+        comments_count INTEGER DEFAULT 0,
+        streak_days INTEGER DEFAULT 0,
+        last_active DATE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    """)
 
     # Migrate: create achievements table if missing
-    try:
-        c.execute("SELECT 1 FROM achievements LIMIT 1")
-    except sqlite3.OperationalError:
-        c.executescript("""
-        CREATE TABLE achievements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL,
-            icon TEXT,
-            earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            UNIQUE(user_id, type)
-        );
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS achievements (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        icon TEXT,
+        earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, type)
+    );
+    """)
 
     # Migrate: add car_override column to user_stats if missing
-    try:
-        c.execute("SELECT car_override FROM user_stats LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE user_stats ADD COLUMN car_override TEXT DEFAULT ''")
+    c.execute("ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS car_override TEXT DEFAULT ''")
 
     # Migrate: add switch_car permission if missing (table may not exist yet on fresh DB)
     try:
@@ -556,62 +552,50 @@ def init_db():
         # Migrate: add new permissions if missing
         for perm, admin_val in [('manage_kanban', 1), ('view_all_departments', 1), ('view_feedback', 1)]:
             if perm not in existing_perms:
-                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', ?, ?)", (perm, admin_val))
-                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', ?, 0)", (perm,))
-                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', ?, 0)", (perm,))
-    except sqlite3.OperationalError:
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('admin', %s, %s)", (perm, admin_val))
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('head', %s, 0)", (perm,))
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES ('member', %s, 0)", (perm,))
+    except Exception:
         pass  # table will be created below and seeded with defaults
 
     # Migrate: add head_user_id column to departments if missing
-    try:
-        c.execute("SELECT head_user_id FROM departments LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE departments ADD COLUMN head_user_id INTEGER")
+    c.execute("ALTER TABLE departments ADD COLUMN IF NOT EXISTS head_user_id INTEGER")
 
     # Migrate: add avatar_url column if missing
-    try:
-        c.execute("SELECT avatar_url FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''")
 
     # Migrate: create group_chats table if missing
-    try:
-        c.execute("SELECT 1 FROM group_chats LIMIT 1")
-    except sqlite3.OperationalError:
-        c.executescript("""
-        CREATE TABLE group_chats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_by INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            avatar_color TEXT DEFAULT '#6366f1'
-        );
-        CREATE TABLE group_chat_members (
-            group_id INTEGER,
-            user_id INTEGER,
-            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (group_id, user_id)
-        );
-        CREATE TABLE group_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            group_id INTEGER NOT NULL,
-            sender_id INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS group_chats (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        avatar_color TEXT DEFAULT '#6366f1'
+    );
+    CREATE TABLE IF NOT EXISTS group_chat_members (
+        group_id INTEGER,
+        user_id INTEGER,
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (group_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS group_messages (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
 
     # Migrate: add old_value and new_value columns to task_activity if missing
-    try:
-        c.execute("SELECT old_value FROM task_activity LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE task_activity ADD COLUMN old_value TEXT")
-        c.execute("ALTER TABLE task_activity ADD COLUMN new_value TEXT")
+    c.execute("ALTER TABLE task_activity ADD COLUMN IF NOT EXISTS old_value TEXT")
+    c.execute("ALTER TABLE task_activity ADD COLUMN IF NOT EXISTS new_value TEXT")
 
     # Create role_permissions table
     c.execute("""
     CREATE TABLE IF NOT EXISTS role_permissions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         role TEXT NOT NULL,
         permission TEXT NOT NULL,
         allowed INTEGER DEFAULT 1,
@@ -630,7 +614,7 @@ def init_db():
             all_perms = ['view_all_tasks','create_tasks','assign_tasks','comments','analytics','manage_users','manage_departments','delete_users','leaderboard','switch_car','manage_kanban','view_all_departments','view_feedback']
             for p in all_perms:
                 allowed = 1 if p in perms else 0
-                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (?,?,?)", (role, p, allowed))
+                c.execute("INSERT INTO role_permissions (role, permission, allowed) VALUES (%s,%s,%s)", (role, p, allowed))
 
     # Seed departments
     existing = c.execute("SELECT COUNT(*) FROM departments").fetchone()[0]
@@ -641,15 +625,15 @@ def init_db():
             ("Технический отдел", None, "#d97706"),
             ("Клуб", "Егор Паршин", "#7c3aed"),
         ]:
-            c.execute("INSERT INTO departments (name, head_name, color) VALUES (?,?,?)", (name, head, color))
+            c.execute("INSERT INTO departments (name, head_name, color) VALUES (%s,%s,%s)", (name, head, color))
 
     # Migrate: create funnel_stages table
     try:
         c.execute("SELECT 1 FROM funnel_stages LIMIT 1")
-    except sqlite3.OperationalError:
+    except Exception:
         c.execute("""
             CREATE TABLE funnel_stages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 key TEXT NOT NULL,
                 label TEXT NOT NULL,
                 color TEXT DEFAULT '#3b82f6',
@@ -666,27 +650,25 @@ def init_db():
             ('in_progress', 'В работе', '#f59e0b', '⚡'),
             ('done', 'Готово', '#22c55e', '✅'),
         ]):
-            c.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (?,?,?,?,?,?)",
+            c.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (%s,%s,%s,%s,%s,%s)",
                        (key, label, color, icon, sort_order, None))
         # Migrate existing tasks from 'review' to 'in_progress'
         c.execute("UPDATE tasks SET status='in_progress' WHERE status='review'")
 
-    # Migrate: add department_id to funnel_stages
+    # Migrate: add department_id to funnel_stages (idempotent)
+    c.execute("ALTER TABLE funnel_stages ADD COLUMN IF NOT EXISTS department_id INTEGER DEFAULT NULL")
+    # FK на departments — в Postgres добавим отдельным constraint, если ещё нет.
     try:
-        c.execute("SELECT department_id FROM funnel_stages LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE funnel_stages ADD COLUMN department_id INTEGER DEFAULT NULL")
-        try:
-            c.execute("ALTER TABLE funnel_stages ADD FOREIGN KEY (department_id) REFERENCES departments(id)")
-        except:
-            pass
-        # Copy existing global stages to each department (same keys, different department_id)
-        depts = c.execute("SELECT id FROM departments").fetchall()
-        global_stages = c.execute("SELECT key, label, color, icon, sort_order FROM funnel_stages WHERE department_id IS NULL").fetchall()
-        for dept in depts:
-            for s in global_stages:
-                c.execute("INSERT OR IGNORE INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (?,?,?,?,?,?)",
-                    (s[0], s[1], s[2], s[3], s[4], dept[0]))
+        c.execute("ALTER TABLE funnel_stages ADD CONSTRAINT funnel_stages_dept_fk FOREIGN KEY (department_id) REFERENCES departments(id)")
+    except Exception:
+        pass
+    # Copy existing global stages to each department (ON CONFLICT DO NOTHING — идемпотентно)
+    depts = c.execute("SELECT id FROM departments").fetchall()
+    global_stages = c.execute("SELECT key, label, color, icon, sort_order FROM funnel_stages WHERE department_id IS NULL").fetchall()
+    for dept in depts:
+        for s in global_stages:
+            c.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                (s[0], s[1], s[2], s[3], s[4], dept[0]))
 
     # Migrate: fix funnel_stages — rename dept-suffixed keys and fix UNIQUE constraint
     # This fixes the bug where department stages had keys like 'new_dept1' but tasks used 'new'
@@ -697,18 +679,37 @@ def init_db():
             for row in bad_keys:
                 # Strip the _deptN suffix: 'new_dept1' -> 'new', 'in_progress_dept2' -> 'in_progress'
                 clean_key = re.sub(r'_dept\d+$', '', row[1])
-                c.execute("UPDATE funnel_stages SET key=? WHERE id=?", (clean_key, row[0]))
+                c.execute("UPDATE funnel_stages SET key=%s WHERE id=%s", (clean_key, row[0]))
             conn.commit()
 
         # Check if UNIQUE constraint is on (key) alone instead of (key, department_id)
         # by trying to see the table schema
-        schema = c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='funnel_stages'").fetchone()
-        if schema and 'UNIQUE(key)' in schema[0].replace(' ', '') and 'UNIQUE(key,department_id)' not in schema[0].replace(' ', ''):
+        # В Postgres DDL нет в sqlite_master — смотрим в information_schema.
+        # Для funnel_stages проверим: есть ли UNIQUE constraint на (key) без department_id.
+        # Простое эмпирическое правило: если в таблице нет UNIQUE constraint вида
+        # (key, department_id) — пересобираем.
+        res = c.execute("""
+            SELECT constraint_name FROM information_schema.table_constraints
+            WHERE table_name='funnel_stages' AND constraint_type='UNIQUE'
+        """).fetchall()
+        # Смотрим какие столбцы включены в UNIQUE-констрейнты
+        has_compound_unique = False
+        for row in res:
+            cn = row[0]
+            cols = c.execute("""
+                SELECT column_name FROM information_schema.constraint_column_usage
+                WHERE constraint_name=%s
+            """, (cn,)).fetchall()
+            col_names = {r[0] for r in cols}
+            if 'key' in col_names and 'department_id' in col_names:
+                has_compound_unique = True
+                break
+        if not has_compound_unique:
             # Recreate table with correct UNIQUE constraint
             c.execute("ALTER TABLE funnel_stages RENAME TO funnel_stages_old")
             c.execute("""
                 CREATE TABLE funnel_stages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     key TEXT NOT NULL,
                     label TEXT NOT NULL,
                     color TEXT DEFAULT '#3b82f6',
@@ -728,11 +729,11 @@ def init_db():
         depts = c.execute("SELECT id FROM departments").fetchall()
         global_stages = c.execute("SELECT key, label, color, icon, sort_order FROM funnel_stages WHERE department_id IS NULL").fetchall()
         for dept in depts:
-            existing = c.execute("SELECT key FROM funnel_stages WHERE department_id=?", (dept[0],)).fetchall()
+            existing = c.execute("SELECT key FROM funnel_stages WHERE department_id=%s", (dept[0],)).fetchall()
             existing_keys = {r[0] for r in existing}
             for s in global_stages:
                 if s[0] not in existing_keys:
-                    c.execute("INSERT OR IGNORE INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (?,?,?,?,?,?)",
+                    c.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
                         (s[0], s[1], s[2], s[3], s[4], dept[0]))
         conn.commit()
     except Exception as e:
@@ -747,7 +748,7 @@ def init_db():
     try:
         c.execute("""
             CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 color TEXT DEFAULT '#3b82f6',
                 icon TEXT DEFAULT '',
@@ -818,7 +819,7 @@ def init_db():
 
     # Migrate: create message_reactions table
     c.execute("""CREATE TABLE IF NOT EXISTS message_reactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         message_type TEXT NOT NULL,
         message_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
@@ -829,7 +830,7 @@ def init_db():
 
     # Migrate: create pinned_messages table
     c.execute("""CREATE TABLE IF NOT EXISTS pinned_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         message_type TEXT NOT NULL,
         message_id INTEGER NOT NULL,
         chat_type TEXT NOT NULL,
@@ -839,34 +840,22 @@ def init_db():
     )""")
 
     # Migrate: add taken_at column to tasks (tracks when task was taken into work)
-    try:
-        c.execute("SELECT taken_at FROM tasks LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE tasks ADD COLUMN taken_at TIMESTAMP DEFAULT NULL")
+    c.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS taken_at TIMESTAMP DEFAULT NULL")
 
     # Migrate: add completed_at column to tasks (tracks when task was completed)
-    try:
-        c.execute("SELECT completed_at FROM tasks LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP DEFAULT NULL")
+    c.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL")
 
     # Migrate: add version column to tasks (optimistic locking).
     # Каждый UPDATE инкрементит version; PUT /api/tasks/{id} проверяет if_version.
-    try:
-        c.execute("SELECT version FROM tasks LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE tasks ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+    c.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 0")
 
     # Migrate: add km_awarded flag to tasks (чтобы не начислять km дважды
     # при последовательности done → new → done)
-    try:
-        c.execute("SELECT km_awarded FROM tasks LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE tasks ADD COLUMN km_awarded INTEGER DEFAULT 0")
+    c.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS km_awarded INTEGER DEFAULT 0")
 
     # Seed admin
     if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
-        c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO users (username, full_name, password_hash, role, avatar_color, onboarding_done, admin_onboarding_done) VALUES (%s,%s,%s,%s,%s,%s,%s)",
             ("admin", "Администратор", hash_password("admin123"), "admin", "#1a1a1a", 1, 1))
 
     # Seed команды DM: 6 аккаунтов, идемпотентно (INSERT OR IGNORE).
@@ -887,9 +876,9 @@ def init_db():
         did = _dept_id.get(dept_name) if dept_name else None
         try:
             c.execute(
-                "INSERT OR IGNORE INTO users "
+                "INSERT INTO users "
                 "(username, full_name, password_hash, department_id, role, avatar_color, onboarding_done) "
-                "VALUES (?,?,?,?,?,?,1)",
+                "VALUES (%s,%s,%s,%s,%s,%s,1) ON CONFLICT (username) DO NOTHING",
                 (username, full_name, hash_password(username + "123"), did, role, color)
             )
         except Exception:
@@ -899,10 +888,10 @@ def init_db():
     try:
         for username, full_name, role, dept_name, color in _seed_team:
             if role == "head" and dept_name:
-                u_row = c.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone()
+                u_row = c.execute("SELECT id FROM users WHERE username=%s", (username,)).fetchone()
                 if u_row:
                     c.execute(
-                        "UPDATE departments SET head_user_id=? WHERE name=? AND (head_user_id IS NULL OR head_user_id=0)",
+                        "UPDATE departments SET head_user_id=%s WHERE name=%s AND (head_user_id IS NULL OR head_user_id=0)",
                         (u_row[0], dept_name)
                     )
     except Exception:
@@ -911,9 +900,9 @@ def init_db():
     # user_stats для каждого
     for username, *_ in _seed_team:
         try:
-            u_row = c.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone()
+            u_row = c.execute("SELECT id FROM users WHERE username=%s", (username,)).fetchone()
             if u_row:
-                c.execute("INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)", (u_row[0],))
+                c.execute("INSERT INTO user_stats (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (u_row[0],))
         except Exception:
             pass
 
@@ -930,35 +919,35 @@ def generate_deadline_notifications():
     # Tasks due tomorrow
     tasks = conn.execute(
         "SELECT t.id, t.title, t.assigned_to, t.created_by FROM tasks t "
-        "WHERE t.deadline = ? AND t.status NOT IN ('done','cancelled')", (tomorrow,)
+        "WHERE t.deadline = %s AND t.status NOT IN ('done','cancelled')", (tomorrow,)
     ).fetchall()
     for t in tasks:
         for uid in set(filter(None, [t["assigned_to"], t["created_by"]])):
             existing = conn.execute(
-                "SELECT id FROM notifications WHERE task_id=? AND user_id=? AND type='deadline_soon' AND date(created_at)=date('now')", (t["id"], uid)
+                "SELECT id FROM notifications WHERE task_id=%s AND user_id=%s AND type='deadline_soon' AND date(created_at)=date('now')", (t["id"], uid)
             ).fetchone()
             if not existing:
-                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                     (uid, t["id"], "deadline_soon", f"Дедлайн завтра: {t['title']}"))
     # Overdue tasks
     tasks = conn.execute(
         "SELECT t.id, t.title, t.assigned_to, t.created_by FROM tasks t "
-        "WHERE t.deadline < ? AND t.status NOT IN ('done','cancelled')", (today,)
+        "WHERE t.deadline < %s AND t.status NOT IN ('done','cancelled')", (today,)
     ).fetchall()
     for t in tasks:
         for uid in set(filter(None, [t["assigned_to"], t["created_by"]])):
             existing = conn.execute(
-                "SELECT id FROM notifications WHERE task_id=? AND user_id=? AND type='overdue' AND date(created_at)=date('now')", (t["id"], uid)
+                "SELECT id FROM notifications WHERE task_id=%s AND user_id=%s AND type='overdue' AND date(created_at)=date('now')", (t["id"], uid)
             ).fetchone()
             if not existing:
-                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                     (uid, t["id"], "overdue", f"Просрочена: {t['title']}"))
     conn.commit()
     conn.close()
 
 def log_activity(conn, task_id, user_id, action, details=None, old_value=None, new_value=None):
     """Log an activity to the task_activity table."""
-    conn.execute("INSERT INTO task_activity (task_id, user_id, action, details, old_value, new_value) VALUES (?,?,?,?,?,?)",
+    conn.execute("INSERT INTO task_activity (task_id, user_id, action, details, old_value, new_value) VALUES (%s,%s,%s,%s,%s,%s)",
         (task_id, user_id, action, details, old_value, new_value))
 
 def _can_access_task(conn, user_id, task_id):
@@ -967,10 +956,10 @@ def _can_access_task(conn, user_id, task_id):
     Member — только где он создатель/исполнитель/наблюдатель/соисполнитель.
     Возвращает (task_row или None, allowed: bool).
     """
-    task = conn.execute("SELECT id, created_by, assigned_to, department_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+    task = conn.execute("SELECT id, created_by, assigned_to, department_id FROM tasks WHERE id=%s", (task_id,)).fetchone()
     if not task:
         return (None, False)
-    user_row = conn.execute("SELECT role, department_id FROM users WHERE id=?", (user_id,)).fetchone()
+    user_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (user_id,)).fetchone()
     if not user_row:
         return (task, False)
     role = user_row["role"]
@@ -980,10 +969,10 @@ def _can_access_task(conn, user_id, task_id):
         return (task, True)
     if user_id in (task["created_by"], task["assigned_to"]):
         return (task, True)
-    is_watcher = conn.execute("SELECT 1 FROM task_watchers WHERE task_id=? AND user_id=?", (task_id, user_id)).fetchone()
+    is_watcher = conn.execute("SELECT 1 FROM task_watchers WHERE task_id=%s AND user_id=%s", (task_id, user_id)).fetchone()
     if is_watcher:
         return (task, True)
-    is_coexec = conn.execute("SELECT 1 FROM task_coexecutors WHERE task_id=? AND user_id=?", (task_id, user_id)).fetchone()
+    is_coexec = conn.execute("SELECT 1 FROM task_coexecutors WHERE task_id=%s AND user_id=%s", (task_id, user_id)).fetchone()
     if is_coexec:
         return (task, True)
     return (task, False)
@@ -1078,29 +1067,29 @@ def get_next_level(total_km):
 
 def ensure_user_stats(conn, user_id):
     """Ensure a user has a stats row."""
-    existing = conn.execute("SELECT user_id FROM user_stats WHERE user_id=?", (user_id,)).fetchone()
+    existing = conn.execute("SELECT user_id FROM user_stats WHERE user_id=%s", (user_id,)).fetchone()
     if not existing:
-        conn.execute("INSERT INTO user_stats (user_id, total_km, level, tasks_completed, tasks_created, comments_count, streak_days, last_active) VALUES (?,?,?,?,?,?,?,?)",
+        conn.execute("INSERT INTO user_stats (user_id, total_km, level, tasks_completed, tasks_created, comments_count, streak_days, last_active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (user_id, 0, "Босоногий", 0, 0, 0, 0, str(date.today())))
 
 def update_km(conn, user_id, km_amount):
     """Add km to a user's total and update level."""
     ensure_user_stats(conn, user_id)
-    conn.execute("UPDATE user_stats SET total_km = total_km + ? WHERE user_id=?", (km_amount, user_id))
-    stats = conn.execute("SELECT total_km FROM user_stats WHERE user_id=?", (user_id,)).fetchone()
+    conn.execute("UPDATE user_stats SET total_km = total_km + %s WHERE user_id=%s", (km_amount, user_id))
+    stats = conn.execute("SELECT total_km FROM user_stats WHERE user_id=%s", (user_id,)).fetchone()
     new_level = get_level_from_km(stats["total_km"])
-    conn.execute("UPDATE user_stats SET level=? WHERE user_id=?", (new_level, user_id))
+    conn.execute("UPDATE user_stats SET level=%s WHERE user_id=%s", (new_level, user_id))
 
 def check_and_award_achievements(conn, user_id):
     """Check and award achievements for a user."""
-    stats = conn.execute("SELECT * FROM user_stats WHERE user_id=?", (user_id,)).fetchone()
+    stats = conn.execute("SELECT * FROM user_stats WHERE user_id=%s", (user_id,)).fetchone()
     if not stats:
         return
 
     achievements_to_award = []
 
     def _has(t):
-        row = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type=?", (user_id, t)).fetchone()
+        row = conn.execute("SELECT id FROM achievements WHERE user_id=%s AND type=%s", (user_id, t)).fetchone()
         return bool(row)
 
     # first_task: complete first task
@@ -1157,7 +1146,7 @@ def check_and_award_achievements(conn, user_id):
     if not _has("perfectionist"):
         ontime = conn.execute(
             "SELECT COUNT(*) as c FROM tasks "
-            "WHERE assigned_to=? AND status='done' AND deadline IS NOT NULL "
+            "WHERE assigned_to=%s AND status='done' AND deadline IS NOT NULL "
             "AND DATE(updated_at) <= deadline",
             (user_id,)
         ).fetchone()
@@ -1168,7 +1157,7 @@ def check_and_award_achievements(conn, user_id):
     if not _has("priority_pro"):
         hp = conn.execute(
             "SELECT COUNT(*) as c FROM tasks "
-            "WHERE assigned_to=? AND status='done' AND priority='high'",
+            "WHERE assigned_to=%s AND status='done' AND priority='high'",
             (user_id,)
         ).fetchone()
         if hp and (hp["c"] or 0) >= 10:
@@ -1178,7 +1167,7 @@ def check_and_award_achievements(conn, user_id):
     if not _has("weekly_hero"):
         wh = conn.execute(
             "SELECT COUNT(*) as c FROM tasks "
-            "WHERE assigned_to=? AND status='done' "
+            "WHERE assigned_to=%s AND status='done' "
             "AND DATE(updated_at) >= DATE('now','-7 days')",
             (user_id,)
         ).fetchone()
@@ -1187,9 +1176,9 @@ def check_and_award_achievements(conn, user_id):
 
     for ach_type, ach_name, ach_desc in achievements_to_award:
         try:
-            conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+            conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (%s,%s,%s,%s)",
                 (user_id, ach_type, ach_name, ach_desc))
-        except sqlite3.IntegrityError:
+        except psycopg.errors.UniqueViolation:
             pass
 
 class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
@@ -1296,14 +1285,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            row = conn.execute("SELECT id, username, full_name, department_id, role, avatar_color, avatar_url, onboarding_done, admin_onboarding_done FROM users WHERE id=?", (u["id"],)).fetchone()
+            row = conn.execute("SELECT id, username, full_name, department_id, role, avatar_color, avatar_url, onboarding_done, admin_onboarding_done FROM users WHERE id=%s", (u["id"],)).fetchone()
             dept = None
             if row["department_id"]:
-                d = conn.execute("SELECT * FROM departments WHERE id=?", (row["department_id"],)).fetchone()
+                d = conn.execute("SELECT * FROM departments WHERE id=%s", (row["department_id"],)).fetchone()
                 dept = dict(d) if d else None
             # Fetch role permissions for current user's role
             role = row["role"] or "member"
-            perm_rows = conn.execute("SELECT permission, allowed FROM role_permissions WHERE role=?", (role,)).fetchall()
+            perm_rows = conn.execute("SELECT permission, allowed FROM role_permissions WHERE role=%s", (role,)).fetchall()
             my_perms = {p['permission']: bool(p['allowed']) for p in perm_rows}
             conn.close()
             return self._json({**dict(row), "department": dept, "permissions": my_perms})
@@ -1318,7 +1307,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if dept_id:
                 try:
                     dept_id = int(dept_id)
-                    rows = conn.execute("SELECT * FROM funnel_stages WHERE department_id=? ORDER BY sort_order", (dept_id,)).fetchall()
+                    rows = conn.execute("SELECT * FROM funnel_stages WHERE department_id=%s ORDER BY sort_order", (dept_id,)).fetchall()
                 except (ValueError, TypeError):
                     conn.close()
                     return self._json({"error": "invalid department_id"}, 400)
@@ -1373,7 +1362,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             conn.close()
             if not user_role or user_role["role"] != "admin":
                 return self._json({"error": "Forbidden: admin only"}, 403)
@@ -1389,7 +1378,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             conn.close()
             if not user_role or user_role["role"] != "admin":
                 return self._json({"error": "Forbidden"}, 403)
@@ -1435,7 +1424,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
 
             # Get user's role and department
-            user_row = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (u["id"],)).fetchone()
             user_role = user_row["role"] if user_row else "member"
             user_dept = user_row["department_id"] if user_row else None
 
@@ -1443,9 +1432,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 d.name as department_name, d.color as department_color,
                 (SELECT COUNT(*) FROM comments c WHERE c.task_id = t.id) as comment_count,
                 (SELECT COUNT(*) FROM comments c WHERE c.task_id = t.id
-                    AND c.user_id != ?
+                    AND c.user_id != %s
                     AND c.id > COALESCE((SELECT last_read_comment_id FROM task_reads
-                                         WHERE task_id = t.id AND user_id = ?), 0)
+                                         WHERE task_id = t.id AND user_id = %s), 0)
                 ) as unread_count
                 FROM tasks t LEFT JOIN users u1 ON t.created_by = u1.id
                 LEFT JOIN users u2 ON t.assigned_to = u2.id
@@ -1459,36 +1448,36 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             elif user_role == "head":
                 # Head sees: tasks in their department + tasks they created + tasks assigned to them + tasks where they're a watcher + tasks where they're a coexecutor
                 visibility = """(
-                    t.department_id = ? OR
-                    t.created_by = ? OR
-                    t.assigned_to = ? OR
-                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?) OR
-                    EXISTS (SELECT 1 FROM task_coexecutors tc WHERE tc.task_id = t.id AND tc.user_id = ?)
+                    t.department_id = %s OR
+                    t.created_by = %s OR
+                    t.assigned_to = %s OR
+                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = %s) OR
+                    EXISTS (SELECT 1 FROM task_coexecutors tc WHERE tc.task_id = t.id AND tc.user_id = %s)
                 )"""
                 conds.append(visibility)
                 params.extend([user_dept, u["id"], u["id"], u["id"], u["id"]])
             else:  # member
                 # Member sees: tasks assigned to them + tasks they created + tasks where they're a watcher + tasks where they're a coexecutor
                 visibility = """(
-                    t.assigned_to = ? OR
-                    t.created_by = ? OR
-                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?) OR
-                    EXISTS (SELECT 1 FROM task_coexecutors tc WHERE tc.task_id = t.id AND tc.user_id = ?)
+                    t.assigned_to = %s OR
+                    t.created_by = %s OR
+                    EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = %s) OR
+                    EXISTS (SELECT 1 FROM task_coexecutors tc WHERE tc.task_id = t.id AND tc.user_id = %s)
                 )"""
                 conds.append(visibility)
                 params.extend([u["id"], u["id"], u["id"], u["id"]])
 
             # Additional query params filter on top of visibility
-            if "department_id" in qs: conds.append("t.department_id = ?"); params.append(qs["department_id"][0])
-            if "assigned_to" in qs: conds.append("t.assigned_to = ?"); params.append(qs["assigned_to"][0])
-            if "status" in qs: conds.append("t.status = ?"); params.append(qs["status"][0])
+            if "department_id" in qs: conds.append("t.department_id = %s"); params.append(qs["department_id"][0])
+            if "assigned_to" in qs: conds.append("t.assigned_to = %s"); params.append(qs["assigned_to"][0])
+            if "status" in qs: conds.append("t.status = %s"); params.append(qs["status"][0])
             # Filter by category (M2M): if category_id is "none" → tasks without any category
             if "category_id" in qs:
                 cat_val = qs["category_id"][0]
                 if cat_val == "none":
                     conds.append("NOT EXISTS (SELECT 1 FROM task_categories tc WHERE tc.task_id = t.id)")
                 else:
-                    conds.append("EXISTS (SELECT 1 FROM task_categories tc WHERE tc.task_id = t.id AND tc.category_id = ?)")
+                    conds.append("EXISTS (SELECT 1 FROM task_categories tc WHERE tc.task_id = t.id AND tc.category_id = %s)")
                     params.append(cat_val)
             # Hide done tasks by default; include them only when ?include_done=1
             if qs.get("include_done", ["0"])[0] != "1":
@@ -1498,11 +1487,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if "filter" in qs:
                 filter_val = qs["filter"][0]
                 if filter_val == "my_tasks":
-                    conds.append("t.created_by = ?"); params.append(u["id"])
+                    conds.append("t.created_by = %s"); params.append(u["id"])
                 elif filter_val == "assigned_to_me":
-                    conds.append("t.assigned_to = ?"); params.append(u["id"])
+                    conds.append("t.assigned_to = %s"); params.append(u["id"])
                 elif filter_val == "watching":
-                    conds.append("EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = ?)")
+                    conds.append("EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = %s)")
                     params.append(u["id"])
 
             if conds: query += " WHERE " + " AND ".join(conds)
@@ -1516,15 +1505,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Attach watchers, coexecutors, categories
             for t in tasks:
                 watchers = conn.execute(
-                    "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (t["id"],)
+                    "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=%s", (t["id"],)
                 ).fetchall()
                 t["watchers"] = [dict(w) for w in watchers]
                 coexecs = conn.execute(
-                    "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=?", (t["id"],)
+                    "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=%s", (t["id"],)
                 ).fetchall()
                 t["coexecutors"] = [dict(c) for c in coexecs]
                 cats = conn.execute(
-                    "SELECT c.id, c.name, c.color, c.icon FROM task_categories tc JOIN categories c ON tc.category_id=c.id WHERE tc.task_id=?", (t["id"],)
+                    "SELECT c.id, c.name, c.color, c.icon FROM task_categories tc JOIN categories c ON tc.category_id=c.id WHERE tc.task_id=%s", (t["id"],)
                 ).fetchall()
                 t["categories"] = [dict(c) for c in cats]
             conn.close()
@@ -1542,7 +1531,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close(); return self._json({"error": "forbidden"}, 403)
             r = conn.execute(
                 "SELECT c.*, u.full_name as author_name, u.avatar_color FROM comments c "
-                "JOIN users u ON c.user_id = u.id WHERE c.task_id = ? ORDER BY c.created_at ASC", (task_id,)
+                "JOIN users u ON c.user_id = u.id WHERE c.task_id = %s ORDER BY c.created_at ASC", (task_id,)
             ).fetchall()
             conn.close()
             return self._json([dict(c) for c in r])
@@ -1562,7 +1551,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "a.old_value, a.new_value, u.full_name as user_name, u.avatar_color "
                 "FROM task_activity a "
                 "JOIN users u ON a.user_id = u.id "
-                "WHERE a.task_id = ? ORDER BY a.created_at ASC", (task_id,)
+                "WHERE a.task_id = %s ORDER BY a.created_at ASC", (task_id,)
             ).fetchall()
             conn.close()
             return self._json([dict(a) for a in r])
@@ -1578,7 +1567,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not _ok:
                 conn.close(); return self._json({"error": "forbidden"}, 403)
             r = conn.execute(
-                "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (task_id,)
+                "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=%s", (task_id,)
             ).fetchall()
             conn.close()
             return self._json([dict(w) for w in r])
@@ -1600,22 +1589,22 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "d.name as department_name, d.color as department_color "
                 "FROM tasks t LEFT JOIN users u1 ON t.created_by = u1.id "
                 "LEFT JOIN users u2 ON t.assigned_to = u2.id "
-                "LEFT JOIN departments d ON t.department_id = d.id WHERE t.id = ?", (task_id,)
+                "LEFT JOIN departments d ON t.department_id = d.id WHERE t.id = %s", (task_id,)
             ).fetchone()
             if not t:
                 conn.close()
                 return self._json({"error": "not found"}, 404)
             result = dict(t)
             watchers = conn.execute(
-                "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=?", (task_id,)
+                "SELECT u.id, u.full_name, u.avatar_color FROM task_watchers tw JOIN users u ON tw.user_id=u.id WHERE tw.task_id=%s", (task_id,)
             ).fetchall()
             result["watchers"] = [dict(w) for w in watchers]
             coexecs = conn.execute(
-                "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=?", (task_id,)
+                "SELECT u.id, u.full_name, u.avatar_color FROM task_coexecutors tc JOIN users u ON tc.user_id=u.id WHERE tc.task_id=%s", (task_id,)
             ).fetchall()
             result["coexecutors"] = [dict(c) for c in coexecs]
             cats = conn.execute(
-                "SELECT c.id, c.name, c.color, c.icon FROM task_categories tc JOIN categories c ON tc.category_id=c.id WHERE tc.task_id=?", (task_id,)
+                "SELECT c.id, c.name, c.color, c.icon FROM task_categories tc JOIN categories c ON tc.category_id=c.id WHERE tc.task_id=%s", (task_id,)
             ).fetchall()
             result["categories"] = [dict(c) for c in cats]
             conn.close()
@@ -1639,9 +1628,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
             r = conn.execute(
-                "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50", (u["id"],)
+                "SELECT * FROM notifications WHERE user_id=%s ORDER BY created_at DESC LIMIT 50", (u["id"],)
             ).fetchall()
-            unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (u["id"],)).fetchone()[0]
+            unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=%s AND is_read=0", (u["id"],)).fetchone()[0]
             conn.close()
             return self._json({"items": [dict(n) for n in r], "unread": unread})
 
@@ -1649,7 +1638,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not user_role or user_role["role"] not in ["admin", "head"]:
                 conn.close()
                 return self._json({"error": "Forbidden: admin or head only"}, 403)
@@ -1658,7 +1647,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             dept_filter = ""
             dept_params = []
             if user_role["role"] == "head":
-                dept_filter = " AND t.department_id = ?"
+                dept_filter = " AND t.department_id = %s"
                 dept_params = [user_role["department_id"]]
 
             # Basic stats
@@ -1668,7 +1657,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             tasks_by_status = {}
             for status in ["new", "in_progress", "review", "done", "cancelled"]:
                 count = conn.execute(
-                    f"SELECT COUNT(*) FROM tasks t WHERE t.status = ?{dept_filter}",
+                    f"SELECT COUNT(*) FROM tasks t WHERE t.status = %s{dept_filter}",
                     [status] + dept_params
                 ).fetchone()[0]
                 tasks_by_status[status] = count
@@ -1677,7 +1666,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             tasks_by_priority = {}
             for priority in ["low", "medium", "high"]:
                 count = conn.execute(
-                    f"SELECT COUNT(*) FROM tasks t WHERE t.priority = ?{dept_filter}",
+                    f"SELECT COUNT(*) FROM tasks t WHERE t.priority = %s{dept_filter}",
                     [priority] + dept_params
                 ).fetchone()[0]
                 tasks_by_priority[priority] = count
@@ -1718,8 +1707,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 """).fetchall()
                 tasks_by_dept = [{"department_name": d["name"], "count": d["count"]} for d in dept_tasks]
             else:
-                dept_row = conn.execute("SELECT name FROM departments WHERE id=?", [user_role["department_id"]]).fetchone()
-                count = conn.execute(f"SELECT COUNT(*) FROM tasks t WHERE t.department_id = ?{dept_filter}", dept_params).fetchone()[0]
+                dept_row = conn.execute("SELECT name FROM departments WHERE id=%s", [user_role["department_id"]]).fetchone()
+                count = conn.execute(f"SELECT COUNT(*) FROM tasks t WHERE t.department_id = %s{dept_filter}", dept_params).fetchone()[0]
                 if dept_row:
                     tasks_by_dept = [{"department_name": dept_row["name"], "count": count}]
 
@@ -1738,8 +1727,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 emp_tasks = conn.execute("""
                     SELECT u.full_name, COUNT(CASE WHEN t.assigned_to = u.id THEN 1 END) as assigned_count,
                            COUNT(CASE WHEN t.assigned_to = u.id AND t.status = 'done' THEN 1 END) as completed_count
-                    FROM users u LEFT JOIN tasks t ON t.assigned_to = u.id AND t.department_id = ?
-                    WHERE u.role IN ('member', 'head') AND u.department_id = ?
+                    FROM users u LEFT JOIN tasks t ON t.assigned_to = u.id AND t.department_id = %s
+                    WHERE u.role IN ('member', 'head') AND u.department_id = %s
                     GROUP BY u.id ORDER BY assigned_count DESC
                 """, [user_role["department_id"], user_role["department_id"]]).fetchall()
                 tasks_by_employee = [{"full_name": e["full_name"], "assigned_count": e["assigned_count"], "completed_count": e["completed_count"]} for e in emp_tasks]
@@ -1750,7 +1739,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 FROM task_activity a
                 JOIN users u ON a.user_id = u.id
                 LEFT JOIN tasks t ON a.task_id = t.id
-                {' WHERE t.department_id = ?' if user_role['role'] == 'head' else ''}
+                {' WHERE t.department_id = %s' if user_role['role'] == 'head' else ''}
                 ORDER BY a.created_at DESC LIMIT 20
             """, dept_params if user_role['role'] == 'head' else []).fetchall()
             recent_activity = [dict(a) for a in recent_activity]
@@ -1774,13 +1763,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             ensure_user_stats(conn, u["id"])
             # Recalculate level from km (handles legacy level names)
-            stats_row = conn.execute("SELECT total_km FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            stats_row = conn.execute("SELECT total_km FROM user_stats WHERE user_id=%s", (u["id"],)).fetchone()
             correct_level = get_level_from_km(stats_row["total_km"])
-            conn.execute("UPDATE user_stats SET level=? WHERE user_id=?", (correct_level, u["id"]))
+            conn.execute("UPDATE user_stats SET level=%s WHERE user_id=%s", (correct_level, u["id"]))
             conn.commit()
-            stats = conn.execute("SELECT * FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            stats = conn.execute("SELECT * FROM user_stats WHERE user_id=%s", (u["id"],)).fetchone()
             achievements = conn.execute(
-                "SELECT id, type, name, description, icon, earned_at FROM achievements WHERE user_id=? ORDER BY earned_at DESC",
+                "SELECT id, type, name, description, icon, earned_at FROM achievements WHERE user_id=%s ORDER BY earned_at DESC",
                 (u["id"],)
             ).fetchall()
             next_level = get_next_level(stats["total_km"])
@@ -1789,7 +1778,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             car_override = stats_dict.get('car_override', '') or ''
             # Check if user has switch_car permission
             role = u.get('role', 'member')
-            perm_row = conn.execute("SELECT allowed FROM role_permissions WHERE role=? AND permission='switch_car'", (role,)).fetchone()
+            perm_row = conn.execute("SELECT allowed FROM role_permissions WHERE role=%s AND permission='switch_car'", (role,)).fetchone()
             can_switch_car = bool(perm_row and perm_row['allowed'])
             conn.close()
             return self._json({
@@ -1808,7 +1797,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             all_stats = conn.execute("SELECT user_id, total_km FROM user_stats").fetchall()
             for row in all_stats:
                 correct = get_level_from_km(row["total_km"])
-                conn.execute("UPDATE user_stats SET level=? WHERE user_id=?", (correct, row["user_id"]))
+                conn.execute("UPDATE user_stats SET level=%s WHERE user_id=%s", (correct, row["user_id"]))
             conn.commit()
             leaderboard = conn.execute("""
                 SELECT u.id, u.full_name, u.avatar_color, s.total_km, s.level, s.tasks_completed,
@@ -1843,7 +1832,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Check view_feedback permission
             if role != 'admin':
                 conn_p = get_db()
-                perm_row = conn_p.execute("SELECT allowed FROM role_permissions WHERE role=? AND permission='view_feedback'", (role,)).fetchone()
+                perm_row = conn_p.execute("SELECT allowed FROM role_permissions WHERE role=%s AND permission='view_feedback'", (role,)).fetchone()
                 conn_p.close()
                 if not perm_row or not perm_row['allowed']:
                     return self._json({"error": "forbidden"}, 403)
@@ -1917,7 +1906,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
             # Delete old avatar
             conn = get_db()
-            old_url = conn.execute("SELECT avatar_url FROM users WHERE id=?", (u["id"],)).fetchone()
+            old_url = conn.execute("SELECT avatar_url FROM users WHERE id=%s", (u["id"],)).fetchone()
             if old_url and old_url["avatar_url"]:
                 old_file = os.path.join(upload_dir, os.path.basename(old_url["avatar_url"]))
                 if os.path.exists(old_file):
@@ -1928,7 +1917,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 f.write(file_data)
 
             avatar_url = f"/uploads/{filename}"
-            conn.execute("UPDATE users SET avatar_url=? WHERE id=?", (avatar_url, u["id"]))
+            conn.execute("UPDATE users SET avatar_url=%s WHERE id=%s", (avatar_url, u["id"]))
             conn.commit()
             conn.close()
             return self._json({"ok": True, "avatar_url": avatar_url})
@@ -1941,7 +1930,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not _check_login_rate_limit(ip):
                 return self._json({"error": "Слишком много попыток. Попробуйте через 5 минут."}, 429)
             conn = get_db()
-            user = conn.execute("SELECT * FROM users WHERE username = ?", (data.get("username", ""),)).fetchone()
+            user = conn.execute("SELECT * FROM users WHERE username = %s", (data.get("username", ""),)).fetchone()
             conn.close()
             if user and verify_password(data.get("password", ""), user["password_hash"]):
                 _clear_login_attempts(ip)
@@ -1967,15 +1956,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if len(password) < 4:
                 return self._json({"error": "Пароль минимум 4 символа"}, 400)
             conn = get_db()
-            if conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone():
+            if conn.execute("SELECT id FROM users WHERE username = %s", (username,)).fetchone():
                 conn.close()
                 return self._json({"error": "Пользователь уже существует"}, 400)
             colors = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#dc2626", "#0891b2", "#4f46e5"]
             color = colors[hash(username) % len(colors)]
             c = conn.execute(
-                "INSERT INTO users (username, full_name, password_hash, department_id, role, avatar_color, onboarding_done) VALUES (?,?,?,?,?,?,0)",
+                "INSERT INTO users (username, full_name, password_hash, department_id, role, avatar_color, onboarding_done) VALUES (%s,%s,%s,%s,%s,%s,0) RETURNING id",
                 (username, full_name, hash_password(password), department_id if department_id else None, "member", color))
-            uid = c.lastrowid
+            uid = c.fetchone()['id']
             ensure_user_stats(conn, uid)
             conn.commit(); conn.close()
             token = secrets.token_hex(32)
@@ -2007,7 +1996,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            conn.execute("UPDATE users SET onboarding_done=1 WHERE id=?", (u["id"],))
+            conn.execute("UPDATE users SET onboarding_done=1 WHERE id=%s", (u["id"],))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2015,7 +2004,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            conn.execute("UPDATE users SET admin_onboarding_done=1 WHERE id=?", (u["id"],))
+            conn.execute("UPDATE users SET admin_onboarding_done=1 WHERE id=%s", (u["id"],))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2032,24 +2021,24 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 data["description"] = _desc_val[:20000]
             conn = get_db()
             c = conn.execute(
-                "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline, parent_task_id, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline, parent_task_id, sort_order) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                 (title, _sanitize_text(data.get("description", "")), data.get("status", "new"), data.get("priority", "medium"),
                  u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None,
                  data.get("parent_task_id") or None, int(data.get("sort_order") or 0)))
-            task_id = c.lastrowid
+            task_id = c.fetchone()['id']
 
             # Log task creation with details
             log_activity(conn, task_id, u["id"], "task_created", title, new_value=title)
 
             # Award km for creating task
             update_km(conn, u["id"], 2)
-            stats = conn.execute("SELECT tasks_created FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
-            conn.execute("UPDATE user_stats SET tasks_created = ? WHERE user_id=?", (stats["tasks_created"] + 1, u["id"]))
+            stats = conn.execute("SELECT tasks_created FROM user_stats WHERE user_id=%s", (u["id"],)).fetchone()
+            conn.execute("UPDATE user_stats SET tasks_created = %s WHERE user_id=%s", (stats["tasks_created"] + 1, u["id"]))
 
             # Add watchers
             watchers = data.get("watchers", [])
             for wid in watchers:
-                try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
+                try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, wid))
                 except: pass
 
             # Default watchers: все админы + head отдела (идемпотентно)
@@ -2062,7 +2051,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 dept_id_for_head = data.get("department_id")
                 if dept_id_for_head:
                     for row in conn.execute(
-                        "SELECT id FROM users WHERE role='head' AND department_id=?",
+                        "SELECT id FROM users WHERE role='head' AND department_id=%s",
                         (dept_id_for_head,)
                     ).fetchall():
                         default_watcher_ids.add(row["id"])
@@ -2074,7 +2063,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 for wid in default_watcher_ids:
                     if wid in skip_ids: continue
                     try:
-                        conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
+                        conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, wid))
                     except Exception:
                         pass
             except Exception:
@@ -2083,17 +2072,17 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Add coexecutors
             coexecutors = data.get("coexecutors", [])
             for cid in coexecutors:
-                try: conn.execute("INSERT INTO task_coexecutors (task_id, user_id) VALUES (?,?)", (task_id, cid))
+                try: conn.execute("INSERT INTO task_coexecutors (task_id, user_id) VALUES (%s,%s)", (task_id, cid))
                 except: pass
 
             # Auto-add creator as watcher if assigned to someone else
             assigned_to = data.get("assigned_to")
             if assigned_to and assigned_to != u["id"]:
                 try:
-                    conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, u["id"]))
+                    conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, u["id"]))
                 except: pass
                 # Notify assigned user
-                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                     (assigned_to, task_id, "assigned", f"Вам назначена задача: {title}"))
 
             # Attach categories (Todoist-style M2M)
@@ -2101,7 +2090,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if isinstance(category_ids, list):
                 for cid in category_ids:
                     try:
-                        conn.execute("INSERT OR IGNORE INTO task_categories (task_id, category_id) VALUES (?,?)",
+                        conn.execute("INSERT INTO task_categories (task_id, category_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
                                      (task_id, int(cid)))
                     except: pass
 
@@ -2121,11 +2110,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close(); return self._json({"error": "not found"}, 404)
             if not _ok:
                 conn.close(); return self._json({"error": "forbidden"}, 403)
-            max_row = conn.execute("SELECT MAX(id) as m FROM comments WHERE task_id=?", (task_id,)).fetchone()
+            max_row = conn.execute("SELECT MAX(id) as m FROM comments WHERE task_id=%s", (task_id,)).fetchone()
             max_id = (max_row["m"] or 0) if max_row else 0
             conn.execute(
                 "INSERT INTO task_reads (task_id, user_id, last_read_comment_id, updated_at) "
-                "VALUES (?,?,?, CURRENT_TIMESTAMP) "
+                "VALUES (%s,%s,%s, CURRENT_TIMESTAMP) "
                 "ON CONFLICT(task_id, user_id) DO UPDATE SET "
                 "last_read_comment_id=excluded.last_read_comment_id, updated_at=CURRENT_TIMESTAMP",
                 (task_id, u["id"], max_id)
@@ -2153,23 +2142,23 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
 
             # Check access
-            task = conn.execute("SELECT created_by, assigned_to, department_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+            task = conn.execute("SELECT created_by, assigned_to, department_id FROM tasks WHERE id=%s", (task_id,)).fetchone()
             if not task:
                 conn.close()
                 return self._json({"error": "Task not found"}, 404)
 
-            user_row = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (u["id"],)).fetchone()
             is_admin = user_row["role"] == "admin"
             is_head = user_row["role"] == "head" and user_row["department_id"] == task["department_id"]
             is_participant = u["id"] in [task["created_by"], task["assigned_to"]]
-            is_watcher = conn.execute("SELECT 1 FROM task_watchers WHERE task_id=? AND user_id=?", (task_id, u["id"])).fetchone()
+            is_watcher = conn.execute("SELECT 1 FROM task_watchers WHERE task_id=%s AND user_id=%s", (task_id, u["id"])).fetchone()
 
             if not (is_admin or is_head or is_participant or is_watcher):
                 conn.close()
                 return self._json({"error": "Forbidden"}, 403)
 
             conn.execute(
-                "INSERT INTO comments (task_id, user_id, text, attachment_data, attachment_name, attachment_type) VALUES (?,?,?,?,?,?)",
+                "INSERT INTO comments (task_id, user_id, text, attachment_data, attachment_name, attachment_type) VALUES (%s,%s,%s,%s,%s,%s)",
                 (task_id, u["id"], text, attachment_data, attachment_name, attachment_type))
 
             # Log activity
@@ -2182,42 +2171,42 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     if mention_pattern in text:
                         if mentioned_user["id"] != u["id"]:  # Don't notify self
                             conn.execute(
-                                "INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                                "INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                                 (mentioned_user["id"], task_id, "mention",
                                  f'{u["full_name"]} упомянул вас в комментарии к задаче'))
 
             # Award km for commenting
             update_km(conn, u["id"], 1)
-            stats = conn.execute("SELECT comments_count FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
-            conn.execute("UPDATE user_stats SET comments_count = ? WHERE user_id=?", (stats["comments_count"] + 1, u["id"]))
+            stats = conn.execute("SELECT comments_count FROM user_stats WHERE user_id=%s", (u["id"],)).fetchone()
+            conn.execute("UPDATE user_stats SET comments_count = %s WHERE user_id=%s", (stats["comments_count"] + 1, u["id"]))
 
             # Check achievement for 50 comments
             check_and_award_achievements(conn, u["id"])
             # first_comment — самый первый комментарий пользователя
             try:
                 _first_check = conn.execute(
-                    "SELECT id FROM achievements WHERE user_id=? AND type='first_comment'", (u["id"],)
+                    "SELECT id FROM achievements WHERE user_id=%s AND type='first_comment'", (u["id"],)
                 ).fetchone()
                 if not _first_check:
-                    _cnt = conn.execute("SELECT COUNT(*) as c FROM comments WHERE user_id=?", (u["id"],)).fetchone()
+                    _cnt = conn.execute("SELECT COUNT(*) as c FROM comments WHERE user_id=%s", (u["id"],)).fetchone()
                     if _cnt and (_cnt["c"] or 0) >= 1:
                         conn.execute(
-                            "INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                            "INSERT INTO achievements (user_id, type, name, description) VALUES (%s,%s,%s,%s)",
                             (u["id"], "first_comment", "Первое слово", "Оставили первый комментарий")
                         )
             except Exception:
                 pass
 
             # Notify watchers and assignee about new comment
-            watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
+            watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (task_id,)).fetchall()
             notify_ids = set([w["user_id"] for w in watchers])
             if task["assigned_to"]: notify_ids.add(task["assigned_to"])
             if task["created_by"]: notify_ids.add(task["created_by"])
             notify_ids.discard(u["id"])  # Don't notify the commenter
-            user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (u["id"],)).fetchone()
-            task_title = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
+            user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (u["id"],)).fetchone()
+            task_title = conn.execute("SELECT title FROM tasks WHERE id=%s", (task_id,)).fetchone()
             for nid in notify_ids:
-                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                     (nid, task_id, "comment", f"{user_name['full_name']} прокомментировал: {task_title['title']}"))
             conn.commit(); conn.close()
             return self._json({"ok": True})
@@ -2235,30 +2224,30 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close(); return self._json({"error": "forbidden"}, 403)
 
             # Get old watchers for activity log
-            old_watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
+            old_watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (task_id,)).fetchall()
             old_watcher_ids = set([w["user_id"] for w in old_watchers])
             new_watcher_ids = set(watcher_ids)
             added_watchers = new_watcher_ids - old_watcher_ids
             removed_watchers = old_watcher_ids - new_watcher_ids
 
             # Update watchers
-            conn.execute("DELETE FROM task_watchers WHERE task_id=?", (task_id,))
+            conn.execute("DELETE FROM task_watchers WHERE task_id=%s", (task_id,))
             for wid in watcher_ids:
-                try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (?,?)", (task_id, wid))
+                try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, wid))
                 except: pass
 
             # Log added watchers + send notifications
             for wid in added_watchers:
-                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (wid,)).fetchone()
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (wid,)).fetchone()
                 log_activity(conn, int(task_id), u["id"], "watcher_added", f"Добавлен наблюдатель: {user_name['full_name']}", new_value=user_name['full_name'])
                 # Notify the added watcher
-                task_row = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
+                task_row = conn.execute("SELECT title FROM tasks WHERE id=%s", (task_id,)).fetchone()
                 if task_row and wid != u["id"]:
-                    conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                    conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                         (wid, task_id, "watcher_added", f"Вы добавлены наблюдателем в задачу: {task_row['title']}"))
             # Log removed watchers
             for wid in removed_watchers:
-                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (wid,)).fetchone()
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (wid,)).fetchone()
                 log_activity(conn, int(task_id), u["id"], "watcher_removed", f"Убран наблюдатель: {user_name['full_name']}", old_value=user_name['full_name'])
 
             conn.commit(); conn.close()
@@ -2275,24 +2264,24 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close(); return self._json({"error": "not found"}, 404)
             if not _ok:
                 conn.close(); return self._json({"error": "forbidden"}, 403)
-            old_coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=?", (task_id,)).fetchall()
+            old_coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=%s", (task_id,)).fetchall()
             old_ids = set([c["user_id"] for c in old_coexecs])
             new_ids = set(coexecutor_ids)
             added = new_ids - old_ids
             removed = old_ids - new_ids
-            conn.execute("DELETE FROM task_coexecutors WHERE task_id=?", (task_id,))
+            conn.execute("DELETE FROM task_coexecutors WHERE task_id=%s", (task_id,))
             for cid in coexecutor_ids:
-                try: conn.execute("INSERT INTO task_coexecutors (task_id, user_id) VALUES (?,?)", (task_id, cid))
+                try: conn.execute("INSERT INTO task_coexecutors (task_id, user_id) VALUES (%s,%s)", (task_id, cid))
                 except: pass
             for cid in added:
-                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (cid,)).fetchone()
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (cid,)).fetchone()
                 log_activity(conn, int(task_id), u["id"], "coexecutor_added", f"Добавлен соисполнитель: {user_name['full_name']}", new_value=user_name['full_name'])
                 # Notify the added coexecutor
-                task_row = conn.execute("SELECT title FROM tasks WHERE id=?", (task_id,)).fetchone()
-                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                task_row = conn.execute("SELECT title FROM tasks WHERE id=%s", (task_id,)).fetchone()
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                     (cid, task_id, "coexecutor_added", f"Вы добавлены соисполнителем в задачу: {task_row['title']}"))
             for cid in removed:
-                user_name = conn.execute("SELECT full_name FROM users WHERE id=?", (cid,)).fetchone()
+                user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (cid,)).fetchone()
                 log_activity(conn, int(task_id), u["id"], "coexecutor_removed", f"Убран соисполнитель: {user_name['full_name']}", old_value=user_name['full_name'])
             conn.commit(); conn.close()
             return self._json({"ok": True})
@@ -2301,7 +2290,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (u["id"],))
+            conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=%s", (u["id"],))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2319,14 +2308,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if car_level and role != 'admin':
                 level_thresholds = {'Босоногий':0,'Самокатчик':100,'Моноколёсник':500,'Байкер':1500,'Водитель':3500,'Формула 3':7000,'Формула 2':12000,'Формула 1':18000,'Чемпион':25000}
                 ensure_user_stats(conn, u["id"])
-                row = conn.execute("SELECT total_km FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+                row = conn.execute("SELECT total_km FROM user_stats WHERE user_id=%s", (u["id"],)).fetchone()
                 total_km = row['total_km'] if row else 0
                 needed = level_thresholds.get(car_level, 999999)
                 if total_km < needed:
                     conn.close()
                     return self._json({"error": "Этот персонаж ещё не разблокирован"}, 403)
             ensure_user_stats(conn, u["id"])
-            conn.execute("UPDATE user_stats SET car_override=? WHERE user_id=?", (car_level, u["id"]))
+            conn.execute("UPDATE user_stats SET car_override=%s WHERE user_id=%s", (car_level, u["id"]))
             conn.commit()
             conn.close()
             return self._json({"ok": True, "car_override": car_level})
@@ -2341,7 +2330,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 pass  # allowed
             elif u["role"] == "head":
                 conn_tmp = get_db()
-                dept = conn_tmp.execute("SELECT id FROM departments WHERE head_user_id=?", (u["id"],)).fetchone()
+                dept = conn_tmp.execute("SELECT id FROM departments WHERE head_user_id=%s", (u["id"],)).fetchone()
                 conn_tmp.close()
                 if not dept or (dept_id and int(dept_id) != dept["id"]):
                     return self._json({"error": "Нет доступа"}, 403)
@@ -2367,23 +2356,23 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Check uniqueness for this department
             if dept_id:
                 dept_id = int(dept_id)
-                existing = conn.execute("SELECT id FROM funnel_stages WHERE key=? AND department_id=?", (key, dept_id)).fetchone()
+                existing = conn.execute("SELECT id FROM funnel_stages WHERE key=%s AND department_id=%s", (key, dept_id)).fetchone()
             else:
-                existing = conn.execute("SELECT id FROM funnel_stages WHERE key=? AND department_id IS NULL", (key,)).fetchone()
+                existing = conn.execute("SELECT id FROM funnel_stages WHERE key=%s AND department_id IS NULL", (key,)).fetchone()
             if existing:
                 conn.close()
                 return self._json({"error": "Этап с таким ключом уже есть"}, 400)
             if dept_id:
-                max_order = conn.execute("SELECT MAX(sort_order) FROM funnel_stages WHERE department_id=?", (dept_id,)).fetchone()[0] or 0
+                max_order = conn.execute("SELECT MAX(sort_order) FROM funnel_stages WHERE department_id=%s", (dept_id,)).fetchone()[0] or 0
             else:
                 max_order = conn.execute("SELECT MAX(sort_order) FROM funnel_stages WHERE department_id IS NULL").fetchone()[0] or 0
-            conn.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (?,?,?,?,?,?)",
+            conn.execute("INSERT INTO funnel_stages (key, label, color, icon, sort_order, department_id) VALUES (%s,%s,%s,%s,%s,%s)",
                          (key, label, color, icon, max_order + 1, dept_id))
             conn.commit()
             if dept_id:
-                new_stage = conn.execute("SELECT * FROM funnel_stages WHERE key=? AND department_id=?", (key, dept_id)).fetchone()
+                new_stage = conn.execute("SELECT * FROM funnel_stages WHERE key=%s AND department_id=%s", (key, dept_id)).fetchone()
             else:
-                new_stage = conn.execute("SELECT * FROM funnel_stages WHERE key=? AND department_id IS NULL", (key,)).fetchone()
+                new_stage = conn.execute("SELECT * FROM funnel_stages WHERE key=%s AND department_id IS NULL", (key,)).fetchone()
             conn.close()
             return self._json({"ok": True, "stage": dict(new_stage)})
 
@@ -2394,7 +2383,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             move_to = data.get('move_to_key', 'new')
             if not stage_id: return self._json({"error": "id обязателен"}, 400)
             conn = get_db()
-            stage = conn.execute("SELECT * FROM funnel_stages WHERE id=?", (int(stage_id),)).fetchone()
+            stage = conn.execute("SELECT * FROM funnel_stages WHERE id=%s", (int(stage_id),)).fetchone()
             if not stage:
                 conn.close()
                 return self._json({"error": "Этап не найден"}, 404)
@@ -2402,7 +2391,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if u["role"] == "admin":
                 pass  # allowed
             elif u["role"] == "head":
-                dept = conn.execute("SELECT id FROM departments WHERE head_user_id=?", (u["id"],)).fetchone()
+                dept = conn.execute("SELECT id FROM departments WHERE head_user_id=%s", (u["id"],)).fetchone()
                 if not dept or (stage['department_id'] and stage['department_id'] != dept["id"]):
                     conn.close()
                     return self._json({"error": "Нет доступа"}, 403)
@@ -2411,15 +2400,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 return self._json({"error": "Нет доступа"}, 403)
             # Don't allow deleting if only 2 stages remain in this department
             if stage['department_id']:
-                count = conn.execute("SELECT COUNT(*) FROM funnel_stages WHERE department_id=?", (stage['department_id'],)).fetchone()[0]
+                count = conn.execute("SELECT COUNT(*) FROM funnel_stages WHERE department_id=%s", (stage['department_id'],)).fetchone()[0]
             else:
                 count = conn.execute("SELECT COUNT(*) FROM funnel_stages WHERE department_id IS NULL").fetchone()[0]
             if count <= 2:
                 conn.close()
                 return self._json({"error": "Нельзя удалить: минимум 2 этапа"}, 400)
             # Move tasks from deleted stage to move_to
-            conn.execute("UPDATE tasks SET status=? WHERE status=?", (move_to, stage['key']))
-            conn.execute("DELETE FROM funnel_stages WHERE id=?", (int(stage_id),))
+            conn.execute("UPDATE tasks SET status=%s WHERE status=%s", (move_to, stage['key']))
+            conn.execute("DELETE FROM funnel_stages WHERE id=%s", (int(stage_id),))
             conn.commit()
             conn.close()
             return self._json({"ok": True})
@@ -2430,7 +2419,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             stage_id = data.get('id')
             if not stage_id: return self._json({"error": "id обязателен"}, 400)
             conn = get_db()
-            stage = conn.execute("SELECT * FROM funnel_stages WHERE id=?", (int(stage_id),)).fetchone()
+            stage = conn.execute("SELECT * FROM funnel_stages WHERE id=%s", (int(stage_id),)).fetchone()
             if not stage:
                 conn.close()
                 return self._json({"error": "Этап не найден"}, 404)
@@ -2438,7 +2427,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if u["role"] == "admin":
                 pass  # allowed
             elif u["role"] == "head":
-                dept = conn.execute("SELECT id FROM departments WHERE head_user_id=?", (u["id"],)).fetchone()
+                dept = conn.execute("SELECT id FROM departments WHERE head_user_id=%s", (u["id"],)).fetchone()
                 if not dept or (stage['department_id'] and stage['department_id'] != dept["id"]):
                     conn.close()
                     return self._json({"error": "Нет доступа"}, 403)
@@ -2448,7 +2437,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             label = data.get('label', stage['label']).strip()
             color = data.get('color', stage['color'])
             icon = data.get('icon', stage['icon'])
-            conn.execute("UPDATE funnel_stages SET label=?, color=?, icon=? WHERE id=?", (label, color, icon, int(stage_id)))
+            conn.execute("UPDATE funnel_stages SET label=%s, color=%s, icon=%s WHERE id=%s", (label, color, icon, int(stage_id)))
             conn.commit()
             conn.close()
             return self._json({"ok": True})
@@ -2462,7 +2451,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Verify permissions: check all stages belong to same department and user can manage
             dept_ids = set()
             for sid in order:
-                stage = conn.execute("SELECT department_id FROM funnel_stages WHERE id=?", (int(sid),)).fetchone()
+                stage = conn.execute("SELECT department_id FROM funnel_stages WHERE id=%s", (int(sid),)).fetchone()
                 if stage:
                     dept_ids.add(stage['department_id'])
             # All stages must belong to same department
@@ -2474,7 +2463,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if u["role"] == "admin":
                 pass  # allowed
             elif u["role"] == "head":
-                dept = conn.execute("SELECT id FROM departments WHERE head_user_id=?", (u["id"],)).fetchone()
+                dept = conn.execute("SELECT id FROM departments WHERE head_user_id=%s", (u["id"],)).fetchone()
                 if not dept or (dept_id and dept_id != dept["id"]):
                     conn.close()
                     return self._json({"error": "Нет доступа"}, 403)
@@ -2482,7 +2471,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close()
                 return self._json({"error": "Нет доступа"}, 403)
             for idx, sid in enumerate(order):
-                conn.execute("UPDATE funnel_stages SET sort_order=? WHERE id=?", (idx, int(sid)))
+                conn.execute("UPDATE funnel_stages SET sort_order=%s WHERE id=%s", (idx, int(sid)))
             conn.commit()
             conn.close()
             return self._json({"ok": True})
@@ -2502,7 +2491,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 if cat_dept_id is None:
                     return False  # global categories = admin only
                 conn_p = get_db()
-                dept = conn_p.execute("SELECT id FROM departments WHERE head_user_id=?", (user["id"],)).fetchone()
+                dept = conn_p.execute("SELECT id FROM departments WHERE head_user_id=%s", (user["id"],)).fetchone()
                 conn_p.close()
                 return bool(dept and dept["id"] == int(cat_dept_id))
             return False
@@ -2534,22 +2523,22 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             # If parent given — inherit its department to prevent cross-dept mess
             if parent_id:
-                parent = conn.execute("SELECT department_id FROM categories WHERE id=?", (parent_id,)).fetchone()
+                parent = conn.execute("SELECT department_id FROM categories WHERE id=%s", (parent_id,)).fetchone()
                 if not parent:
                     conn.close()
                     return self._json({"error": "Родительская категория не найдена"}, 404)
                 dept_id = parent["department_id"]
             max_order = conn.execute(
-                "SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE COALESCE(parent_id,0)=COALESCE(?,0)",
+                "SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE COALESCE(parent_id,0)=COALESCE(%s,0)",
                 (parent_id,)
             ).fetchone()[0] or 0
             conn.execute(
-                "INSERT INTO categories (name, color, icon, sort_order, department_id, parent_id, created_by) VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO categories (name, color, icon, sort_order, department_id, parent_id, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                 (name, color, icon, max_order + 1, dept_id, parent_id, u["id"])
             )
             new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             conn.commit()
-            row = conn.execute("SELECT * FROM categories WHERE id=?", (new_id,)).fetchone()
+            row = conn.execute("SELECT * FROM categories WHERE id=%s", (new_id,)).fetchone()
             conn.close()
             return self._json({"ok": True, "category": dict(row)})
 
@@ -2565,12 +2554,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     cid_int = int(cid)
                 except (TypeError, ValueError):
                     continue
-                cat = conn.execute("SELECT department_id FROM categories WHERE id=?", (cid_int,)).fetchone()
+                cat = conn.execute("SELECT department_id FROM categories WHERE id=%s", (cid_int,)).fetchone()
                 if not cat: continue
                 if not _can_edit_category(u, cat["department_id"]):
                     conn.close()
                     return self._json({"error": "Нет прав"}, 403)
-                conn.execute("UPDATE categories SET sort_order=? WHERE id=?", (idx, cid_int))
+                conn.execute("UPDATE categories SET sort_order=%s WHERE id=%s", (idx, cid_int))
             conn.commit()
             conn.close()
             return self._json({"ok": True})
@@ -2583,7 +2572,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not task_id:
                 return self._json({"error": "Missing task_id"}, 400)
 
-            task = conn.execute("SELECT created_at, deadline, assigned_to, km_awarded FROM tasks WHERE id=?", (task_id,)).fetchone()
+            task = conn.execute("SELECT created_at, deadline, assigned_to, km_awarded FROM tasks WHERE id=%s", (task_id,)).fetchone()
             if not task or task["assigned_to"] != u["id"]:
                 conn.close()
                 return self._json({"error": "Invalid task"}, 400)
@@ -2597,7 +2586,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Task completion award: +10 km
             update_km(conn, u["id"], 10)
             # Помечаем, что бонус уже выдан за эту задачу
-            conn.execute("UPDATE tasks SET km_awarded=1 WHERE id=?", (task_id,))
+            conn.execute("UPDATE tasks SET km_awarded=1 WHERE id=%s", (task_id,))
 
             # Complete before deadline bonus: +5 km
             if task["deadline"]:
@@ -2612,21 +2601,21 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 update_km(conn, u["id"], 3)
 
             # Update task completion counter
-            stats = conn.execute("SELECT tasks_completed FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
-            conn.execute("UPDATE user_stats SET tasks_completed = ? WHERE user_id=?", (stats["tasks_completed"] + 1, u["id"]))
+            stats = conn.execute("SELECT tasks_completed FROM user_stats WHERE user_id=%s", (u["id"],)).fetchone()
+            conn.execute("UPDATE user_stats SET tasks_completed = %s WHERE user_id=%s", (stats["tasks_completed"] + 1, u["id"]))
 
             # Speed demon: complete task same day as created
             if created_date == today:
-                existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='speed_demon'", (u["id"],)).fetchone()
+                existing = conn.execute("SELECT id FROM achievements WHERE user_id=%s AND type='speed_demon'", (u["id"],)).fetchone()
                 if not existing:
                     try:
-                        conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                        conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (%s,%s,%s,%s)",
                             (u["id"], "speed_demon", "Быстрый круг", "Завершите задачу в день создания"))
-                    except sqlite3.IntegrityError:
+                    except psycopg.errors.UniqueViolation:
                         pass
 
             # Update streak_days
-            user_stats = conn.execute("SELECT last_active, streak_days FROM user_stats WHERE user_id=?", (u["id"],)).fetchone()
+            user_stats = conn.execute("SELECT last_active, streak_days FROM user_stats WHERE user_id=%s", (u["id"],)).fetchone()
             today_date = datetime.now().strftime("%Y-%m-%d")
             if user_stats:
                 last_active = user_stats["last_active"]
@@ -2649,7 +2638,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 else:
                     new_streak = 1
 
-                conn.execute("UPDATE user_stats SET last_active=?, streak_days=? WHERE user_id=?",
+                conn.execute("UPDATE user_stats SET last_active=%s, streak_days=%s WHERE user_id=%s",
                     (today_date, new_streak, u["id"]))
 
             # Check achievements
@@ -2657,28 +2646,28 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
             # Department star: complete 5 tasks in one day
             today_tasks = conn.execute(
-                "SELECT COUNT(*) as cnt FROM tasks WHERE assigned_to=? AND status='done' AND DATE(updated_at)=?",
+                "SELECT COUNT(*) as cnt FROM tasks WHERE assigned_to=%s AND status='done' AND DATE(updated_at)=%s",
                 (u["id"], today_date)
             ).fetchone()
             if today_tasks and today_tasks["cnt"] >= 5:
-                existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='department_star'", (u["id"],)).fetchone()
+                existing = conn.execute("SELECT id FROM achievements WHERE user_id=%s AND type='department_star'", (u["id"],)).fetchone()
                 if not existing:
                     try:
-                        conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                        conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (%s,%s,%s,%s)",
                             (u["id"], "department_star", "Звезда отдела", "5+ задач в один день"))
-                    except sqlite3.IntegrityError:
+                    except psycopg.errors.UniqueViolation:
                         pass
 
             # Early bird: complete task before deadline
             if task["deadline"]:
                 today = datetime.now().strftime("%Y-%m-%d")
                 if today <= task["deadline"]:
-                    existing = conn.execute("SELECT id FROM achievements WHERE user_id=? AND type='early_bird'", (u["id"],)).fetchone()
+                    existing = conn.execute("SELECT id FROM achievements WHERE user_id=%s AND type='early_bird'", (u["id"],)).fetchone()
                     if not existing:
                         try:
-                            conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (?,?,?,?)",
+                            conn.execute("INSERT INTO achievements (user_id, type, name, description) VALUES (%s,%s,%s,%s)",
                                 (u["id"], "early_bird", "Ранняя пташка", "Задача до дедлайна"))
-                        except sqlite3.IntegrityError:
+                        except psycopg.errors.UniqueViolation:
                             pass
 
             conn.commit(); conn.close()
@@ -2688,7 +2677,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not user_role or user_role["role"] != "admin":
                 conn.close()
                 return self._json({"error": "Forbidden: admin only"}, 403)
@@ -2699,20 +2688,20 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 return self._json({"error": "Department name required"}, 400)
 
             # Check name uniqueness
-            if conn.execute("SELECT id FROM departments WHERE name=?", (name,)).fetchone():
+            if conn.execute("SELECT id FROM departments WHERE name=%s", (name,)).fetchone():
                 conn.close()
                 return self._json({"error": "Department name must be unique"}, 400)
 
             color = data.get("color", "#1a1a1a")
             head_user_id = data.get("head_user_id")
 
-            c = conn.execute("INSERT INTO departments (name, color, head_user_id) VALUES (?,?,?)",
+            c = conn.execute("INSERT INTO departments (name, color, head_user_id) VALUES (%s,%s,%s) RETURNING id",
                            (name, color, head_user_id if head_user_id else None))
-            dept_id = c.lastrowid
+            dept_id = c.fetchone()['id']
 
             # If head_user_id provided, set user's role to 'head'
             if head_user_id:
-                conn.execute("UPDATE users SET role=? WHERE id=?", ("head", head_user_id))
+                conn.execute("UPDATE users SET role=%s WHERE id=%s", ("head", head_user_id))
 
             conn.commit(); conn.close()
             return self._json({"ok": True, "id": dept_id})
@@ -2721,7 +2710,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not user_role or user_role["role"] != "admin":
                 conn.close()
                 return self._json({"error": "Forbidden"}, 403)
@@ -2730,7 +2719,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 if role in permissions:
                     for perm, allowed in permissions[role].items():
                         conn.execute(
-                            "INSERT OR REPLACE INTO role_permissions (role, permission, allowed) VALUES (?,?,?)",
+                            "INSERT INTO role_permissions (role, permission, allowed) VALUES (%s,%s,%s) ON CONFLICT (role, permission) DO UPDATE SET allowed=EXCLUDED.allowed",
                             (role, perm, 1 if allowed else 0)
                         )
             conn.commit()
@@ -2741,7 +2730,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not user_role or user_role["role"] != "admin":
                 conn.close()
                 return self._json({"error": "Forbidden"}, 403)
@@ -2761,7 +2750,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             rating = data.get("rating", 0)
             if not text: return self._json({"error": "Текст обязателен"}, 400)
             conn = get_db()
-            conn.execute("INSERT INTO feedback (user_id, text, rating) VALUES (?,?,?)", (u["id"], text, rating))
+            conn.execute("INSERT INTO feedback (user_id, text, rating) VALUES (%s,%s,%s)", (u["id"], text, rating))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2789,15 +2778,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if len(new_text) > 10000:
                 new_text = new_text[:10000]
             conn = get_db()
-            row = conn.execute("SELECT user_id FROM comments WHERE id=?", (comment_id,)).fetchone()
+            row = conn.execute("SELECT user_id FROM comments WHERE id=%s", (comment_id,)).fetchone()
             if not row:
                 conn.close(); return self._json({"error": "not found"}, 404)
-            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            me = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             is_admin = bool(me) and me["role"] == "admin"
             if row["user_id"] != u["id"] and not is_admin:
                 conn.close(); return self._json({"error": "forbidden"}, 403)
             conn.execute(
-                "UPDATE comments SET text=?, edited_at=CURRENT_TIMESTAMP WHERE id=?",
+                "UPDATE comments SET text=%s, edited_at=CURRENT_TIMESTAMP WHERE id=%s",
                 (new_text, comment_id)
             )
             conn.commit(); conn.close()
@@ -2809,7 +2798,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             full_name = _sanitize_text(data.get("full_name", "").strip())
             if not full_name: return self._json({"error": "Имя не может быть пустым"}, 400)
             conn = get_db()
-            conn.execute("UPDATE users SET full_name=? WHERE id=?", (full_name, u["id"]))
+            conn.execute("UPDATE users SET full_name=%s WHERE id=%s", (full_name, u["id"]))
             conn.commit()
             conn.close()
             return self._json({"ok": True})
@@ -2818,7 +2807,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not user_role or user_role["role"] != "admin":
                 conn.close()
                 return self._json({"error": "Forbidden: admin only"}, 403)
@@ -2827,7 +2816,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if new_role not in ["admin", "head", "member"]:
                 conn.close()
                 return self._json({"error": "Invalid role"}, 400)
-            conn.execute("UPDATE users SET role=? WHERE id=?", (new_role, user_id))
+            conn.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, user_id))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2843,7 +2832,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not _ok:
                 conn.close()
                 return self._json({"error": "forbidden"}, 403)
-            old_task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+            old_task = conn.execute("SELECT * FROM tasks WHERE id=%s", (task_id,)).fetchone()
 
             # Оптимистическая блокировка: если фронт прислал if_version —
             # сверяем с текущей версией задачи. При расхождении — 409.
@@ -2877,7 +2866,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     data.pop("department_id", None)
             for field in ["title", "description", "status", "priority", "assigned_to", "department_id", "deadline", "sort_order", "parent_task_id"]:
                 if field in data:
-                    sets.append(f"{field} = ?")
+                    sets.append(f"{field} = %s")
                     _val = data[field] if data[field] != "" else None
                     if field in ("title", "description") and isinstance(_val, str):
                         _val = _sanitize_text(_val)
@@ -2889,20 +2878,20 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 sets.append("updated_at = CURRENT_TIMESTAMP")
                 sets.append("version = COALESCE(version, 0) + 1")
                 params.append(task_id)
-                conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
+                conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = %s", params)
 
                 # Update taken_at and completed_at timestamps based on status changes
                 if "status" in data:
                     new_status = data["status"]
                     if new_status == "in_progress":
-                        conn.execute("UPDATE tasks SET taken_at = CURRENT_TIMESTAMP WHERE id = ? AND taken_at IS NULL", (task_id,))
+                        conn.execute("UPDATE tasks SET taken_at = CURRENT_TIMESTAMP WHERE id = %s AND taken_at IS NULL", (task_id,))
                     elif new_status == "done":
                         # Только если ещё не выставлен — иначе реопен-сценарий
                         # затирает исходное время закрытия и ломает аналитику.
-                        conn.execute("UPDATE tasks SET completed_at = CURRENT_TIMESTAMP WHERE id = ? AND completed_at IS NULL", (task_id,))
+                        conn.execute("UPDATE tasks SET completed_at = CURRENT_TIMESTAMP WHERE id = %s AND completed_at IS NULL", (task_id,))
                     elif new_status == "new":
                         # Reset timestamps when task goes back to new
-                        conn.execute("UPDATE tasks SET taken_at = NULL, completed_at = NULL WHERE id = ?", (task_id,))
+                        conn.execute("UPDATE tasks SET taken_at = NULL, completed_at = NULL WHERE id = %s", (task_id,))
 
                 # Log all field changes with old/new values
                 # Build status names from DB stages
@@ -2924,13 +2913,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                                     ov = priority_names.get(str(old_val), old_val or "—")
                                     nv = priority_names.get(str(new_val), new_val or "—")
                                 elif field == "assigned_to":
-                                    ov_user = conn.execute("SELECT full_name FROM users WHERE id=?", (old_val,)).fetchone() if old_val else None
-                                    nv_user = conn.execute("SELECT full_name FROM users WHERE id=?", (new_val,)).fetchone() if new_val else None
+                                    ov_user = conn.execute("SELECT full_name FROM users WHERE id=%s", (old_val,)).fetchone() if old_val else None
+                                    nv_user = conn.execute("SELECT full_name FROM users WHERE id=%s", (new_val,)).fetchone() if new_val else None
                                     ov = ov_user["full_name"] if ov_user else "—"
                                     nv = nv_user["full_name"] if nv_user else "—"
                                 elif field == "department_id":
-                                    ov_dept = conn.execute("SELECT name FROM departments WHERE id=?", (old_val,)).fetchone() if old_val else None
-                                    nv_dept = conn.execute("SELECT name FROM departments WHERE id=?", (new_val,)).fetchone() if new_val else None
+                                    ov_dept = conn.execute("SELECT name FROM departments WHERE id=%s", (old_val,)).fetchone() if old_val else None
+                                    nv_dept = conn.execute("SELECT name FROM departments WHERE id=%s", (new_val,)).fetchone() if new_val else None
                                     ov = ov_dept["name"] if ov_dept else "—"
                                     nv = nv_dept["name"] if nv_dept else "—"
                                 else:
@@ -2940,25 +2929,25 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
                 # Sync categories (Todoist-style M2M) if provided
                 if "category_ids" in data and isinstance(data.get("category_ids"), list):
-                    conn.execute("DELETE FROM task_categories WHERE task_id=?", (task_id,))
+                    conn.execute("DELETE FROM task_categories WHERE task_id=%s", (task_id,))
                     for cid in data["category_ids"]:
                         try:
-                            conn.execute("INSERT OR IGNORE INTO task_categories (task_id, category_id) VALUES (?,?)",
+                            conn.execute("INSERT INTO task_categories (task_id, category_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
                                          (task_id, int(cid)))
                         except: pass
 
                 # Status change notifications
                 if "status" in data and old_task and data["status"] != old_task["status"]:
                     msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
-                    watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=?", (task_id,)).fetchall()
+                    watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (task_id,)).fetchall()
                     notify_ids = set([w["user_id"] for w in watchers])
-                    coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=?", (task_id,)).fetchall()
+                    coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=%s", (task_id,)).fetchall()
                     notify_ids.update([c["user_id"] for c in coexecs])
                     if old_task["assigned_to"]: notify_ids.add(old_task["assigned_to"])
                     if old_task["created_by"]: notify_ids.add(old_task["created_by"])
                     notify_ids.discard(u["id"])
                     for nid in notify_ids:
-                        conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                        conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                             (nid, task_id, "status_change", msg))
 
                 # Assignee change notification (рук отдела назначает задачу)
@@ -2973,13 +2962,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                         _old_a = None
                     if _new_a and _new_a != _old_a and _new_a != u["id"]:
                         conn.execute(
-                            "INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                            "INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                             (_new_a, task_id, "assigned",
                              f"Вам назначена задача: {old_task['title']}"))
                     # Прошлый исполнитель не должен терять контекст: делаем его watcher.
                     if _old_a and _old_a != _new_a:
                         conn.execute(
-                            "INSERT OR IGNORE INTO task_watchers (task_id, user_id) VALUES (?,?)",
+                            "INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
                             (task_id, _old_a))
 
                 # Deadline change notification: если руководитель подвинул дедлайн,
@@ -2992,14 +2981,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                                    if _new_dl else
                                    f"У задачи «{old_task['title']}» снят дедлайн")
                         conn.execute(
-                            "INSERT INTO notifications (user_id, task_id, type, message) VALUES (?,?,?,?)",
+                            "INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                             (old_task["assigned_to"], task_id, "deadline_changed", _msg_dl))
 
                 conn.commit()
             # Вернуть свежую версию, чтобы фронт мог обновить локальную копию
             _new_ver = 0
             try:
-                _row = conn.execute("SELECT version FROM tasks WHERE id=?", (task_id,)).fetchone()
+                _row = conn.execute("SELECT version FROM tasks WHERE id=%s", (task_id,)).fetchone()
                 if _row: _new_ver = int(_row["version"] or 0)
             except Exception:
                 _new_ver = 0
@@ -3017,7 +3006,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             except (ValueError, IndexError):
                 return self._json({"error": "bad id"}, 400)
             conn = get_db()
-            cat = conn.execute("SELECT * FROM categories WHERE id=?", (cat_id,)).fetchone()
+            cat = conn.execute("SELECT * FROM categories WHERE id=%s", (cat_id,)).fetchone()
             if not cat:
                 conn.close()
                 return self._json({"error": "Категория не найдена"}, 404)
@@ -3027,7 +3016,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 if user.get("role") == "admin": return True
                 if user.get("role") == "head":
                     if dept is None: return False
-                    d = conn.execute("SELECT id FROM departments WHERE head_user_id=?", (user["id"],)).fetchone()
+                    d = conn.execute("SELECT id FROM departments WHERE head_user_id=%s", (user["id"],)).fetchone()
                     return bool(d and d["id"] == int(dept))
                 return False
 
@@ -3041,11 +3030,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 if not name:
                     conn.close()
                     return self._json({"error": "Название обязательно"}, 400)
-                sets.append("name=?"); params.append(name)
+                sets.append("name=%s"); params.append(name)
             if "color" in data:
-                sets.append("color=?"); params.append(data.get("color") or "#3b82f6")
+                sets.append("color=%s"); params.append(data.get("color") or "#3b82f6")
             if "icon" in data:
-                sets.append("icon=?"); params.append(data.get("icon") or "")
+                sets.append("icon=%s"); params.append(data.get("icon") or "")
             if "parent_id" in data:
                 pid = data.get("parent_id")
                 if pid in ("", None, 0, "0"):
@@ -3062,7 +3051,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     cur = pid
                     safety = 0
                     while cur is not None and safety < 100:
-                        parent_row = conn.execute("SELECT parent_id FROM categories WHERE id=?", (cur,)).fetchone()
+                        parent_row = conn.execute("SELECT parent_id FROM categories WHERE id=%s", (cur,)).fetchone()
                         if not parent_row: break
                         if parent_row["parent_id"] == cat_id:
                             conn.close()
@@ -3070,10 +3059,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                         cur = parent_row["parent_id"]
                         safety += 1
                     # Inherit department from new parent
-                    par = conn.execute("SELECT department_id FROM categories WHERE id=?", (pid,)).fetchone()
+                    par = conn.execute("SELECT department_id FROM categories WHERE id=%s", (pid,)).fetchone()
                     if par:
-                        sets.append("department_id=?"); params.append(par["department_id"])
-                sets.append("parent_id=?"); params.append(pid)
+                        sets.append("department_id=%s"); params.append(par["department_id"])
+                sets.append("parent_id=%s"); params.append(pid)
             if "department_id" in data and "parent_id" not in data:
                 # Only allow department change for top-level categories
                 if cat["parent_id"] is None:
@@ -3086,7 +3075,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     if not _can(u, did):
                         conn.close()
                         return self._json({"error": "Нет прав на целевой отдел"}, 403)
-                    sets.append("department_id=?"); params.append(did)
+                    sets.append("department_id=%s"); params.append(did)
                     # Propagate to all descendants
                     # (collect descendants iteratively)
                     to_update = [cat_id]
@@ -3094,18 +3083,18 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     while to_update:
                         next_batch = []
                         for pid_ in to_update:
-                            children = conn.execute("SELECT id FROM categories WHERE parent_id=?", (pid_,)).fetchall()
+                            children = conn.execute("SELECT id FROM categories WHERE parent_id=%s", (pid_,)).fetchall()
                             for ch in children:
                                 descendants.append(ch["id"])
                                 next_batch.append(ch["id"])
                         to_update = next_batch
                     for d_id in descendants:
-                        conn.execute("UPDATE categories SET department_id=? WHERE id=?", (did, d_id))
+                        conn.execute("UPDATE categories SET department_id=%s WHERE id=%s", (did, d_id))
             if sets:
                 params.append(cat_id)
-                conn.execute(f"UPDATE categories SET {', '.join(sets)} WHERE id=?", params)
+                conn.execute(f"UPDATE categories SET {', '.join(sets)} WHERE id=%s", params)
                 conn.commit()
-            row = conn.execute("SELECT * FROM categories WHERE id=?", (cat_id,)).fetchone()
+            row = conn.execute("SELECT * FROM categories WHERE id=%s", (cat_id,)).fetchone()
             conn.close()
             return self._json({"ok": True, "category": dict(row)})
 
@@ -3113,13 +3102,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            user_role = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not user_role or user_role["role"] != "admin":
                 conn.close()
                 return self._json({"error": "Forbidden: admin only"}, 403)
 
             dept_id = path.split("/")[4]
-            dept = conn.execute("SELECT * FROM departments WHERE id=?", (dept_id,)).fetchone()
+            dept = conn.execute("SELECT * FROM departments WHERE id=%s", (dept_id,)).fetchone()
             if not dept:
                 conn.close()
                 return self._json({"error": "Department not found"}, 404)
@@ -3132,15 +3121,15 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     conn.close()
                     return self._json({"error": "Department name required"}, 400)
                 # Check name uniqueness (but allow current name)
-                existing = conn.execute("SELECT id FROM departments WHERE name=? AND id!=?", (name, dept_id)).fetchone()
+                existing = conn.execute("SELECT id FROM departments WHERE name=%s AND id!=%s", (name, dept_id)).fetchone()
                 if existing:
                     conn.close()
                     return self._json({"error": "Department name must be unique"}, 400)
-                sets.append("name = ?")
+                sets.append("name = %s")
                 params.append(name)
 
             if "color" in data:
-                sets.append("color = ?")
+                sets.append("color = %s")
                 params.append(data["color"])
 
             # Handle head_user_id change
@@ -3152,16 +3141,16 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 if new_head_id and new_head_id != old_head_id:
                     # If there was an old head, revert them to member
                     if old_head_id:
-                        conn.execute("UPDATE users SET role=? WHERE id=?", ("member", old_head_id))
+                        conn.execute("UPDATE users SET role=%s WHERE id=%s", ("member", old_head_id))
                     # Set new head
-                    conn.execute("UPDATE users SET role=? WHERE id=?", ("head", new_head_id))
+                    conn.execute("UPDATE users SET role=%s WHERE id=%s", ("head", new_head_id))
 
-                sets.append("head_user_id = ?")
+                sets.append("head_user_id = %s")
                 params.append(new_head_id)
 
             if sets:
                 params.append(dept_id)
-                conn.execute(f"UPDATE departments SET {', '.join(sets)} WHERE id = ?", params)
+                conn.execute(f"UPDATE departments SET {', '.join(sets)} WHERE id = %s", params)
                 conn.commit()
 
             conn.close()
@@ -3182,14 +3171,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             except:
                 return self._json({"error": "bad comment id"}, 400)
             conn = get_db()
-            row = conn.execute("SELECT user_id FROM comments WHERE id=?", (comment_id,)).fetchone()
+            row = conn.execute("SELECT user_id FROM comments WHERE id=%s", (comment_id,)).fetchone()
             if not row:
                 conn.close(); return self._json({"error": "not found"}, 404)
-            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            me = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             is_admin = bool(me) and me["role"] == "admin"
             if row["user_id"] != u["id"] and not is_admin:
                 conn.close(); return self._json({"error": "forbidden"}, 403)
-            conn.execute("DELETE FROM comments WHERE id=?", (comment_id,))
+            conn.execute("DELETE FROM comments WHERE id=%s", (comment_id,))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -3199,11 +3188,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             task_id = path.split("/")[3]
             conn = get_db()
             # Удалять задачу могут только admin, head своего отдела или её создатель
-            _tr = conn.execute("SELECT created_by, department_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+            _tr = conn.execute("SELECT created_by, department_id FROM tasks WHERE id=%s", (task_id,)).fetchone()
             if not _tr:
                 conn.close()
                 return self._json({"error": "not found"}, 404)
-            _ur = conn.execute("SELECT role, department_id FROM users WHERE id=?", (u["id"],)).fetchone()
+            _ur = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (u["id"],)).fetchone()
             _can_delete = bool(_ur) and (
                 _ur["role"] == "admin"
                 or (_ur["role"] == "head" and _ur["department_id"] == _tr["department_id"])
@@ -3215,8 +3204,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Каскад: удаляем подзадачи вместе с родителем, чтобы не оставлять
             # сирот с битым parent_task_id (у SQLite нет FK ON DELETE CASCADE
             # из-за миграции ALTER TABLE).
-            conn.execute("DELETE FROM tasks WHERE parent_task_id = ?", (task_id,))
-            conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+            conn.execute("DELETE FROM tasks WHERE parent_task_id = %s", (task_id,))
+            conn.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -3224,7 +3213,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            me = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not me or me["role"] != "admin":
                 conn.close()
                 return self._json({"error": "Только администратор может удалять пользователей"}, 403)
@@ -3233,26 +3222,26 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close()
                 return self._json({"error": "Нельзя удалить самого себя"}, 400)
             # Find all tasks created by this user (to clean up their dependencies)
-            created_tasks = [r[0] for r in conn.execute("SELECT id FROM tasks WHERE created_by=?", (user_id,)).fetchall()]
+            created_tasks = [r[0] for r in conn.execute("SELECT id FROM tasks WHERE created_by=%s", (user_id,)).fetchall()]
             for tid in created_tasks:
-                conn.execute("DELETE FROM task_watchers WHERE task_id=?", (tid,))
-                conn.execute("DELETE FROM comments WHERE task_id=?", (tid,))
-                conn.execute("DELETE FROM task_messages WHERE task_id=?", (tid,))
-                conn.execute("DELETE FROM task_activity WHERE task_id=?", (tid,))
-                conn.execute("DELETE FROM notifications WHERE task_id=?", (tid,))
-            conn.execute("DELETE FROM tasks WHERE created_by=?", (user_id,))
+                conn.execute("DELETE FROM task_watchers WHERE task_id=%s", (tid,))
+                conn.execute("DELETE FROM comments WHERE task_id=%s", (tid,))
+                conn.execute("DELETE FROM task_messages WHERE task_id=%s", (tid,))
+                conn.execute("DELETE FROM task_activity WHERE task_id=%s", (tid,))
+                conn.execute("DELETE FROM notifications WHERE task_id=%s", (tid,))
+            conn.execute("DELETE FROM tasks WHERE created_by=%s", (user_id,))
             # Delete user's other related data
-            conn.execute("DELETE FROM task_watchers WHERE user_id=?", (user_id,))
-            conn.execute("DELETE FROM comments WHERE user_id=?", (user_id,))
-            conn.execute("DELETE FROM notifications WHERE user_id=?", (user_id,))
-            conn.execute("DELETE FROM task_messages WHERE sender_id=? OR recipient_id=?", (user_id, user_id))
-            conn.execute("DELETE FROM task_activity WHERE user_id=?", (user_id,))
-            conn.execute("DELETE FROM direct_messages WHERE sender_id=? OR recipient_id=?", (user_id, user_id))
-            conn.execute("DELETE FROM user_stats WHERE user_id=?", (user_id,))
-            conn.execute("DELETE FROM achievements WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM task_watchers WHERE user_id=%s", (user_id,))
+            conn.execute("DELETE FROM comments WHERE user_id=%s", (user_id,))
+            conn.execute("DELETE FROM notifications WHERE user_id=%s", (user_id,))
+            conn.execute("DELETE FROM task_messages WHERE sender_id=%s OR recipient_id=%s", (user_id, user_id))
+            conn.execute("DELETE FROM task_activity WHERE user_id=%s", (user_id,))
+            conn.execute("DELETE FROM direct_messages WHERE sender_id=%s OR recipient_id=%s", (user_id, user_id))
+            conn.execute("DELETE FROM user_stats WHERE user_id=%s", (user_id,))
+            conn.execute("DELETE FROM achievements WHERE user_id=%s", (user_id,))
             # Unassign from remaining tasks
-            conn.execute("UPDATE tasks SET assigned_to=NULL WHERE assigned_to=?", (user_id,))
-            conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+            conn.execute("UPDATE tasks SET assigned_to=NULL WHERE assigned_to=%s", (user_id,))
+            conn.execute("DELETE FROM users WHERE id=%s", (user_id,))
             conn.commit(); conn.close()
             # Remove from sessions
             to_remove = [k for k, v in sessions.items() if v.get("id") == int(user_id)]
@@ -3271,7 +3260,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             except (ValueError, IndexError):
                 return self._json({"error": "bad id"}, 400)
             conn = get_db()
-            cat = conn.execute("SELECT * FROM categories WHERE id=?", (cat_id,)).fetchone()
+            cat = conn.execute("SELECT * FROM categories WHERE id=%s", (cat_id,)).fetchone()
             if not cat:
                 conn.close()
                 return self._json({"error": "Категория не найдена"}, 404)
@@ -3282,14 +3271,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if u.get("role") == "admin":
                 can = True
             elif u.get("role") == "head" and dept is not None:
-                d = conn.execute("SELECT id FROM departments WHERE head_user_id=?", (u["id"],)).fetchone()
+                d = conn.execute("SELECT id FROM departments WHERE head_user_id=%s", (u["id"],)).fetchone()
                 can = bool(d and d["id"] == int(dept))
             if not can:
                 conn.close()
                 return self._json({"error": "Нет прав на удаление этой категории"}, 403)
 
             # CASCADE handles children categories AND task_categories rows.
-            conn.execute("DELETE FROM categories WHERE id=?", (cat_id,))
+            conn.execute("DELETE FROM categories WHERE id=%s", (cat_id,))
             conn.commit()
             conn.close()
             return self._json({"ok": True})
@@ -3298,25 +3287,25 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
             conn = get_db()
-            me = conn.execute("SELECT role FROM users WHERE id=?", (u["id"],)).fetchone()
+            me = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
             if not me or me["role"] != "admin":
                 conn.close()
                 return self._json({"error": "Forbidden: admin only"}, 403)
 
             dept_id = path.split("/")[4]
-            dept = conn.execute("SELECT * FROM departments WHERE id=?", (dept_id,)).fetchone()
+            dept = conn.execute("SELECT * FROM departments WHERE id=%s", (dept_id,)).fetchone()
             if not dept:
                 conn.close()
                 return self._json({"error": "Department not found"}, 404)
 
             # Set all users in this department to department_id=NULL
-            conn.execute("UPDATE users SET department_id=NULL WHERE department_id=?", (dept_id,))
+            conn.execute("UPDATE users SET department_id=NULL WHERE department_id=%s", (dept_id,))
 
             # Set all tasks with this department_id to NULL
-            conn.execute("UPDATE tasks SET department_id=NULL WHERE department_id=?", (dept_id,))
+            conn.execute("UPDATE tasks SET department_id=NULL WHERE department_id=%s", (dept_id,))
 
             # Delete the department
-            conn.execute("DELETE FROM departments WHERE id=?", (dept_id,))
+            conn.execute("DELETE FROM departments WHERE id=%s", (dept_id,))
 
             conn.commit(); conn.close()
             return self._json({"ok": True})
