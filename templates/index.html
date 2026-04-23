@@ -9811,6 +9811,12 @@ function handleMentionInput(input, dropdown) {
             '<span class="mention-name">@' + u.full_name + '</span>' +
         '</div>'
     ).join('');
+    // Жёсткая защита: прячем все чужие mention-dropdown прямо перед показом
+    // своего. Любой путь к видимости dropdown'а проходит через эту строку,
+    // значит одновременно видим РОВНО один dropdown.
+    document.querySelectorAll('.mention-dropdown').forEach(function(other) {
+        if (other !== dropdown) other.style.display = 'none';
+    });
     dropdown.style.display = 'block';
 }
 
@@ -9853,6 +9859,10 @@ function selectMention(idx) {
     const newPos = before.length + user.full_name.length + 2;
     m.inputEl.setSelectionRange(newPos, newPos);
     m.dropdown.style.display = 'none';
+    // На всякий случай гасим все чужие mention-dropdown, если где-то остался.
+    document.querySelectorAll('.mention-dropdown').forEach(function(dd) {
+        dd.style.display = 'none';
+    });
     m.active = false;
 }
 
