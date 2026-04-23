@@ -16,7 +16,16 @@ import urllib.parse
 import re
 from datetime import datetime, timedelta, date
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dm_tasks.db")
+# Путь до БД: приоритет у env-переменной DB_PATH (Render Persistent Disk),
+# fallback — локальный файл рядом со скриптом (для разработки).
+DB_PATH = os.environ.get("DB_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "dm_tasks.db")
+# Если DB_PATH указывает на директорию, которой ещё нет — создаём.
+try:
+    _db_dir = os.path.dirname(DB_PATH)
+    if _db_dir and not os.path.exists(_db_dir):
+        os.makedirs(_db_dir, exist_ok=True)
+except Exception as _e:
+    print("warn: не удалось создать директорию для БД:", _e)
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 

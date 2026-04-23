@@ -1,13 +1,25 @@
+# Render Blueprint — Persistent Disk для SQLite-файла.
+# После пуша этого файла зайди в Render Dashboard → Settings сервиса и убедись что:
+#  • Plan = Starter (или выше — на Free disk'ов нет)
+#  • Disk: mountPath=/data, size=1GB (должен создаться автоматически из этого файла)
+#  • Env var: DB_PATH=/data/dm_tasks.db (тоже должен подтянуться отсюда)
+# Если сервис ранее создан без Blueprint — зайти в Render → Blueprints → New
+# → подключить git-репо, или прописать Disk и env vars вручную.
+
 services:
   - type: web
     name: dm-task-manager
     runtime: python
-    buildCommand: echo "No build needed"
-    startCommand: python server.py
+    plan: starter
+    buildCommand: "pip install -r requirements.txt || true"
+    startCommand: "python server.py"
+    autoDeploy: true
     envVars:
+      - key: DB_PATH
+        value: /data/dm_tasks.db
       - key: PYTHON_VERSION
-        value: "3.11.0"
+        value: 3.11.9
     disk:
       name: dm-data
-      mountPath: /opt/render/project/src
+      mountPath: /data
       sizeGB: 1
