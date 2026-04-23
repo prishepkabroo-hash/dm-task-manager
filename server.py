@@ -100,11 +100,45 @@ def _sqlite_compat_row_factory(cursor):
     return make
 
 
-def get_db():
+# Connection pool — переиспользуем соединения, не открываем новое на каждый запрос.
+# Без пула каждое действие пользователя = TCP+TLS handshake к Neon (~200-400 ms).
+from psycopg_pool import ConnectionPool as _ConnectionPool
+
+_pg_pool = None
+
+def _get_pg_pool():
+    global _pg_pool
+    if _pg_pool is not None:
+        return _pg_pool
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
         raise RuntimeError("DATABASE_URL не задан. Укажи строку подключения Postgres (например, из Neon).")
-    conn = psycopg.connect(dsn, row_factory=_sqlite_compat_row_factory, autocommit=False)
+    _pg_pool = _ConnectionPool(
+        dsn,
+        min_size=1,
+        max_size=10,
+        kwargs={"row_factory": _sqlite_compat_row_factory, "autocommit": False},
+        # open позже (lazy), чтобы не падать при импорте если DSN невалиден
+        open=True,
+    )
+    return _pg_pool
+
+
+def get_db():
+    """Возвращает соединение из пула. conn.close() вернёт обратно в пул."""
+    pool = _get_pg_pool()
+    conn = pool.getconn()
+    # Обернём close: когда код вызывает conn.close(), соединение возвращается в пул,
+    # а не реально закрывается. Это позволяет не трогать остальной код server.py.
+    _orig_close = conn.close
+    def _pool_release():
+        try:
+            pool.putconn(conn)
+        except Exception:
+            # Если пул не принял (например, соединение сломано) — реально закрываем
+            try: _orig_close()
+            except Exception: pass
+    conn.close = _pool_release
     return conn
 
 def load_sessions_from_db():
