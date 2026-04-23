@@ -1298,6 +1298,25 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
         qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
 
+        # /api/ping — лёгкий health-check для keep-alive (UptimeRobot)
+        # Быстро будит Neon compute и держит Render не уснувшим.
+        if path == "/api/ping":
+            try:
+                conn = get_db()
+                conn.execute("SELECT 1").fetchone()
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(b"pong")
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(f"err: {e}".encode())
+            return
+
         if path.startswith("/static/"):
             return self._static(os.path.join(STATIC_DIR, path[8:]))
         if path.startswith("/uploads/"):
