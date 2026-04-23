@@ -223,10 +223,23 @@ def _record_login_failure(ip):
 def _clear_login_attempts(ip):
     login_attempts.pop(ip, None)
 
+def _run_ddl(cur, sql):
+    """Запустить multi-statement DDL через отдельные execute'ы.
+    psycopg v3 в extended protocol НЕ выполняет multi-statement в одном execute.
+    Разбиваем по ';' и гоняем по одному. Пустые и комментарии пропускаем.
+    """
+    # Убираем однострочные -- комментарии, чтобы не мешали split'у по ;
+    cleaned = re.sub(r'--[^\n]*', '', sql)
+    for stmt in cleaned.split(';'):
+        s = stmt.strip()
+        if s:
+            cur.execute(s)
+
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    _run_ddl(c, """
     CREATE TABLE IF NOT EXISTS departments (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
@@ -564,7 +577,7 @@ def init_db():
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''")
 
     # Migrate: create group_chats table if missing
-    c.execute("""
+    _run_ddl(c, """
     CREATE TABLE IF NOT EXISTS group_chats (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
