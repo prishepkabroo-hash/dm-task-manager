@@ -5,6 +5,7 @@ Dudarev Motorsport — Таск-менеджер v4
 прямые сообщения (messenger), аналитика и геймификация
 """
 
+# -- deadline-pg-fix applied
 import http.server
 import json
 import psycopg
@@ -1787,7 +1788,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             in_progress = conn.execute("SELECT COUNT(*) FROM tasks WHERE status='in_progress'").fetchone()[0]
             review = conn.execute("SELECT COUNT(*) FROM tasks WHERE status='review'").fetchone()[0]
             done = conn.execute("SELECT COUNT(*) FROM tasks WHERE status='done'").fetchone()[0]
-            overdue = conn.execute("SELECT COUNT(*) FROM tasks WHERE deadline < date('now') AND status NOT IN ('done','cancelled')").fetchone()[0]
+            overdue = conn.execute("SELECT COUNT(*) FROM tasks WHERE deadline < CURRENT_DATE::text AND status NOT IN ('done','cancelled')").fetchone()[0]
             conn.close()
             return self._json({"total": total, "new": new, "in_progress": in_progress, "review": review, "done": done, "overdue": overdue})
 
@@ -1861,7 +1862,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
             # Overdue count
             overdue_count = conn.execute(
-                f"SELECT COUNT(*) FROM tasks t WHERE t.deadline < date('now') AND t.status NOT IN ('done','cancelled'){dept_filter}",
+                f"SELECT COUNT(*) FROM tasks t WHERE t.deadline < CURRENT_DATE::text AND t.status NOT IN ('done','cancelled'){dept_filter}",
                 dept_params
             ).fetchone()[0]
 
