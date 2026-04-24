@@ -8580,168 +8580,124 @@ async function showTaskDetail(taskId) {
     const allStatuses = [...getStageKeys(), 'cancelled'];
     const currentIdx = allStatuses.indexOf(task.status);
 
+    /* detail-chips-v2 — плоский редизайн, чипы вместо строк */
+    const pcColor = pc.c;
+    const stColor = getStageColor(task.status) || '#3b82f6';
+    const stLabel = getStageLabel(task.status) || task.status;
+    const deadlineColor = deadline.class === 'deadline-overdue' ? '#ef4444'
+                        : deadline.class === 'deadline-soon' ? '#f59e0b'
+                        : '#64748b';
+    const deadlineBg = deadline.class === 'deadline-overdue' ? '#fef2f2'
+                     : deadline.class === 'deadline-soon' ? '#fffbeb'
+                     : '#f1f5f9';
+    const deptObj = allDepartments.find(d => d.id === task.department_id);
+    const deptColor = deptObj ? (deptObj.color || '#64748b') : '#64748b';
+    const isDone = task.status === 'done';
+    const canComplete = currentUser && currentUser.role !== 'viewer' && !isDone;
+
+    // HEADER: большой заголовок + быстрые кнопки
     document.getElementById('detailHeader').innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;">
             <div style="flex:1;min-width:0;">
-                <div style="font-size:22px;font-weight:700;color:#1e293b;line-height:1.25;margin-bottom:10px;letter-spacing:-0.2px;word-break:break-word;">${_catsEscape(task.title)}</div>
-                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                    <span style="display:inline-flex;align-items:center;gap:5px;color:${pc.c};font-size:12px;font-weight:600;"><span style="width:8px;height:8px;border-radius:50%;background:${pc.c};display:inline-block;"></span>${pc.l}</span>
-                    ${dept ? `<span style="color:#cbd5e1;font-size:11px;">•</span><span style="color:${dept.color||'#64748b'};font-size:12px;font-weight:600;">${dept.name}</span>` : ''}
-                </div>
+                <div id="detailTitleInline" title="Кликни чтобы переименовать" style="font-size:24px;font-weight:700;color:#0f172a;line-height:1.2;letter-spacing:-0.3px;word-break:break-word;cursor:text;padding:2px 4px;margin:-2px -4px;border-radius:6px;transition:background 0.15s;" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='transparent'" onclick="_detailEditTitle(${task.id})">${_catsEscape(task.title)}</div>
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0;">
-                <button onclick="closeTaskDetail();showTaskForm(${task.id})" title="Редактировать" style="width:34px;height:34px;border:none;background:none;color:#94a3b8;cursor:pointer;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseenter="this.style.background='#eff6ff';this.style.color='#3b82f6'" onmouseleave="this.style.background='none';this.style.color='#94a3b8'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                <button onclick="closeTaskDetail()" title="Закрыть" style="width:34px;height:34px;border:none;background:none;color:#94a3b8;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.15s;line-height:1;" onmouseenter="this.style.background='#f1f5f9';this.style.color='#1e293b'" onmouseleave="this.style.background='none';this.style.color='#94a3b8'">&times;</button>
+                ${canComplete ? `<button onclick="detailChangeField('status','done')" title="Отметить выполненной" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#22c55e;color:white;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 1px 3px rgba(34,197,94,0.3);transition:all 0.15s;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Готово</button>` : ''}
+                <button onclick="closeTaskDetail();showTaskForm(${task.id})" title="Редактировать" style="width:36px;height:36px;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;border-radius:9px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseenter="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button onclick="closeTaskDetail()" title="Закрыть" style="width:36px;height:36px;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;border-radius:9px;transition:all 0.15s;line-height:1;" onmouseenter="this.style.background='#fee2e2';this.style.color='#ef4444'" onmouseleave="this.style.background='#f1f5f9';this.style.color='#64748b'">&times;</button>
             </div>
         </div>
-        <!-- Stage switcher -->
-        <div id="detailStageBar" style="display:flex;align-items:center;gap:0;margin-bottom:4px;background:#f8fafc;border-radius:10px;padding:3px;border:1px solid #eef2f7;"></div>
+        <!-- Чипы метаданных: статус, приоритет, исполнитель, дедлайн, отдел -->
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;align-items:center;">
+            <!-- Статус -->
+            <label style="display:inline-flex;align-items:center;gap:6px;background:${stColor}15;border:1px solid ${stColor}35;color:${stColor};padding:5px 11px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;position:relative;" onmouseenter="this.style.background='${stColor}25'" onmouseleave="this.style.background='${stColor}15'">
+                <span style="width:7px;height:7px;border-radius:50%;background:${stColor};"></span>
+                <span>${stLabel}</span>
+                <select id="detailStatus" onchange="detailChangeField('status',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+                    ${allStages.map(s => `<option value="${s.key}" ${s.key === task.status ? 'selected' : ''}>${s.label}</option>`).join('')}
+                    <option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>Отменена</option>
+                </select>
+            </label>
+
+            <!-- Приоритет -->
+            <label style="display:inline-flex;align-items:center;gap:6px;background:${pcColor}15;border:1px solid ${pcColor}35;color:${pcColor};padding:5px 11px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;position:relative;" onmouseenter="this.style.background='${pcColor}25'" onmouseleave="this.style.background='${pcColor}15'">
+                <span style="width:7px;height:7px;border-radius:50%;background:${pcColor};"></span>
+                <span>${pc.l}</span>
+                <select id="detailPriority" onchange="detailChangeField('priority',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+                    <option value="low" ${task.priority==='low'?'selected':''}>Низкий</option>
+                    <option value="medium" ${task.priority==='medium'?'selected':''}>Средний</option>
+                    <option value="high" ${task.priority==='high'?'selected':''}>Высокий</option>
+                </select>
+            </label>
+
+            <!-- Исполнитель -->
+            <label style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;color:#1e293b;padding:4px 11px 4px 4px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;position:relative;" onmouseenter="this.style.background='#e2e8f0'" onmouseleave="this.style.background='#f1f5f9'">
+                ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 20, assignee.avatar_url) : '<span style="width:20px;height:20px;border-radius:50%;background:#cbd5e1;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:11px;">?</span>'}
+                <span>${assignee ? _catsEscape(assignee.full_name.split(' ')[0]) : 'Никто'}</span>
+                <select id="detailAssignee" onchange="detailChangeField('assigned_to',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+                    <option value="">Не назначен</option>
+                    ${allUsers.map(u => `<option value="${u.id}" ${u.id === task.assigned_to ? 'selected' : ''}>${_catsEscape(u.full_name)}</option>`).join('')}
+                </select>
+            </label>
+
+            <!-- Дедлайн -->
+            ${task.deadline ? `<span onclick="openDetailDeadlinePicker()" style="display:inline-flex;align-items:center;gap:6px;background:${deadlineBg};border:1px solid ${deadlineColor}35;color:${deadlineColor};padding:5px 11px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;" title="Сменить дедлайн">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>${deadline.text || 'без дедлайна'}</span>
+            </span>` : `<span onclick="openDetailDeadlinePicker()" style="display:inline-flex;align-items:center;gap:6px;background:white;border:1px dashed #cbd5e1;color:#94a3b8;padding:5px 11px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;" title="Добавить дедлайн" onmouseenter="this.style.borderColor='#3b82f6';this.style.color='#3b82f6'" onmouseleave="this.style.borderColor='#cbd5e1';this.style.color='#94a3b8'">+ Дедлайн</span>`}
+
+            <!-- Отдел -->
+            <label style="display:inline-flex;align-items:center;gap:6px;background:${deptColor}15;border:1px solid ${deptColor}35;color:${deptColor};padding:5px 11px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;position:relative;" onmouseenter="this.style.background='${deptColor}25'" onmouseleave="this.style.background='${deptColor}15'">
+                <span style="width:7px;height:7px;border-radius:50%;background:${deptColor};"></span>
+                <span>${deptObj ? _catsEscape(deptObj.name) : 'Без отдела'}</span>
+                <select id="detailDepartment" onchange="detailChangeField('department_id',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+                    <option value="">Без отдела</option>
+                    ${allDepartments.map(d => `<option value="${d.id}" ${d.id === task.department_id ? 'selected' : ''}>${_catsEscape(d.name)}</option>`).join('')}
+                </select>
+            </label>
+        </div>
+
+        <!-- Скрытый input дедлайна (datetime-local), открывается через openDetailDeadlinePicker -->
+        <input type="datetime-local" id="detailDeadline" value="${task.deadline ? task.deadline.slice(0,16) : ''}" onchange="detailChangeField('deadline',this.value)" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;">
     `;
 
-    // Build stage bar with proper JS (no template literal issues)
-    var stageBarHtml = '';
-    allStatuses.forEach(function(s, i) {
-        var isActive = s === task.status;
-        var isPast = i < currentIdx;
-        var color = getStageColor(s);
-        var bg = isActive ? color : (isPast ? color + '22' : 'transparent');
-        var txtColor = isActive ? 'white' : (isPast ? color : '#94a3b8');
-        var fw = isActive ? '700' : (isPast ? '600' : '500');
-        var cur = isActive ? 'default' : 'pointer';
-        stageBarHtml += '<div onclick="detailChangeStage(\''+s+'\','+task.id+')" style="flex:1;text-align:center;padding:7px 4px;border-radius:8px;font-size:11px;font-weight:'+fw+';color:'+txtColor+';background:'+bg+';cursor:'+cur+';transition:all 0.2s;position:relative;white-space:nowrap;">'+getStageLabel(s);
-        if (i < allStatuses.length - 1) {
-            stageBarHtml += '<span style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:#cbd5e1;font-size:10px;z-index:1;">&#8250;</span>';
-        }
-        stageBarHtml += '</div>';
-    });
-    document.getElementById('detailStageBar').innerHTML = stageBarHtml;
-
-    // Main tab - instant render from local data
-    const assigneeOptions = allUsers.map(u => `<option value="${u.id}" ${u.id === task.assigned_to ? 'selected' : ''}>${_catsEscape(u.full_name)}</option>`).join('');
-    const statusOptions = allStages.map(s => `<option value="${s.key}" ${s.key === task.status ? 'selected' : ''}>${s.label}</option>`).join('') + `<option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>Отменена</option>`;
-    const priorityOptions = Object.entries(priCfg).map(([k,v]) => `<option value="${k}" ${k === task.priority ? 'selected' : ''}>${v.l}</option>`).join('');
-
-    // Todoist-style редизайн: один слой, без карточек-в-карточках,
-    // цветовые акценты только точками/цветным текстом, больше воздуха.
+    // Main tab — плоский канвас, без карточек-в-карточках
     document.getElementById('td-main').innerHTML = `
-        <!-- Description -->
-        ${task.description ? `<div style="padding:2px 0 18px;margin-bottom:18px;border-bottom:1px solid #eef2f7;">
-            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">Описание</div>
-            <div style="font-size:14px;color:#334155;line-height:1.65;white-space:pre-wrap;">${_catsEscape(task.description)}</div>
-        </div>` : ''}
+        <!-- Описание (inline, без рамки) -->
+        ${task.description ? `<div style="padding:6px 2px 18px;margin-bottom:18px;border-bottom:1px solid #f1f5f9;font-size:14px;color:#334155;line-height:1.65;white-space:pre-wrap;">${_catsEscape(task.description)}</div>` : ''}
 
-        <!-- Inline-editable fields (плоский список) -->
-        <div style="display:flex;flex-direction:column;">
-            <!-- Assignee -->
-            <div style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;">
-                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Исполнитель</div>
-                <div style="flex:1;display:flex;align-items:center;gap:10px;min-width:0;">
-                    ${assignee ? avatarHTML(assignee.full_name, assignee.avatar_color, 28, assignee.avatar_url) : '<span style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:inline-flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:14px;flex-shrink:0;">?</span>'}
-                    <select id="detailAssignee" onchange="detailChangeField('assigned_to',this.value)" style="border:none;background:none;font-size:14px;font-weight:500;color:#1e293b;cursor:pointer;padding:2px 0;flex:1;outline:none;min-width:0;">
-                        <option value="">Не назначен</option>
-                        ${assigneeOptions}
-                    </select>
-                </div>
+        <!-- Соисполнители (inline-ряд аватарок + добавить) -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;width:110px;flex-shrink:0;">Соиспл.</div>
+            <div id="detailCoexecutorsDisplay" style="flex:1;display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:28px;">
+                ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;color:#3b82f6;padding:4px 10px;border-radius:14px;font-size:12px;font-weight:600;">${_catsEscape(c.full_name)}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
+                ${(!task.coexecutors || !task.coexecutors.length) ? '<span style="color:#cbd5e1;font-size:13px;">—</span>' : ''}
             </div>
-
-            <!-- Co-executors -->
-            <div style="padding:14px 4px;border-bottom:1px solid #eef2f7;">
-                <div style="display:flex;align-items:flex-start;gap:14px;">
-                    <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;padding-top:4px;">Соисполнители</div>
-                    <div id="detailCoexecutorsDisplay" style="flex:1;display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:28px;">
-                        ${(task.coexecutors || []).map(c => `<span style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;color:#3b82f6;padding:4px 10px;border-radius:14px;font-size:12px;font-weight:600;">${_catsEscape(c.full_name)}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:15px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('')}
-                        ${(!task.coexecutors || !task.coexecutors.length) ? '<span style="color:#cbd5e1;font-size:13px;">—</span>' : ''}
-                    </div>
-                    <button id="coexecToggleBtn" onclick="toggleCoexecList()" style="flex-shrink:0;border:1px dashed #cbd5e1;background:transparent;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;padding:4px 10px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:14px;transition:all 0.2s;line-height:1;gap:4px;" onmouseenter="this.style.borderColor='#3b82f6';this.style.color='#3b82f6';this.style.borderStyle='solid'" onmouseleave="this.style.borderColor='#cbd5e1';this.style.color='#64748b';this.style.borderStyle='dashed'" title="Добавить соисполнителя">+ Добавить</button>
-                </div>
-                <div id="detailCoexecList" style="display:none;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #eef2f7;">
-                    ${allUsers.filter(u => u.id !== task.assigned_to).map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer;padding:4px 0;">
-                        <input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})"> ${_catsEscape(u.full_name)}
-                    </label>`).join('')}
-                </div>
-            </div>
-
-            <!-- Status -->
-            <div style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;">
-                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Статус</div>
-                <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;">
-                    <span style="width:8px;height:8px;border-radius:50%;background:${sc.c};display:inline-block;flex-shrink:0;"></span>
-                    <select id="detailStatus" onchange="detailChangeField('status',this.value)" style="border:none;background:none;font-size:14px;font-weight:500;color:#1e293b;cursor:pointer;padding:2px 0;flex:1;outline:none;min-width:0;">
-                        ${statusOptions}
-                    </select>
-                </div>
-            </div>
-
-            <!-- Priority (без цветного фона, только цветная точка + цветной текст) -->
-            <div id="detailPriorityRow" style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;">
-                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Приоритет</div>
-                <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;">
-                    <span style="width:8px;height:8px;border-radius:50%;background:${pc.c};display:inline-block;flex-shrink:0;"></span>
-                    <select id="detailPriority" onchange="detailChangeField('priority',this.value)" style="border:none;background:none;font-size:14px;font-weight:${task.priority !== 'low' ? '600' : '500'};color:${pc.c};cursor:pointer;padding:2px 0;outline:none;flex:1;min-width:0;">
-                        ${priorityOptions}
-                    </select>
-                </div>
-            </div>
-
-            <!-- Deadline -->
-            ${(() => {
-                const canEditDeadline = currentUser && (
-                    currentUser.role === 'admin' ||
-                    currentUser.role === 'head' ||
-                    task.created_by === currentUser.id
-                );
-                const dlColor = deadline.class === 'deadline-soon' ? '#f59e0b'
-                             : deadline.class === 'deadline-overdue' ? '#ef4444'
-                             : '#1e293b';
-                const labelColor = deadline.class === 'deadline-soon' ? '#f59e0b'
-                                : deadline.class === 'deadline-overdue' ? '#ef4444'
-                                : '#94a3b8';
-                const rowClick = canEditDeadline ? ' onclick="openDetailDeadlinePicker()"' : '';
-                const lockIcon = canEditDeadline ? '' : '<span title="Только создатель задачи может менять дедлайн" style="color:#cbd5e1;font-size:14px;">🔒</span>';
-                const inputExtra = canEditDeadline ? 'onchange="detailChangeField(\'deadline\',this.value)"' : 'disabled style="pointer-events:none;opacity:0.6;"';
-                return '<div id="detailDeadlineRow" style="display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid #eef2f7;' + (canEditDeadline ? 'cursor:pointer;' : '') + '"' + rowClick + '>' +
-                    '<div style="width:130px;font-size:10px;color:' + labelColor + ';font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Дедлайн</div>' +
-                    '<div style="flex:1;display:flex;align-items:center;gap:10px;min-width:0;">' +
-                        '<input type="datetime-local" id="detailDeadline" value="' + (task.deadline ? task.deadline.slice(0,16) : '') + '" ' + inputExtra + ' style="border:none;background:transparent;font-size:14px;color:' + dlColor + ';' + (canEditDeadline ? 'cursor:pointer;' : 'cursor:default;') + 'padding:2px 0;outline:none;flex:1;min-width:0;font-weight:' + (deadline.class ? '600' : '500') + ';">' +
-                        (deadline.text ? '<span style="font-size:12px;font-weight:600;color:' + labelColor + ';white-space:nowrap;background:' + (deadline.class === 'deadline-overdue' ? '#fef2f2' : deadline.class === 'deadline-soon' ? '#fffbeb' : '#f1f5f9') + ';padding:3px 10px;border-radius:10px;">' + deadline.text + '</span>' : '<span style="color:#cbd5e1;font-size:13px;">не задан</span>') +
-                        lockIcon +
-                    '</div>' +
-                    '</div>';
-            })()}
-
-            <!-- Department -->
-            <div style="display:flex;align-items:center;gap:14px;padding:14px 4px;">
-                <div style="width:130px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;flex-shrink:0;">Отдел</div>
-                <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;">
-                    ${task.department_id ? `<span style="width:8px;height:8px;border-radius:50%;background:${(allDepartments.find(d => d.id === task.department_id)?.color) || '#94a3b8'};display:inline-block;flex-shrink:0;"></span>` : ''}
-                    <select id="detailDepartment" onchange="detailChangeField('department_id',this.value)" style="border:none;background:transparent;font-size:14px;font-weight:${task.department_id ? '600' : '500'};color:${task.department_id ? ((allDepartments.find(d => d.id === task.department_id)?.color) || '#1e293b') : '#1e293b'};cursor:pointer;padding:2px 0;flex:1;outline:none;min-width:0;">
-                        <option value="">Не выбран</option>
-                        ${allDepartments.map(d => `<option value="${d.id}" ${d.id === task.department_id ? 'selected' : ''}>${d.name}</option>`).join('')}
-                    </select>
-                </div>
-            </div>
+            <button id="coexecToggleBtn" onclick="toggleCoexecList()" style="flex-shrink:0;border:1px dashed #cbd5e1;background:transparent;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:12px;transition:all 0.2s;" onmouseenter="this.style.borderColor='#3b82f6';this.style.color='#3b82f6';this.style.borderStyle='solid'" onmouseleave="this.style.borderColor='#cbd5e1';this.style.color='#64748b';this.style.borderStyle='dashed'">+</button>
+        </div>
+        <div id="detailCoexecList" style="display:none;flex-direction:column;gap:2px;padding:8px 12px;background:#f8fafc;border-radius:8px;margin:8px 0;">
+            ${allUsers.filter(u => u.id !== task.assigned_to).map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer;padding:4px 0;">
+                <input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})"> ${_catsEscape(u.full_name)}
+            </label>`).join('')}
         </div>
 
-        <!-- Subtasks (inline) -->
-        <div id="td-subtasks-inline" style="margin-top:22px;margin-bottom:4px;"></div>
-
-        <!-- Watchers -->
-        <div style="padding:16px 0 0;margin-top:18px;border-top:1px solid #eef2f7;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;">Наблюдатели</div>
-                <button onclick="document.getElementById('detailWatchersList').style.display=document.getElementById('detailWatchersList').style.display==='none'?'flex':'none'" style="border:none;background:none;color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background 0.15s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'">+ Добавить</button>
-            </div>
-            <div id="detailWatchersDisplay" style="display:flex;gap:6px;flex-wrap:wrap;min-height:20px;"></div>
-            <div id="detailWatchersList" style="display:none;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #eef2f7;max-height:220px;overflow-y:auto;">
-                ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer;padding:4px 0;">
-                    <input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})"> ${_catsEscape(u.full_name)}
-                </label>`).join('')}
-            </div>
+        <!-- Наблюдатели (inline) -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;width:110px;flex-shrink:0;">Наблюдатели</div>
+            <div id="detailWatchersDisplay" style="flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-height:28px;"></div>
+            <button onclick="document.getElementById('detailWatchersList').style.display=document.getElementById('detailWatchersList').style.display==='none'?'flex':'none'" style="flex-shrink:0;border:1px dashed #cbd5e1;background:transparent;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:12px;transition:all 0.2s;" onmouseenter="this.style.borderColor='#3b82f6';this.style.color='#3b82f6';this.style.borderStyle='solid'" onmouseleave="this.style.borderColor='#cbd5e1';this.style.color='#64748b';this.style.borderStyle='dashed'">+</button>
+        </div>
+        <div id="detailWatchersList" style="display:none;flex-direction:column;gap:2px;padding:8px 12px;background:#f8fafc;border-radius:8px;margin:8px 0;max-height:220px;overflow-y:auto;">
+            ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer;padding:4px 0;">
+                <input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})"> ${_catsEscape(u.full_name)}
+            </label>`).join('')}
         </div>
 
-        <!-- Quick comment -->
-        <div style="padding:16px 0 0;margin-top:18px;border-top:1px solid #eef2f7;">
-            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:10px;">Быстрый комментарий</div>
+        <!-- Подзадачи -->
+        <div id="td-subtasks-inline" style="margin-top:18px;margin-bottom:4px;"></div>
+
+        <!-- Быстрый ввод комментария -->
+        <div style="padding:16px 0 0;margin-top:14px;border-top:1px solid #f1f5f9;">
             <div id="mainAttachPreview" style="display:none;margin-bottom:8px;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #eef2f7;font-size:12px;"></div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                 <input type="text" id="detailQuickComment" placeholder="Написать комментарий..." style="flex:1;min-width:160px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;transition:all 0.15s;" onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" onkeydown="if(event.key==='Enter')sendComment(${taskId},'main')">
@@ -8752,19 +8708,17 @@ async function showTaskDetail(taskId) {
             </div>
         </div>
 
-        <!-- Comments in main tab (loaded async) -->
-        <div id="detailMainComments" style="margin-top:18px;"></div>
+        <!-- Комментарии -->
+        <div id="detailMainComments" style="margin-top:16px;"></div>
     `;
 
-    // Show modal INSTANTLY (no awaits before this!)
+    // Скрыть stage-bar (он больше не нужен, статус в чипах)
+    var _stageBar = document.getElementById('detailStageBar');
+    if (_stageBar) _stageBar.style.display = 'none';
+
+    // Show modal INSTANTLY
     modal.style.display = 'flex';
-
-    // Async: load comments into main tab
     loadMainTabComments(taskId);
-
-    // Render subtasks inline on the main tab (no longer a separate tab).
-    // Skip rendering the inline block for tasks that are themselves subtasks
-    // — nested subtasks are not supported by the UI.
     if (!task.parent_task_id) {
         try { renderSubtasks(taskId); } catch(e) { console.warn('inline subtasks failed', e); }
     } else {
