@@ -6381,7 +6381,6 @@ function _catHexToRgba(hex, alpha) {
 // Здесь — универсальные функции, применяемые везде где user-контент
 // попадает в innerHTML.
 /* xss-finalizer */
-/* round2-xss */
 function escHtml(s) {
     if (s === null || s === undefined) return '';
     return String(s)
@@ -9819,7 +9818,7 @@ function handleMentionInput(input, dropdown) {
 
     dropdown.innerHTML = matches.map((u, i) =>
         '<div class="mention-item' + (i === 0 ? ' active' : '') + '" onmousedown="selectMention(' + i + ')">' +
-            '<span class="mention-name">@' + escHtml(u.full_name) + '</span>' +
+            '<span class="mention-name">@' + u.full_name + '</span>' +
         '</div>'
     ).join('');
     // Жёсткая защита: прячем все чужие mention-dropdown прямо перед показом
