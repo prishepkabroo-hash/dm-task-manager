@@ -1095,6 +1095,106 @@ def _parse_mentions(text, conn):
     return ids
 
 
+# -- security-mega applied
+def _safe_join(base, rel):
+    """Защита от path traversal: rel не может выйти за пределы base."""
+    try:
+        base_abs = os.path.realpath(base)
+        # отсечь leading slashes, .. и .
+        rel_clean = rel.lstrip("/").replace("\\", "/")
+        full = os.path.realpath(os.path.join(base_abs, rel_clean))
+        if full != base_abs and not full.startswith(base_abs + os.sep):
+            return None
+        return full
+    except Exception:
+        return None
+
+
+def _sanitize_text(s, maxlen=20000):
+    """Вырезать опасные HTML-символы из user-input текста.
+    Мягкая санитизация — оставляем < > & в тексте но без экранирования,
+    фронт должен escape'ить перед innerHTML. Убираем null-bytes, ограничиваем длину.
+    """
+    if not isinstance(s, str):
+        return s
+    s = s.replace("\x00", "")
+    if maxlen and len(s) > maxlen:
+        s = s[:maxlen]
+    return s
+
+
+def _can_view_task(conn, user, task_id):
+    """Может ли пользователь увидеть задачу? admin/head_of_dept/creator/assigned/coexec/watcher."""
+    if not user or not user.get("id"):
+        return False
+    try:
+        task = conn.execute("SELECT created_by, assigned_to, department_id FROM tasks WHERE id=%s", (task_id,)).fetchone()
+        if not task:
+            return False
+        u_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (user["id"],)).fetchone()
+        if not u_row:
+            return False
+        if u_row["role"] == "admin":
+            return True
+        if u_row["role"] == "head" and u_row["department_id"] == task["department_id"]:
+            return True
+        if user["id"] in (task["created_by"], task["assigned_to"]):
+            return True
+        w = conn.execute("SELECT 1 FROM task_watchers WHERE task_id=%s AND user_id=%s", (task_id, user["id"])).fetchone()
+        if w: return True
+        c = conn.execute("SELECT 1 FROM task_coexecutors WHERE task_id=%s AND user_id=%s", (task_id, user["id"])).fetchone()
+        if c: return True
+    except Exception:
+        return False
+    return False
+
+
+def _can_edit_task(conn, user, task_id):
+    """Кто может ИЗМЕНЯТЬ задачу: admin, head отдела, автор, исполнитель, соисполнитель."""
+    if not user or not user.get("id"):
+        return False
+    try:
+        task = conn.execute("SELECT created_by, assigned_to, department_id FROM tasks WHERE id=%s", (task_id,)).fetchone()
+        if not task:
+            return False
+        u_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (user["id"],)).fetchone()
+        if not u_row:
+            return False
+        if u_row["role"] == "admin":
+            return True
+        if u_row["role"] == "head" and u_row["department_id"] == task["department_id"]:
+            return True
+        if user["id"] in (task["created_by"], task["assigned_to"]):
+            return True
+        c = conn.execute("SELECT 1 FROM task_coexecutors WHERE task_id=%s AND user_id=%s", (task_id, user["id"])).fetchone()
+        if c: return True
+    except Exception:
+        return False
+    return False
+
+
+def _can_delete_task(conn, user, task_id):
+    """Кто может УДАЛИТЬ: только admin, head отдела, или автор задачи."""
+    if not user or not user.get("id"):
+        return False
+    try:
+        task = conn.execute("SELECT created_by, department_id FROM tasks WHERE id=%s", (task_id,)).fetchone()
+        if not task:
+            return False
+        u_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (user["id"],)).fetchone()
+        if not u_row:
+            return False
+        if u_row["role"] == "admin":
+            return True
+        if u_row["role"] == "head" and u_row["department_id"] == task["department_id"]:
+            return True
+        if user["id"] == task["created_by"]:
+            return True
+    except Exception:
+        return False
+    return False
+
+
 def log_activity(conn, task_id, user_id, action, details=None, old_value=None, new_value=None):
     """Log an activity to the task_activity table."""
     conn.execute("INSERT INTO task_activity (task_id, user_id, action, details, old_value, new_value) VALUES (%s,%s,%s,%s,%s,%s)",
@@ -1337,7 +1437,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
     def _json(self, data, status=200):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "https://dmtasks.ru")
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False, default=str).encode("utf-8"))
 
@@ -1392,7 +1492,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "https://dmtasks.ru")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
@@ -1421,7 +1521,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if path.startswith("/static/"):
-            return self._static(os.path.join(STATIC_DIR, path[8:]))
+            safe = _safe_join(STATIC_DIR, path[8:])
+            if not safe:
+                self.send_response(403); self.end_headers(); return
+            return self._static(safe)
         if path.startswith("/uploads/"):
             upload_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"))
             # Разрешаем только имя файла (без подпапок и ../)
@@ -2395,9 +2498,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/") and "/watchers" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            try: task_id = int(path.split("/")[3])
+            except (ValueError, IndexError): return self._json({"error":"bad id"}, 400)
             watcher_ids = data.get("watcher_ids", [])
             conn = get_db()
+            if not _can_edit_task(conn, u, task_id):
+                conn.close()
+                return self._json({"error":"Forbidden"}, 403)
             _tr, _ok = _can_access_task(conn, u["id"], task_id)
             if not _tr:
                 conn.close(); return self._json({"error": "not found"}, 404)
@@ -2437,9 +2544,13 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/") and "/coexecutors" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            try: task_id = int(path.split("/")[3])
+            except (ValueError, IndexError): return self._json({"error":"bad id"}, 400)
             coexecutor_ids = data.get("coexecutor_ids", [])
             conn = get_db()
+            if not _can_edit_task(conn, u, task_id):
+                conn.close()
+                return self._json({"error":"Forbidden"}, 403)
             _tr, _ok = _can_access_task(conn, u["id"], task_id)
             if not _tr:
                 conn.close(); return self._json({"error": "not found"}, 404)
