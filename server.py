@@ -1040,6 +1040,16 @@ def _notify_task_people(conn, task_id, message, ntype, exclude_uid=None, extra_u
             pass
 
 
+def _safe_name(row, default="Пользователь"):
+    """Безопасно достать full_name из row. Защита от KeyError/None."""
+    try:
+        if not row: return default
+        n = row["full_name"] if "full_name" in row else None
+        return n or default
+    except Exception:
+        return default
+
+
 def _parse_mentions(text, conn):
     """Найти в тексте @ИмяФамилия и вернуть список user_ids упомянутых."""
     if not text:
@@ -2360,7 +2370,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 ntype = "mention" if nid in mentioned_ids else "comment"
                 prefix = "упомянул вас в" if nid in mentioned_ids else "прокомментировал"
                 conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
-                    (nid, task_id, ntype, f"{user_name['full_name']} {prefix}: {task_title['title']}"))
+                    (nid, task_id, ntype, f"{_safe_name(user_name)} {prefix}: {task_title['title']}"))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -2392,7 +2402,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Log added watchers + send notifications
             for wid in added_watchers:
                 user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (wid,)).fetchone()
-                log_activity(conn, int(task_id), u["id"], "watcher_added", f"Добавлен наблюдатель: {user_name['full_name']}", new_value=user_name['full_name'])
+                log_activity(conn, int(task_id), u["id"], "watcher_added", f"Добавлен наблюдатель: {_safe_name(user_name)}", new_value=_safe_name(user_name))
                 # Notify the added watcher
                 task_row = conn.execute("SELECT title FROM tasks WHERE id=%s", (task_id,)).fetchone()
                 if task_row and wid != u["id"]:
@@ -2401,7 +2411,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Log removed watchers
             for wid in removed_watchers:
                 user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (wid,)).fetchone()
-                log_activity(conn, int(task_id), u["id"], "watcher_removed", f"Убран наблюдатель: {user_name['full_name']}", old_value=user_name['full_name'])
+                log_activity(conn, int(task_id), u["id"], "watcher_removed", f"Убран наблюдатель: {_safe_name(user_name)}", old_value=_safe_name(user_name))
 
             conn.commit(); conn.close()
             return self._json({"ok": True})
@@ -2428,14 +2438,14 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 except: pass
             for cid in added:
                 user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (cid,)).fetchone()
-                log_activity(conn, int(task_id), u["id"], "coexecutor_added", f"Добавлен соисполнитель: {user_name['full_name']}", new_value=user_name['full_name'])
+                log_activity(conn, int(task_id), u["id"], "coexecutor_added", f"Добавлен соисполнитель: {_safe_name(user_name)}", new_value=_safe_name(user_name))
                 # Notify the added coexecutor
                 task_row = conn.execute("SELECT title FROM tasks WHERE id=%s", (task_id,)).fetchone()
                 conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                     (cid, task_id, "coexecutor_added", f"Вы добавлены соисполнителем в задачу: {task_row['title']}"))
             for cid in removed:
                 user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (cid,)).fetchone()
-                log_activity(conn, int(task_id), u["id"], "coexecutor_removed", f"Убран соисполнитель: {user_name['full_name']}", old_value=user_name['full_name'])
+                log_activity(conn, int(task_id), u["id"], "coexecutor_removed", f"Убран соисполнитель: {_safe_name(user_name)}", old_value=_safe_name(user_name))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
