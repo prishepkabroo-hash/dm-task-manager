@@ -8966,88 +8966,21 @@ async function saveSubtaskTitle(subtaskId, parentTaskId, el) {
 }
 
 function openSubtaskFull(subtaskId) {
-    // Toggle inline chat panel for this subtask
-    const sub = allTasks.find(t => t.id === subtaskId);
-    if (!sub) { showToast('Подзадача не найдена', 'error'); return; }
-    const row = document.querySelector('.subtask-row[data-sid="' + subtaskId + '"]');
-    if (!row) return;
-    // Check if chat panel already open — toggle it off
-    const existingPanel = row.nextElementSibling;
-    if (existingPanel && existingPanel.classList.contains('subtask-chat-panel')) {
-        _closeSubtaskChat(subtaskId);
-        return;
+    // Todoist-style: подзадача открывается как обычная задача в той же модалке
+    try {
+        const sub = (typeof allTasks !== 'undefined') && allTasks.find(t => t.id === subtaskId);
+        if (!sub) {
+            console.warn('openSubtaskFull: подзадача не найдена', subtaskId);
+            if (typeof showToast === 'function') showToast('Подзадача не найдена', 'error');
+            return;
+        }
+        // Закроем любые зависшие inline-chat панели (legacy)
+        document.querySelectorAll('.subtask-chat-panel').forEach(function(p) { try { p.remove(); } catch(e){} });
+        showTaskDetail(subtaskId);
+    } catch (e) {
+        console.error('openSubtaskFull failed:', e);
+        if (typeof showToast === 'function') showToast('Не удалось открыть подзадачу', 'error');
     }
-    // Close any other open chat panels (and their polls)
-    document.querySelectorAll('.subtask-chat-panel').forEach(function(p) {
-        var sid = parseInt(p.dataset.subtaskId, 10);
-        if (sid) _closeSubtaskChat(sid); else p.remove();
-    });
-    // Create inline chat panel
-    const panel = document.createElement('div');
-    panel.className = 'subtask-chat-panel';
-    panel.dataset.subtaskId = subtaskId;
-    var safeTitle = (typeof _catsEscape === 'function')
-        ? _catsEscape(sub.title || 'Подзадача')
-        : (sub.title || 'Подзадача').replace(/</g,'&lt;');
-    panel.innerHTML =
-        '<div class="subtask-chat-header">' +
-            '<div class="subtask-chat-header-title">💬 ' + safeTitle + '</div>' +
-            '<button class="subtask-chat-close" onclick="_closeSubtaskChat(' + subtaskId + ')" title="Закрыть (Esc)">✕</button>' +
-        '</div>' +
-        '<div class="subtask-chat-messages" id="stChat_msgs_' + subtaskId + '">' +
-            '<div class="subtask-chat-empty">Загрузка...</div>' +
-        '</div>' +
-        '<div class="subtask-chat-attach-preview" id="stChat_preview_' + subtaskId + '"></div>' +
-        '<div class="subtask-chat-composer" style="align-items:flex-end;">' +
-            '<textarea class="subtask-chat-input" id="stChat_input_' + subtaskId + '" rows="1" ' +
-                'placeholder="Написать... (Enter — отправить, Shift+Enter — новая строка)" ' +
-                'style="resize:none;max-height:120px;overflow-y:auto;line-height:1.4;padding:8px 12px;" ' +
-                'oninput="_chatAutogrow(this);_saveChatDraft(' + subtaskId + ',this.value);" ' +
-                'onkeydown="if(event.key===\'Enter\' && !event.shiftKey && !(typeof _mentionState!==\'undefined\' && _mentionState && _mentionState.active)){event.preventDefault();sendSubtaskComment(' + subtaskId + ');}"></textarea>' +
-            '<input type="file" id="stChat_file_' + subtaskId + '" style="display:none;" onchange="handleSubtaskChatFile(' + subtaskId + ')" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">' +
-            '<button class="subtask-chat-btn" title="Прикрепить файл" onclick="document.getElementById(\'stChat_file_' + subtaskId + '\').click()">📎</button>' +
-            '<button class="subtask-chat-btn" id="stChat_voice_' + subtaskId + '" title="Голосовое" onclick="toggleSubtaskChatVoice(' + subtaskId + ')">🎤</button>' +
-            '<button class="subtask-chat-send" id="stChat_send_' + subtaskId + '" onclick="sendSubtaskComment(' + subtaskId + ')">Отправить</button>' +
-        '</div>';
-    row.after(panel);
-    // Esc closes panel
-    panel._escHandler = function(e) {
-        if (e.key === 'Escape') {
-            // Only close if focus is inside this panel
-            if (panel.contains(document.activeElement) || document.activeElement === document.body) {
-                _closeSubtaskChat(subtaskId);
-            }
-        }
-    };
-    document.addEventListener('keydown', panel._escHandler);
-    // Load comments + mark read + start live polling
-    loadSubtaskChatComments(subtaskId, true);
-    _markSubtaskRead(subtaskId);
-    _startChatPoll(subtaskId);
-    // Init @-mention on the input + restore draft
-    setTimeout(function() {
-        var inp = document.getElementById('stChat_input_' + subtaskId);
-        if (inp) {
-            initMentionDropdown(inp);
-            var draft = _loadChatDraft(subtaskId);
-            if (draft) {
-                inp.value = draft;
-                _chatAutogrow(inp);
-                try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e) {}
-            } else {
-                // auto-@: если черновика нет — ставим '@' сразу и показываем
-                // список пользователей. Самый частый сценарий обсуждения
-                // подзадачи начинается с упоминания кого-то.
-                inp.value = '@';
-                _chatAutogrow(inp);
-                try { inp.setSelectionRange(1, 1); } catch(e) {}
-            }
-            inp.focus();
-            // В любом случае триггерим input — чтобы mention-dropdown
-            // увидел '@' (из draft или autoset) и открыл список.
-            try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
-        }
-    }, 50);
 }
 
 // Корректное закрытие панели: остановить поллинг и снять Esc-хэндлер
