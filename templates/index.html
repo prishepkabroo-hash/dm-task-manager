@@ -9497,19 +9497,24 @@ async function detailChangeField(field, value) {
         renderCurrentPage();
         showToast('Задача обновлена', 'success');
 
-        // If task is marked as done, trigger gamification rewards
+        // /* done-closes-modal */ — после «Готово» сразу закрываем модалку
         if (field === 'status' && value === 'done') {
             const gamificationResp = await apiCall('/api/gamification/check', {
                 method: 'POST',
                 body: JSON.stringify({task_id: detailTaskId})
             });
             if (gamificationResp && !gamificationResp.error) {
-                showToast('🎉 Награды за завершение получены!', 'success');
-                // Refresh leaderboard/achievements if it's currently displayed
+                showToast('🎉 Задача выполнена!', 'success');
                 if (currentPage === 'leaderboard') {
                     renderLeaderboard();
                 }
+            } else {
+                showToast('Задача выполнена', 'success');
             }
+            // Закрываем карточку — пользователь уже закончил работу над задачей
+            try { closeTaskDetail(); } catch(e) {}
+            // Перерендерим список (если в нём фильтр скрывает done — задача пропадёт)
+            try { renderCurrentPage(); } catch(e) {}
         }
 
         // Re-render detail modal to update styling for priority/deadline changes
