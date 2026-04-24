@@ -6130,7 +6130,7 @@ async function renderDashboard() {
                 <span class="dt-title">${escHtml(task.title)}</span>
                 <span><span class="dt-badge" style="background:var(--status-${task.status})20;color:var(--status-${task.status});">${statusName(task.status)}</span></span>
                 <span><span class="dt-badge" style="background:var(--priority-${task.priority})20;color:var(--priority-${task.priority});">${priorityName(task.priority)}</span></span>
-                <span class="dt-meta">${assignee ? assignee.full_name : '—'}</span>
+                <span class="dt-meta">${assignee ? escHtml(assignee.full_name) : '—'}</span>
                 <span class="dt-meta">${dept ? dept.name : '—'}</span>
                 <span class="dt-meta">${dl.text || '—'}</span>
             </div>`;
@@ -6380,6 +6380,7 @@ function _catHexToRgba(hex, alpha) {
 // _catsEscape — старый helper, но используется только в cats-системе.
 // Здесь — универсальные функции, применяемые везде где user-контент
 // попадает в innerHTML.
+/* xss-finalizer */
 function escHtml(s) {
     if (s === null || s === undefined) return '';
     return String(s)
@@ -8860,7 +8861,7 @@ function renderSubtasks(parentTaskId) {
                         + 'onmouseenter="if(!this.matches(\':focus\'))this.style.background=\'#f8fafc\'" '
                         + 'onmouseleave="if(!this.matches(\':focus\'))this.style.background=\'none\'">' + s.title + '</div>'
                     + '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap;">'
-                        + (assignee ? '<span style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;">' + avatarHTML(assignee.full_name, assignee.avatar_color, 14, assignee.avatar_url) + assignee.full_name.split(' ')[0] + '</span>' : '')
+                        + (assignee ? '<span style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;">' + avatarHTML(assignee.full_name, assignee.avatar_color, 14, assignee.avatar_url) + escHtml(assignee.full_name.split(' ')[0]) + '</span>' : '')
                         + (deadline.text ? '<span style="font-size:11px;color:var(--' + deadline.class + ');font-weight:600;">📅 ' + deadline.text + '</span>' : '')
                         + ((s.comment_count && s.comment_count > 0)
                             ? '<button type="button" onclick="event.stopPropagation();openSubtaskFull(' + s.id + ')" title="Открыть переписку" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#3b82f6;font-weight:700;background:#eff6ff;border:1px solid #dbeafe;padding:3px 10px;border-radius:12px;cursor:pointer;transition:all 0.15s;position:relative;" onmouseenter="this.style.background=\'#dbeafe\';this.style.borderColor=\'#bfdbfe\'" onmouseleave="this.style.background=\'#eff6ff\';this.style.borderColor=\'#dbeafe\'">💬 ' + s.comment_count
@@ -11964,7 +11965,7 @@ function showChangelog() {
             var t = typeLabels[c.type] || typeLabels['improve'];
             return '<div style="display:flex;gap:12px;padding:10px 0;align-items:flex-start;">' +
                 '<span style="flex-shrink:0;background:' + t.bg + ';color:' + t.color + ';padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:0.3px;min-width:80px;text-align:center;">' + t.label + '</span>' +
-                '<span style="color:#334155;font-size:14px;line-height:1.5;">' + c.text + '</span>' +
+                '<span style="color:#334155;font-size:14px;line-height:1.5;">' + escHtml(c.text || '') + '</span>' +
                 '</div>';
         }).join('');
 
