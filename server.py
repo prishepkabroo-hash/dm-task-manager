@@ -1297,7 +1297,7 @@ def check_and_award_achievements(conn, user_id):
         ontime = conn.execute(
             "SELECT COUNT(*) as c FROM tasks "
             "WHERE assigned_to=%s AND status='done' AND deadline IS NOT NULL "
-            "AND DATE(updated_at) <= deadline",
+            "AND SUBSTRING(updated_at::text, 1, 10) <= deadline",
             (user_id,)
         ).fetchone()
         if ontime and (ontime["c"] or 0) >= 10:
@@ -1872,7 +1872,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 dept_tasks = conn.execute("""
                     SELECT d.name, COUNT(*) as count FROM tasks t
                     LEFT JOIN departments d ON t.department_id = d.id
-                    GROUP BY t.department_id
+                    GROUP BY t.department_id, d.name
                 """).fetchall()
                 tasks_by_dept = [{"department_name": d["name"], "count": d["count"]} for d in dept_tasks]
             else:
@@ -1889,7 +1889,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                            COUNT(CASE WHEN t.assigned_to = u.id AND t.status = 'done' THEN 1 END) as completed_count
                     FROM users u LEFT JOIN tasks t ON t.assigned_to = u.id
                     WHERE u.role IN ('member', 'head')
-                    GROUP BY u.id ORDER BY assigned_count DESC
+                    GROUP BY u.id, u.full_name ORDER BY assigned_count DESC
                 """).fetchall()
                 tasks_by_employee = [{"full_name": e["full_name"], "assigned_count": e["assigned_count"], "completed_count": e["completed_count"]} for e in emp_tasks]
             else:
@@ -2350,7 +2350,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.execute("UPDATE user_stats SET comments_count = %s WHERE user_id=%s", (stats["comments_count"] + 1, u["id"]))
 
             # Check achievement for 50 comments
-            check_and_award_achievements(conn, u["id"])
+            try:
+                check_and_award_achievements(conn, u["id"])
+            except Exception as _e:
+                print(f"achievements check failed: {_e}")
+                try: conn.rollback()
+                except: pass
             # first_comment — самый первый комментарий пользователя
             try:
                 _first_check = conn.execute(
@@ -2818,7 +2823,12 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                     (today_date, new_streak, u["id"]))
 
             # Check achievements
-            check_and_award_achievements(conn, u["id"])
+            try:
+                check_and_award_achievements(conn, u["id"])
+            except Exception as _e:
+                print(f"achievements check failed: {_e}")
+                try: conn.rollback()
+                except: pass
 
             # Department star: complete 5 tasks in one day
             today_tasks = conn.execute(
