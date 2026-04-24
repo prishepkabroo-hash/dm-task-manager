@@ -9012,15 +9012,19 @@ function openSubtaskFull(subtaskId) {
             if (draft) {
                 inp.value = draft;
                 _chatAutogrow(inp);
-                // Курсор — в конец восстановленного текста, иначе он будет в 0.
                 try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e) {}
+            } else {
+                // auto-@: если черновика нет — ставим '@' сразу и показываем
+                // список пользователей. Самый частый сценарий обсуждения
+                // подзадачи начинается с упоминания кого-то.
+                inp.value = '@';
+                _chatAutogrow(inp);
+                try { inp.setSelectionRange(1, 1); } catch(e) {}
             }
             inp.focus();
-            // Триггерим input-event, чтобы глобальный mention-механизм
-            // увидел уже стоящий '@' в черновике и сам открыл dropdown.
-            if (draft) {
-                try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
-            }
+            // В любом случае триггерим input — чтобы mention-dropdown
+            // увидел '@' (из draft или autoset) и открыл список.
+            try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
         }
     }, 50);
 }
