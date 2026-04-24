@@ -43,6 +43,14 @@ login_attempts = {}
 LOGIN_MAX_ATTEMPTS = 5       # попыток
 LOGIN_WINDOW_SECONDS = 300   # окно 5 минут
 
+# -- round2-applied
+def _safe_int(s, default=None):
+    """Безопасное преобразование в int. None/bad → default."""
+    if s is None: return default
+    try: return int(s)
+    except (ValueError, TypeError): return default
+
+
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -432,6 +440,8 @@ def init_db():
     """)
 
     # Migrate: add onboarding_done column if missing
+        c.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS km_awarded INTEGER DEFAULT 0")
+    # -- km_awarded migration
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_done INTEGER DEFAULT 0")
 
     # Migrate: add admin_onboarding_done column if missing
@@ -1794,7 +1804,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/") and "/comments" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            task_id = _safe_int(path.split("/")[3] if len(path.split("/")) > 3 else None)
+            if task_id is None: return self._json({"error":"bad id"}, 400)
             conn = get_db()
             _t, _ok = _can_access_task(conn, u["id"], task_id)
             if not _t:
@@ -1811,7 +1822,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/") and "/activity" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            task_id = _safe_int(path.split("/")[3] if len(path.split("/")) > 3 else None)
+            if task_id is None: return self._json({"error":"bad id"}, 400)
             conn = get_db()
             _t, _ok = _can_access_task(conn, u["id"], task_id)
             if not _t:
@@ -1831,7 +1843,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/") and "/watchers" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            task_id = _safe_int(path.split("/")[3] if len(path.split("/")) > 3 else None)
+            if task_id is None: return self._json({"error":"bad id"}, 400)
             conn = get_db()
             _t, _ok = _can_access_task(conn, u["id"], task_id)
             if not _t:
@@ -1847,7 +1860,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/") and path.count("/") == 3:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            task_id = _safe_int(path.split("/")[3] if len(path.split("/")) > 3 else None)
+            if task_id is None: return self._json({"error":"bad id"}, 400)
             conn = get_db()
             _tr, _ok = _can_access_task(conn, u["id"], task_id)
             if not _tr:
@@ -2397,7 +2411,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/") and "/comments" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            task_id = _safe_int(path.split("/")[3] if len(path.split("/")) > 3 else None)
+            if task_id is None: return self._json({"error":"bad id"}, 400)
             text = _sanitize_text((data.get("text") or "").strip())
             attachment_data = data.get("attachment_data") or None
             attachment_name = data.get("attachment_name") or None
@@ -3120,7 +3135,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/"):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            task_id = _safe_int(path.split("/")[3] if len(path.split("/")) > 3 else None)
+            if task_id is None: return self._json({"error":"bad id"}, 400)
             conn = get_db()
             _tr, _ok = _can_access_task(conn, u["id"], task_id)
             if not _tr:
@@ -3498,7 +3514,8 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/tasks/"):
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
-            task_id = path.split("/")[3]
+            task_id = _safe_int(path.split("/")[3] if len(path.split("/")) > 3 else None)
+            if task_id is None: return self._json({"error":"bad id"}, 400)
             conn = get_db()
             # Удалять задачу могут только admin, head своего отдела или её создатель
             _tr = conn.execute("SELECT created_by, department_id FROM tasks WHERE id=%s", (task_id,)).fetchone()
@@ -3639,7 +3656,7 @@ if __name__ == "__main__":
 
     if CLOUD_MODE:
         # Cloud mode: HTTP only (hosting provides SSL)
-        server_http = http.server.HTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
+        server_http = http.server.ThreadingHTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
         print(f"\n  ╔══════════════════════════════════════════╗")
         print(f"  ║  Dudarev Motorsport — Таск-менеджер v5   ║")
         print(f"  ║                                          ║")
@@ -3680,7 +3697,7 @@ if __name__ == "__main__":
         if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
             generate_cert()
 
-        server_http = http.server.HTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
+        server_http = http.server.ThreadingHTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
         server_https = http.server.HTTPServer(("0.0.0.0", PORT_HTTPS), TaskManagerHandler)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(CERT_FILE, KEY_FILE)
