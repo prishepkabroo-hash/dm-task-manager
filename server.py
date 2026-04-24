@@ -43,6 +43,14 @@ login_attempts = {}
 LOGIN_MAX_ATTEMPTS = 5       # попыток
 LOGIN_WINDOW_SECONDS = 300   # окно 5 минут
 
+# -- round2v2-applied
+def _safe_int(s, default=None):
+    """Безопасное преобразование в int. None/bad → default."""
+    if s is None: return default
+    try: return int(s)
+    except (ValueError, TypeError): return default
+
+
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -3639,7 +3647,7 @@ if __name__ == "__main__":
 
     if CLOUD_MODE:
         # Cloud mode: HTTP only (hosting provides SSL)
-        server_http = http.server.HTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
+        server_http = http.server.ThreadingHTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
         print(f"\n  ╔══════════════════════════════════════════╗")
         print(f"  ║  Dudarev Motorsport — Таск-менеджер v5   ║")
         print(f"  ║                                          ║")
@@ -3680,8 +3688,8 @@ if __name__ == "__main__":
         if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
             generate_cert()
 
-        server_http = http.server.HTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
-        server_https = http.server.HTTPServer(("0.0.0.0", PORT_HTTPS), TaskManagerHandler)
+        server_http = http.server.ThreadingHTTPServer(("0.0.0.0", PORT_HTTP), TaskManagerHandler)
+        server_https = http.server.ThreadingHTTPServer(("0.0.0.0", PORT_HTTPS), TaskManagerHandler)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(CERT_FILE, KEY_FILE)
         server_https.socket = ctx.wrap_socket(server_https.socket, server_side=True)
