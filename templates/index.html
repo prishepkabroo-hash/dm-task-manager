@@ -5839,7 +5839,7 @@ async function loadStats() {
     let cardsHtml = `<div class="stat-card" style="border-left: 4px solid var(--blue);"><div class="stat-label">Всего</div><div class="stat-value">${totalCount}</div></div>`;
     allStages.forEach(s => {
         const count = ft.filter(t => t.status === s.key).length;
-        cardsHtml += `<div class="stat-card" style="border-left: 4px solid ${s.color};"><div class="stat-label">${s.label}</div><div class="stat-value">${count}</div></div>`;
+        cardsHtml += `<div class="stat-card" style="border-left: 4px solid ${s.color};"><div class="stat-label">${escHtml(s.label)}</div><div class="stat-value">${count}</div></div>`;
     });
     cardsHtml += `<div class="stat-card overdue"><div class="stat-label">Просрочено</div><div class="stat-value">${overdueCount}</div></div>`;
     grid.innerHTML = cardsHtml;
@@ -5864,7 +5864,7 @@ async function loadNotifications() {
                 <div style="display:flex; gap:10px; align-items:flex-start;">
                     <span style="font-size:16px; flex-shrink:0; margin-top:2px;">${typeIcon}</span>
                     <div style="flex:1; min-width:0;">
-                        <div style="font-size:13px; ${isUnread ? 'font-weight:600;' : ''} word-wrap:break-word;">${notif.message}</div>
+                        <div style="font-size:13px; ${isUnread ? 'font-weight:600;' : ''} word-wrap:break-word;">${escHtml(notif.message)}</div>
                         <div style="font-size:11px; color:var(--text-light); margin-top:4px;">${time}</div>
                     </div>
                 </div>
@@ -6127,7 +6127,7 @@ async function renderDashboard() {
             const dept = allDepartments.find(d => d.id === task.department_id);
             const dl = deadlineInfo(task.deadline);
             html += `<div class="dash-task-row" onclick="showTaskDetail(${task.id})">
-                <span class="dt-title">${task.title}</span>
+                <span class="dt-title">${escHtml(task.title)}</span>
                 <span><span class="dt-badge" style="background:var(--status-${task.status})20;color:var(--status-${task.status});">${statusName(task.status)}</span></span>
                 <span><span class="dt-badge" style="background:var(--priority-${task.priority})20;color:var(--priority-${task.priority});">${priorityName(task.priority)}</span></span>
                 <span class="dt-meta">${assignee ? assignee.full_name : '—'}</span>
@@ -6374,6 +6374,22 @@ function _catHexToRgba(hex, alpha) {
     const b = parseInt(h.substring(4,6),16);
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
 }
+
+
+// ═══ XSS-защита: глобальный escape для HTML и атрибутов ═══
+// _catsEscape — старый helper, но используется только в cats-системе.
+// Здесь — универсальные функции, применяемые везде где user-контент
+// попадает в innerHTML.
+function escHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+function escAttr(s) { return escHtml(s); }
 
 function _catsEscape(s) {
     if (s == null) return '';
@@ -8628,7 +8644,7 @@ async function showTaskDetail(taskId) {
                 <span style="width:7px;height:7px;border-radius:50%;background:${stColor};"></span>
                 <span>${stLabel}</span>
                 <select id="detailStatus" onchange="detailChangeField('status',this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer;">
-                    ${allStages.map(s => `<option value="${s.key}" ${s.key === task.status ? 'selected' : ''}>${s.label}</option>`).join('')}
+                    ${allStages.map(s => `<option value="${s.key}" ${s.key === task.status ? 'selected' : ''}>${escHtml(s.label)}</option>`).join('')}
                     <option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>Отменена</option>
                 </select>
             </label>
@@ -9587,7 +9603,7 @@ async function detailToggleCoexecutor(userId) {
         // Refresh the display
         const display = document.getElementById('detailCoexecutorsDisplay');
         if (display && task) {
-            const chips = task.coexecutors.map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${c.full_name}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('');
+            const chips = task.coexecutors.map(c => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#3b82f6;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${escHtml(c.full_name)}<span onclick="detailRemoveCoexecutor(${c.id})" style="cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;margin-left:2px;" title="Убрать">&times;</span></span>`).join('');
             const listOpen = document.getElementById('detailCoexecList')?.style.display !== 'none';
             display.innerHTML = chips + `<button id="coexecToggleBtn" onclick="toggleCoexecList()" style="border:none;background:none;color:#3b82f6;font-size:18px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.2s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='none'" title="${listOpen ? 'Скрыть список' : 'Добавить соисполнителя'}">${listOpen ? '−' : '+'}</button>`;
         }
@@ -10072,7 +10088,7 @@ async function renderAnalytics() {
         deptCharts.innerHTML = stats.tasks_by_department.map(d => `
             <div style="margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="font-weight: 500;">${d.department_name}</span>
+                    <span style="font-weight: 500;">${escHtml(d.department_name)}</span>
                     <span style="color: var(--text-secondary);">${d.count}</span>
                 </div>
                 <div style="background: var(--bg-main); height: 12px; border-radius: 6px; overflow: hidden;">
@@ -10093,7 +10109,7 @@ async function renderAnalytics() {
             </tr></thead>
             <tbody>${stats.tasks_by_employee.map(emp => `
                 <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 8px;">${emp.full_name}</td>
+                    <td style="padding: 8px;">${escHtml(emp.full_name)}</td>
                     <td style="text-align:center; padding: 8px;">${emp.assigned_count}</td>
                     <td style="text-align:center; padding: 8px;">${emp.completed_count}</td>
                 </tr>
@@ -10141,7 +10157,7 @@ async function renderLeaderboard() {
                         ${canSwitch ? '<button onclick="openCarPicker()" style="padding:3px 10px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:11px;cursor:pointer;transition:all 0.2s;white-space:nowrap;" onmouseenter="this.style.background=\'rgba(255,255,255,0.15)\';this.style.color=\'#fff\'" onmouseleave="this.style.background=\'rgba(255,255,255,0.08)\';this.style.color=\'rgba(255,255,255,0.7)\'">Сменить</button>' : ''}
                     </div>
                     <div style="font-size: 12px; opacity: 0.6; font-style:italic; margin-bottom:2px;">\u00AB${levelFunName(displayLevel)}\u00BB</div>
-                    <div style="font-size: 14px; opacity: 0.8;">${currentUser.full_name}</div>
+                    <div style="font-size: 14px; opacity: 0.8;">${escHtml(currentUser.full_name)}</div>
                 </div>
                 <div style="text-align:right;">
                     <div style="font-size: 36px; font-weight: 800;">${s.total_km}</div>
@@ -10257,7 +10273,7 @@ async function renderLeaderboard() {
             return `
                 <tr>
                     <td class="${rankClass}" style="font-weight:700;">${medal}</td>
-                    <td>${entry.full_name}</td>
+                    <td>${escHtml(entry.full_name)}</td>
                     <td>${entry.department_name || '-'}</td>
                     <td>${levelIcon(entry.car_override || entry.level)} ${entry.car_override || entry.level}</td>
                     <td style="font-weight:600;">${entry.total_km} км</td>
@@ -10379,7 +10395,7 @@ async function saveProfile() {
         const userInfo = document.getElementById('userInfo');
         if (userInfo) {
             const roleName = currentUser.role === 'admin' ? 'Администратор' : currentUser.role === 'head' ? 'Глава отдела' : 'Сотрудник';
-            userInfo.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">${currentUser.full_name}</div><div style="font-size:12px;color:#999;">${currentUser.department ? currentUser.department.name : roleName}</div>`;
+            userInfo.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">${escHtml(currentUser.full_name)}</div><div style="font-size:12px;color:#999;">${currentUser.department ? currentUser.department.name : roleName}</div>`;
         }
     } else {
         alert('Ошибка: ' + (resp && resp.error || 'Неизвестная ошибка'));
@@ -10409,7 +10425,7 @@ async function renderAdmin() {
                         <option value="head" ${user.role === 'head' ? 'selected' : ''}>Глава отдела</option>
                         <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Администратор</option>
                     </select>
-                    ${user.id !== currentUser.id ? `<button onclick="deleteUser(${user.id}, '${user.full_name.replace(/'/g, "\\'")}')" style="padding:6px 12px; background:var(--danger); color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px;">Удалить</button>` : '<div style="width:80px;"></div>'}
+                    ${user.id !== currentUser.id ? `<button onclick="deleteUser(${user.id}, '${escAttr(user.full_name).replace(/'/g, '&#39;')}')" style="padding:6px 12px; background:var(--danger); color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px;">Удалить</button>` : '<div style="width:80px;"></div>'}
                 </div>
             </div>`;
         }).join('');
@@ -10494,7 +10510,7 @@ async function renderAdminStages() {
             <div style="display:flex;align-items:center;gap:12px;">
                 <span style="font-size:20px;">${s.icon || '📋'}</span>
                 <div>
-                    <div style="font-weight:600;font-size:14px;">${s.label}</div>
+                    <div style="font-weight:600;font-size:14px;">${escHtml(s.label)}</div>
                     <div style="font-size:11px;color:var(--text-secondary);">key: ${s.key} • порядок: ${idx + 1}</div>
                 </div>
             </div>
@@ -10688,7 +10704,7 @@ function showDeleteStageModal(stageKey) {
             <div style="margin-bottom:20px;">
                 <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Переместить задачи в:</label>
                 <select id="migrateStageTo" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;box-sizing:border-box;">
-                    ${otherStages.map(s => `<option value="${s.key}">${s.icon} ${s.label}</option>`).join('')}
+                    ${otherStages.map(s => `<option value="${s.key}">${s.icon} ${escHtml(s.label)}</option>`).join('')}
                 </select>
             </div>
             ` : ''}
@@ -10812,13 +10828,13 @@ async function renderAdminDepts() {
             <div style="display:flex; align-items:center; gap:12px;">
                 <div style="width:16px; height:16px; border-radius:50%; background:${dept.color || '#999'}; flex-shrink:0;"></div>
                 <div>
-                    <div style="font-weight:600;">${dept.name}</div>
+                    <div style="font-weight:600;">${escHtml(dept.name)}</div>
                     <div style="font-size:12px; color:var(--text-secondary);">Глава: ${headUser ? headUser.full_name : (dept.head_name || 'Не назначен')}</div>
                 </div>
             </div>
             <div style="display:flex; gap:8px;">
                 <button onclick="editDept(${dept.id})" style="padding:6px 12px; background:var(--blue); color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px;">Редактировать</button>
-                <button onclick="deleteDept(${dept.id}, '${dept.name.replace(/'/g, "\\'")}')" style="padding:6px 12px; background:var(--danger); color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px;">Удалить</button>
+                <button onclick="deleteDept(${dept.id}, '${escAttr(dept.name).replace(/'/g, '&#39;')}')" style="padding:6px 12px; background:var(--danger); color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px;">Удалить</button>
             </div>
         </div>`;
     }).join('');
