@@ -969,9 +969,17 @@ def generate_deadline_notifications():
         "WHERE t.deadline = %s AND t.status NOT IN ('done','cancelled')", (tomorrow,)
     ).fetchall()
     for t in tasks:
-        for uid in set(filter(None, [t["assigned_to"], t["created_by"]])):
+        # Собираем всех причастных: исполнитель + автор + наблюдатели + соисполнители
+        related = set(filter(None, [t["assigned_to"], t["created_by"]]))
+        try:
+            for w in conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (t["id"],)).fetchall():
+                related.add(w["user_id"])
+            for c in conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=%s", (t["id"],)).fetchall():
+                related.add(c["user_id"])
+        except Exception: pass
+        for uid in related:
             existing = conn.execute(
-                "SELECT id FROM notifications WHERE task_id=%s AND user_id=%s AND type='deadline_soon' AND date(created_at)=date('now')", (t["id"], uid)
+                "SELECT id FROM notifications WHERE task_id=%s AND user_id=%s AND type='deadline_soon' AND date(created_at)=CURRENT_DATE", (t["id"], uid)
             ).fetchone()
             if not existing:
                 conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
@@ -982,15 +990,87 @@ def generate_deadline_notifications():
         "WHERE t.deadline < %s AND t.status NOT IN ('done','cancelled')", (today,)
     ).fetchall()
     for t in tasks:
-        for uid in set(filter(None, [t["assigned_to"], t["created_by"]])):
+        related = set(filter(None, [t["assigned_to"], t["created_by"]]))
+        try:
+            for w in conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (t["id"],)).fetchall():
+                related.add(w["user_id"])
+            for c in conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=%s", (t["id"],)).fetchall():
+                related.add(c["user_id"])
+        except Exception: pass
+        for uid in related:
             existing = conn.execute(
-                "SELECT id FROM notifications WHERE task_id=%s AND user_id=%s AND type='overdue' AND date(created_at)=date('now')", (t["id"], uid)
+                "SELECT id FROM notifications WHERE task_id=%s AND user_id=%s AND type='overdue' AND date(created_at)=CURRENT_DATE", (t["id"], uid)
             ).fetchone()
             if not existing:
                 conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                     (uid, t["id"], "overdue", f"Просрочена: {t['title']}"))
     conn.commit()
     conn.close()
+
+def _notify_task_people(conn, task_id, message, ntype, exclude_uid=None, extra_uids=None):
+    """Создать уведомление для всех, кто связан с задачей:
+    assigned_to, created_by, watchers, coexecutors. Минус exclude_uid.
+    extra_uids — дополнительно уведомить (например, @-упомянутых).
+    """
+    try:
+        task = conn.execute("SELECT assigned_to, created_by FROM tasks WHERE id=%s", (task_id,)).fetchone()
+    except Exception:
+        task = None
+    notify_ids = set()
+    if task:
+        if task["assigned_to"]: notify_ids.add(task["assigned_to"])
+        if task["created_by"]: notify_ids.add(task["created_by"])
+    try:
+        for w in conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (task_id,)).fetchall():
+            notify_ids.add(w["user_id"])
+        for c in conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=%s", (task_id,)).fetchall():
+            notify_ids.add(c["user_id"])
+    except Exception:
+        pass
+    if extra_uids:
+        for u in extra_uids:
+            if u: notify_ids.add(u)
+    if exclude_uid is not None:
+        notify_ids.discard(exclude_uid)
+    for nid in notify_ids:
+        try:
+            conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
+                         (nid, task_id, ntype, message))
+        except Exception:
+            pass
+
+
+def _parse_mentions(text, conn):
+    """Найти в тексте @ИмяФамилия и вернуть список user_ids упомянутых."""
+    if not text:
+        return []
+    import re as _re
+    # '@Иван Петров' или '@Иван' — имена могут содержать кириллицу/латиницу/_/-/цифры
+    # Берём блок после @ до конца имени — жадно матчим continuous тех же символов
+    candidates = _re.findall(r"@([A-Za-zЀ-ӿ0-9_-]+(?:\s+[A-Za-zЀ-ӿ0-9_-]+)?)", text)
+    if not candidates:
+        return []
+    ids = []
+    try:
+        all_users = conn.execute("SELECT id, full_name FROM users").fetchall()
+    except Exception:
+        return []
+    user_by_name = {}
+    for u in all_users:
+        nm = (u["full_name"] or "").strip().lower()
+        user_by_name[nm] = u["id"]
+        # Первое слово — имя — тоже считаем
+        first = nm.split()[0] if nm else ""
+        if first and first not in user_by_name:
+            user_by_name[first] = u["id"]
+    for c in candidates:
+        c_low = c.strip().lower()
+        if c_low in user_by_name:
+            uid = user_by_name[c_low]
+            if uid not in ids:
+                ids.append(uid)
+    return ids
+
 
 def log_activity(conn, task_id, user_id, action, details=None, old_value=None, new_value=None):
     """Log an activity to the task_activity table."""
@@ -2263,17 +2343,24 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             except Exception:
                 pass
 
-            # Notify watchers and assignee about new comment
+            # Notify: watchers + coexecutors + assignee + creator + @-упомянутые
             watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (task_id,)).fetchall()
             notify_ids = set([w["user_id"] for w in watchers])
+            coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=%s", (task_id,)).fetchall()
+            notify_ids.update([c["user_id"] for c in coexecs])
             if task["assigned_to"]: notify_ids.add(task["assigned_to"])
             if task["created_by"]: notify_ids.add(task["created_by"])
-            notify_ids.discard(u["id"])  # Don't notify the commenter
+            # @-упоминания попадают в notify отдельным типом
+            mentioned_ids = set(_parse_mentions(text, conn))
+            notify_ids.update(mentioned_ids)
+            notify_ids.discard(u["id"])  # автор не получает собственного уведомления
             user_name = conn.execute("SELECT full_name FROM users WHERE id=%s", (u["id"],)).fetchone()
             task_title = conn.execute("SELECT title FROM tasks WHERE id=%s", (task_id,)).fetchone()
             for nid in notify_ids:
+                ntype = "mention" if nid in mentioned_ids else "comment"
+                prefix = "упомянул вас в" if nid in mentioned_ids else "прокомментировал"
                 conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
-                    (nid, task_id, "comment", f"{user_name['full_name']} прокомментировал: {task_title['title']}"))
+                    (nid, task_id, ntype, f"{user_name['full_name']} {prefix}: {task_title['title']}"))
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
@@ -3005,16 +3092,32 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 # Status change notifications
                 if "status" in data and old_task and data["status"] != old_task["status"]:
                     msg = f"Статус изменён на «{status_names.get(data['status'], data['status'])}»: {old_task['title']}"
-                    watchers = conn.execute("SELECT user_id FROM task_watchers WHERE task_id=%s", (task_id,)).fetchall()
-                    notify_ids = set([w["user_id"] for w in watchers])
-                    coexecs = conn.execute("SELECT user_id FROM task_coexecutors WHERE task_id=%s", (task_id,)).fetchall()
-                    notify_ids.update([c["user_id"] for c in coexecs])
-                    if old_task["assigned_to"]: notify_ids.add(old_task["assigned_to"])
-                    if old_task["created_by"]: notify_ids.add(old_task["created_by"])
-                    notify_ids.discard(u["id"])
-                    for nid in notify_ids:
-                        conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
-                            (nid, task_id, "status_change", msg))
+                    _notify_task_people(conn, task_id, msg, "status_change", exclude_uid=u["id"])
+
+                # Assigned change — notify new assignee (и старому тоже, если был)
+                if "assigned_to" in data and old_task and data["assigned_to"] != old_task["assigned_to"]:
+                    new_assigned = data["assigned_to"]
+                    if new_assigned and new_assigned != u["id"]:
+                        try:
+                            conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
+                                (new_assigned, task_id, "assigned", f"Вам назначена задача: {old_task['title']}"))
+                        except Exception: pass
+                    # Уведомим старого исполнителя что с него сняли
+                    if old_task["assigned_to"] and old_task["assigned_to"] != u["id"]:
+                        try:
+                            conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
+                                (old_task["assigned_to"], task_id, "unassigned", f"С вас снята задача: {old_task['title']}"))
+                        except Exception: pass
+
+                # Deadline change — notify всем связанным
+                if "deadline" in data and old_task and str(data.get("deadline") or "") != str(old_task["deadline"] or ""):
+                    new_dl = data.get("deadline") or "—"
+                    _notify_task_people(conn, task_id, f"Дедлайн изменён ({new_dl}): {old_task['title']}", "deadline_change", exclude_uid=u["id"])
+
+                # Priority change — notify всем связанным
+                if "priority" in data and old_task and data["priority"] != old_task["priority"]:
+                    new_pri = priority_names.get(str(data["priority"]), data["priority"] or "—")
+                    _notify_task_people(conn, task_id, f"Приоритет изменён на «{new_pri}»: {old_task['title']}", "priority_change", exclude_uid=u["id"])
 
                 # Assignee change notification (рук отдела назначает задачу)
                 if "assigned_to" in data and old_task:
