@@ -1050,6 +1050,18 @@ def _safe_name(row, default="Пользователь"):
         return default
 
 
+def _user_fullname(conn, u, default="Пользователь"):
+    """Получить full_name по сессионному u={id,username,role}."""
+    try:
+        if not u or not u.get("id"):
+            return default
+        row = conn.execute("SELECT full_name FROM users WHERE id=%s", (u["id"],)).fetchone()
+        if not row: return default
+        return row["full_name"] if ("full_name" in row) else default
+    except Exception:
+        return default
+
+
 def _parse_mentions(text, conn):
     """Найти в тексте @ИмяФамилия и вернуть список user_ids упомянутых."""
     if not text:
@@ -1067,7 +1079,7 @@ def _parse_mentions(text, conn):
         return []
     user_by_name = {}
     for u in all_users:
-        nm = (u["full_name"] or "").strip().lower()
+        nm = (_user_fullname(conn, u) or "").strip().lower()
         user_by_name[nm] = u["id"]
         # Первое слово — имя — тоже считаем
         first = nm.split()[0] if nm else ""
@@ -2329,7 +2341,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                             conn.execute(
                                 "INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
                                 (mentioned_user["id"], task_id, "mention",
-                                 f'{u["full_name"]} упомянул вас в комментарии к задаче'))
+                                 f'{_user_fullname(conn, u)} упомянул вас в комментарии к задаче'))
 
             # Award km for commenting
             update_km(conn, u["id"], 1)
