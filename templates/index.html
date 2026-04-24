@@ -4945,6 +4945,8 @@
                 </div>
                 <button type="button" class="watcher-toggle-btn" id="watcherToggleBtn">+ Наблюдатели</button>
                 <div id="taskWatchersGroup" class="checkbox-group" style="display:none;margin-top:8px;"></div>
+                <button type="button" class="watcher-toggle-btn" id="coexecToggleBtn" style="margin-top:8px;">+ Соисполнители</button>
+                <div id="taskCoexecutorsGroup" class="checkbox-group" style="display:none;margin-top:8px;"></div>
                 <div class="form-buttons">
                     <button type="button" class="btn btn-secondary" id="taskModalCancelBtn">Отмена</button>
                     <button type="button" class="btn btn-danger" id="taskDeleteBtn" style="display:none;">Удалить</button>
@@ -8406,9 +8408,68 @@ async function showTaskForm(taskId = null, presetCategoryId = null) {
         }
     };
 
+    // Pre-check watchers and coexecutors if editing
+    const editingTask2 = taskId ? allTasks.find(t => t.id === taskId) : null;
+    const preWatchers = new Set((editingTask2 && editingTask2.watchers || []).map(w => w.id));
+    watchersGroup.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        if (preWatchers.has(parseInt(cb.value))) cb.checked = true;
+    });
+
+    // Populate coexecutors (same pattern as watchers)
+    const coexecsGroup = document.getElementById('taskCoexecutorsGroup');
+    const coexecToggle = document.getElementById('coexecToggleBtn');
+    coexecsGroup.innerHTML = '';
+    const preCoexecs = new Set((editingTask2 && editingTask2.coexecutors || []).map(c => c.id));
+    allUsers.forEach(u => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text-primary);';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = u.id;
+        cb.name = 'taskCoexecutors';
+        if (preCoexecs.has(u.id)) cb.checked = true;
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(u.full_name));
+        coexecsGroup.appendChild(label);
+    });
+    // Auto-show block if there are pre-checked coexecutors (editing existing)
+    coexecsGroup.style.display = preCoexecs.size > 0 ? 'flex' : 'none';
+
+    const updateCoexecBtnText = () => {
+        const checked = coexecsGroup.querySelectorAll('input:checked').length;
+        if (checked > 0) {
+            coexecToggle.textContent = 'Соисполнители: ' + checked + ' чел.';
+            coexecToggle.style.color = 'var(--blue)';
+            coexecToggle.style.borderColor = 'var(--blue)';
+        } else {
+            coexecToggle.textContent = '+ Добавить соисполнителей';
+            coexecToggle.style.color = 'var(--text-secondary)';
+            coexecToggle.style.borderColor = 'var(--border-color)';
+        }
+    };
+    coexecToggle.onclick = () => {
+        const isHidden = coexecsGroup.style.display === 'none';
+        coexecsGroup.style.display = isHidden ? 'flex' : 'none';
+        if (isHidden) {
+            coexecToggle.textContent = '− Скрыть соисполнителей';
+            coexecToggle.style.borderColor = 'var(--blue)';
+            coexecToggle.style.color = 'var(--blue)';
+        } else {
+            updateCoexecBtnText();
+        }
+    };
+    coexecsGroup.addEventListener('change', updateCoexecBtnText);
+    updateCoexecBtnText();
+
+    // Auto-show watchers if there are pre-checked (editing)
+    if (preWatchers.size > 0) {
+        watchersGroup.style.display = 'flex';
+    }
+
     // Listen to assignee changes
     const assignSelect = document.getElementById('taskAssignee');
     assignSelect.onchange = updateWatcherBtnText;
+    watchersGroup.addEventListener('change', updateWatcherBtnText);
     updateWatcherBtnText();
 }
 
@@ -8445,7 +8506,13 @@ async function saveTask() {
             .filter(x => !isNaN(x))
         : [];
 
-    const payload = {title, description, status, priority, department_id, deadline: deadline || null, assigned_to, category_ids};
+    // Собираем наблюдателей и соисполнителей из чекбоксов
+    const watchers = Array.from(document.querySelectorAll('#taskWatchersGroup input:checked'))
+        .map(cb => parseInt(cb.value)).filter(x => !isNaN(x));
+    const coexecutors = Array.from(document.querySelectorAll('#taskCoexecutorsGroup input:checked'))
+        .map(cb => parseInt(cb.value)).filter(x => !isNaN(x));
+
+    const payload = {title, description, status, priority, department_id, deadline: deadline || null, assigned_to, category_ids, watchers, coexecutors};
     // Оптимистическая блокировка: шлём версию, которую видим в local allTasks
     if (taskId) {
         const _t = (typeof allTasks !== 'undefined') ? allTasks.find(x => x.id === taskId) : null;
