@@ -11955,6 +11955,30 @@ function skipTut() {
 // ============ CHANGELOG / UPDATE HISTORY ============
 var CHANGELOG_DATA = [
     {
+        version: '2.8.0',
+        date: '24 апреля 2026',
+        time: '23:30',
+        title: 'Новая карточка задачи, скорость и устойчивость',
+        type: 'major',
+        changes: [
+            // Все видят
+            { type: 'improve', audience: 'all', text: 'Карточка задачи стала компактнее: заголовок редактируется одним кликом, а статус, исполнитель и дедлайн — в одну строку с цветными плашками' },
+            { type: 'improve', audience: 'all', text: 'Кнопка «✓ Готово» прямо в шапке задачи — отметить задачу выполненной за один клик, без лишних меню' },
+            { type: 'improve', audience: 'all', text: 'Подзадача открывается как полноценная задача — со своими комментариями, дедлайном и приоритетом. Сверху ссылка на родительскую задачу.' },
+            { type: 'new', audience: 'all', text: 'Соисполнители теперь можно выбрать прямо в форме создания задачи (раньше — только наблюдателей)' },
+            { type: 'improve', audience: 'all', text: 'Сайт стал заметно быстрее: клик по задаче срабатывает мгновенно. Раньше каждое действие ждало 2–3 секунды.' },
+            { type: 'improve', audience: 'all', text: 'Уведомления — только по делу: соисполнители узнают о новых комментариях, упомянутые через @ — всегда' },
+            // Главы + админы
+            { type: 'new', audience: ['head','admin'], text: 'Когда вы создаёте задачу с указанным исполнителем — она автоматически в статусе «В работе». Не нужно открывать и менять статус вручную.' },
+            // Только админы
+            { type: 'new', audience: ['admin'], text: 'При назначении пользователя главой отдела — сразу выбираете, какого именно отдела. Роль и привязка ставятся одновременно.' },
+            { type: 'new', audience: ['admin'], text: 'Когда глава отдела ставит задачу самому себе — все админы автоматически становятся наблюдателями и получают уведомление' },
+            { type: 'improve', audience: ['admin'], text: 'Усилена безопасность: сайт под HTTPS с автопродлением сертификата, защита от вредоносного кода в комментариях, доступ к задаче только тем, кто к ней относится' },
+            { type: 'improve', audience: ['admin'], text: 'Сервер стал устойчивее: автоматический перезапуск при сбоях, один долгий запрос больше не подвешивает сайт для всех остальных' },
+            { type: 'fix', audience: ['admin'], text: 'Исправлены ошибки 502 при добавлении комментариев и просмотре аналитики' }
+        ]
+    },
+    {
         version: '2.7.0',
         date: '10 апреля 2026',
         time: '22:30',
@@ -12084,8 +12108,20 @@ function showChangelog() {
         return '<span style="background:rgba(100,116,139,0.15);color:#64748b;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.5px;margin-left:8px;">MINOR</span>';
     };
 
+    /* changelog-role-filter-v1 */
+    var _wnRole = function() {
+        try { return (window.currentUser && window.currentUser.role) || 'member'; } catch(e){ return 'member'; }
+    };
+    var _wnAudOk = function(aud) {
+        if (!aud || aud === 'all') return true;
+        var r = _wnRole();
+        if (Array.isArray(aud)) return aud.indexOf(r) !== -1;
+        return aud === r;
+    };
     var entriesHtml = CHANGELOG_DATA.map(function(entry) {
-        var changesHtml = entry.changes.map(function(c) {
+        var visibleChanges = (entry.changes || []).filter(function(c) { return _wnAudOk(c.audience); });
+        if (!visibleChanges.length) return '';
+        var changesHtml = visibleChanges.map(function(c) {
             var t = typeLabels[c.type] || typeLabels['improve'];
             return '<div style="display:flex;gap:12px;padding:10px 0;align-items:flex-start;">' +
                 '<span style="flex-shrink:0;background:' + t.bg + ';color:' + t.color + ';padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:0.3px;min-width:80px;text-align:center;">' + t.label + '</span>' +
