@@ -6959,7 +6959,7 @@ function _catFunnelCardHTML(t, secColor, secKey) {
 
     const checkCls = 'cats-funnel-card-check' + (isDone ? ' done' : '') + (inProgress ? ' in-progress' : '');
     const checkIcon = isDone ? '<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : '';
-    const nextSt = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
+    const nextSt = isDone ? 'new' : 'done'; /* simple-toggle-v1 */
     const safeKey = (secKey || '').replace(/'/g, "\\'");
     const isSel = kanbanSelectMode && kanbanSelectedIds.has(t.id);
 
@@ -7134,7 +7134,7 @@ function _catFunnelSubRowHTML(s) {
     const checkIcon = isDone
         ? '<svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="#fff" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>'
         : '';
-    const nextStatus = isDone ? 'new' : (inProgress ? 'done' : 'in_progress');
+    const nextStatus = isDone ? 'new' : 'done'; /* simple-toggle-v1 */
     return '<div class="cats-funnel-subrow ' + (isDone ? 'done' : '') + '" onclick="event.stopPropagation();showTaskDetail(' + s.id + ')">' +
         '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + s.id + ',\'' + nextStatus + '\')">' + checkIcon + '</div>' +
         '<div class="cats-funnel-subrow-title">' + _catsEscape(s.title) + '</div>' +
@@ -7522,7 +7522,7 @@ function _catTaskRowHTML(t) {
     }
 
     // Click cycle: new → in_progress → done → new
-    const nextStatus = isDone ? 'new' : (status === 'in_progress' ? 'done' : 'in_progress');
+    const nextStatus = isDone ? 'new' : 'done'; /* simple-toggle-v1 */
 
     return '<div class="cat-task-row ' + (isDone ? 'done' : '') + '" data-task-id="' + t.id + '" onclick="showTaskDetail(' + t.id + ')">' +
         '<div class="' + checkClass + '" onclick="event.stopPropagation();toggleTaskState(' + t.id + ',\'' + nextStatus + '\')" title="Кликните для смены статуса">' + checkIcon + '</div>' +
