@@ -2899,11 +2899,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE COALESCE(parent_id,0)=COALESCE(%s,0)",
                 (parent_id,)
             ).fetchone()[0] or 0
-            conn.execute(
-                "INSERT INTO categories (name, color, icon, sort_order, department_id, parent_id, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            # last-insert-fixed-v1
+            new_id = conn.execute(
+                "INSERT INTO categories (name, color, icon, sort_order, department_id, parent_id, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                 (name, color, icon, max_order + 1, dept_id, parent_id, u["id"])
-            )
-            new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            ).fetchone()["id"]
             conn.commit()
             row = conn.execute("SELECT * FROM categories WHERE id=%s", (new_id,)).fetchone()
             conn.close()
