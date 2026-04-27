@@ -6516,8 +6516,15 @@ async function renderKanban() {
     await loadCategories();
     const cats = catsTreeState.allCategories;
     const byParent = buildCategoryTree(cats);
+    /* dept-filter-member-v1 */
+    if (currentUser && currentUser.role !== 'admin' && currentUser.department_id && catsTreeState.selectedDeptId === null) {
+        catsTreeState.selectedDeptId = currentUser.department_id;
+    }
     const deptId = catsTreeState.selectedDeptId;
-    const depts = allDepartments || [];
+    const _allDepts = allDepartments || [];
+    const _isAdminKan = currentUser && currentUser.role === 'admin';
+    const _userDept = currentUser && currentUser.department_id;
+    const depts = _isAdminKan ? _allDepts : (_userDept ? _allDepts.filter(d => d.id === _userDept) : []);
 
     // Tasks scoped to selected department
     const topLevelTasks = allTasks.filter(t => !t.parent_task_id);
@@ -6540,6 +6547,7 @@ async function renderKanban() {
     const allActive = deptId === null;
     const allCount = topLevelTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length;
     sbHtml += '<div class="cat-tree-section" title="Отделы компании">🏢 Отделы</div>';
+    if (_isAdminKan) {
     sbHtml += '<div class="cats-dept-item' + (allActive ? ' active' : '') + '" onclick="selectCatsDept(null)">' +
         '<span class="cats-dept-item-dot" style="background:#6366f1;">' +
             '<span class="cats-dept-item-letter">В</span>' +
@@ -6547,6 +6555,7 @@ async function renderKanban() {
         '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Все отделы</span>' +
         '<span class="cats-dept-item-count">' + allCount + '</span>' +
     '</div>';
+    }
 
     // Each department
     for (const dept of depts) {
