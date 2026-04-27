@@ -8386,6 +8386,22 @@ function _renderTaskWatchersForDept(deptId) {
         cb.type = 'checkbox';
         cb.value = u.id;
         cb.name = 'taskWatchers';
+        /* auto-watcher-v2 */
+        try {
+            const _isCreatingTask_v2 = !taskId;
+            if (_isCreatingTask_v2 && currentUser && currentUser.role !== 'admin') {
+                let _autoWatcherId = null;
+                const _myDept = (allDepartments || []).find(d => d.id === currentUser.department_id);
+                if (_myDept && _myDept.head_user_id && _myDept.head_user_id !== currentUser.id) {
+                    _autoWatcherId = _myDept.head_user_id;
+                }
+                if (!_autoWatcherId) {
+                    const _admin = (allUsers || []).find(uu => uu.role === 'admin' && uu.id !== currentUser.id);
+                    if (_admin) _autoWatcherId = _admin.id;
+                }
+                if (_autoWatcherId && u.id === _autoWatcherId) cb.checked = true;
+            }
+        } catch (e) {}
         if (checkedIds.has(u.id)) cb.checked = true;
         label.appendChild(cb);
         label.appendChild(document.createTextNode(u.full_name));

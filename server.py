@@ -2355,20 +2355,23 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             for wid in watchers:
                 try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, wid))
                 except: pass
-
-            # default-watcher-lukyan-v1: подстраховка — добавить Лукьяна как watcher для не-админов
+            # default-watcher-v2: глава отдела → admin (фоллбэк) для не-админов
             try:
-                _creator_row = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
-                _creator_role = _creator_row["role"] if _creator_row else None
-                if _creator_role and _creator_role != "admin":
-                    _luk = conn.execute("SELECT id FROM users WHERE username='chistovsky'").fetchone()
-                    if _luk:
-                        _luk_id = _luk["id"]
-                        if _luk_id not in (watchers or []) and _luk_id != u["id"]:
-                            try:
-                                conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, _luk_id))
-                            except Exception as _ee: print(f"auto-luk watcher: {_ee}")
-            except Exception as _e: print(f"auto-luk-watcher fail: {_e}")
+                _creator_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (u["id"],)).fetchone()
+                if _creator_row and _creator_row["role"] != "admin":
+                    _watcher_id = None
+                    if _creator_row["department_id"]:
+                        _dept = conn.execute("SELECT head_user_id FROM departments WHERE id=%s", (_creator_row["department_id"],)).fetchone()
+                        if _dept and _dept["head_user_id"] and _dept["head_user_id"] != u["id"]:
+                            _watcher_id = _dept["head_user_id"]
+                    if not _watcher_id:
+                        _admin = conn.execute("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1").fetchone()
+                        if _admin and _admin["id"] != u["id"]:
+                            _watcher_id = _admin["id"]
+                    if _watcher_id and _watcher_id not in (watchers or []):
+                        try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, _watcher_id))
+                        except Exception as _ee: print(f"auto-watcher insert: {_ee}")
+            except Exception as _e: print(f"auto-watcher v2 fail: {_e}")
 
             # Default watchers: все админы + head отдела (идемпотентно)
             try:
