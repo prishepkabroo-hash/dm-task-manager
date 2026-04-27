@@ -10905,8 +10905,22 @@ async function _pickDeptForHead() {
     return id;
 }
 
+/* dept-pick-v3 */
 async function updateUserRole(userId, newRole) {
-    await apiCall('/api/users/' + userId + '/role', {method: 'PUT', body: JSON.stringify({role: newRole})});
+    let _payload = {role: newRole};
+    if (newRole === 'head') {
+        const _opts = (allDepartments || []).map(d => `${d.id}: ${d.name}`).join('\n');
+        const _ans = prompt('Выбери ID отдела для главы:\n\n' + _opts);
+        const _did = parseInt(_ans);
+        if (!_did || !(allDepartments || []).find(d => d.id === _did)) {
+            if (typeof showToast === 'function') showToast('Назначение главы отменено — нужен корректный ID отдела', 'error');
+            await loadUsers();
+            renderAdmin();
+            return;
+        }
+        _payload.department_id = _did;
+    }
+    await apiCall('/api/users/' + userId + '/role', {method: 'PUT', body: JSON.stringify(_payload)});
     await loadUsers();
     renderAdmin();
 }
