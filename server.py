@@ -9,6 +9,10 @@ Dudarev Motorsport — Таск-менеджер v4
 import http.server
 import json
 import psycopg
+# log-quiet-v1: заглушаем 'rolling back returned connection' INTRANS-warnings
+import logging as _logging_quiet
+_logging_quiet.getLogger('psycopg.pool').setLevel(_logging_quiet.ERROR)
+
 from psycopg.rows import dict_row as _dict_row
 import hashlib
 import secrets
