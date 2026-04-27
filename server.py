@@ -2359,7 +2359,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             for wid in watchers:
                 try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, wid))
                 except: pass
-            # default-watcher-v2: глава отдела → admin (фоллбэк) для не-админов
+            # default-watcher-v3: глава отдела → admin (фоллбэк), безопасно
             try:
                 _creator_row = conn.execute("SELECT role, department_id FROM users WHERE id=%s", (u["id"],)).fetchone()
                 if _creator_row and _creator_row["role"] != "admin":
@@ -2372,10 +2372,21 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                         _admin = conn.execute("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1").fetchone()
                         if _admin and _admin["id"] != u["id"]:
                             _watcher_id = _admin["id"]
-                    if _watcher_id and _watcher_id not in (watchers or []):
-                        try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, _watcher_id))
-                        except Exception as _ee: print(f"auto-watcher insert: {_ee}")
-            except Exception as _e: print(f"auto-watcher v2 fail: {_e}")
+                    if _watcher_id:
+                        # Безопасная дедупликация (int vs string из JSON)
+                        try: _existing_ids = set(int(x) for x in (watchers or []))
+                        except: _existing_ids = set()
+                        if int(_watcher_id) not in _existing_ids:
+                            # SAVEPOINT чтобы не убить транзакцию задачи если что-то пойдёт не так
+                            try:
+                                conn.execute("SAVEPOINT auto_watcher_sp")
+                                conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, _watcher_id))
+                                conn.execute("RELEASE SAVEPOINT auto_watcher_sp")
+                            except Exception as _ee:
+                                try: conn.execute("ROLLBACK TO SAVEPOINT auto_watcher_sp")
+                                except: pass
+                                print(f"auto-watcher v3 insert skipped: {_ee}")
+            except Exception as _e: print(f"auto-watcher v3 fail: {_e}")
 
             # Default watchers: все админы + head отдела (идемпотентно)
             try:

@@ -8288,10 +8288,10 @@ function _renderTaskWatchersForDept(deptId) {
         cb.type = 'checkbox';
         cb.value = u.id;
         cb.name = 'taskWatchers';
-        /* auto-watcher-v2 */
+        /* auto-watcher-v3 */
         try {
-            const _isCreatingTask_v2 = !taskId;
-            if (_isCreatingTask_v2 && currentUser && currentUser.role !== 'admin') {
+            const _isCreatingTask_v3 = !taskId;
+            if (_isCreatingTask_v3 && currentUser && currentUser.role !== 'admin') {
                 let _autoWatcherId = null;
                 const _myDept = (allDepartments || []).find(d => d.id === currentUser.department_id);
                 if (_myDept && _myDept.head_user_id && _myDept.head_user_id !== currentUser.id) {
@@ -8301,7 +8301,13 @@ function _renderTaskWatchersForDept(deptId) {
                     const _admin = (allUsers || []).find(uu => uu.role === 'admin' && uu.id !== currentUser.id);
                     if (_admin) _autoWatcherId = _admin.id;
                 }
-                if (_autoWatcherId && u.id === _autoWatcherId) cb.checked = true;
+                if (_autoWatcherId && u.id === _autoWatcherId) {
+                    cb.checked = true;
+                    cb.disabled = true;
+                    cb.title = 'Обязательный наблюдатель';
+                    label.style.opacity = '0.7';
+                    label.appendChild(document.createTextNode(' (обязательно)'));
+                }
             }
         } catch (e) {}
         if (checkedIds.has(u.id)) cb.checked = true;
