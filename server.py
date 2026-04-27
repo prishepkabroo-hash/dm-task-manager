@@ -2356,6 +2356,20 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 try: conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, wid))
                 except: pass
 
+            # default-watcher-lukyan-v1: подстраховка — добавить Лукьяна как watcher для не-админов
+            try:
+                _creator_row = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
+                _creator_role = _creator_row["role"] if _creator_row else None
+                if _creator_role and _creator_role != "admin":
+                    _luk = conn.execute("SELECT id FROM users WHERE username='chistovsky'").fetchone()
+                    if _luk:
+                        _luk_id = _luk["id"]
+                        if _luk_id not in (watchers or []) and _luk_id != u["id"]:
+                            try:
+                                conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s)", (task_id, _luk_id))
+                            except Exception as _ee: print(f"auto-luk watcher: {_ee}")
+            except Exception as _e: print(f"auto-luk-watcher fail: {_e}")
+
             # Default watchers: все админы + head отдела (идемпотентно)
             try:
                 default_watcher_ids = set()
