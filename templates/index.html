@@ -10896,6 +10896,15 @@ async function deleteDept(id, name) {
     }
 }
 
+/* dept-pick-for-head */
+async function _pickDeptForHead() {
+    const opts = (allDepartments || []).map(d => `${d.id}: ${d.name}`).join('\n');
+    const ans = prompt('Выбери ID отдела для главы:\n\n' + opts);
+    const id = parseInt(ans);
+    if (!id || !(allDepartments || []).find(d => d.id === id)) return null;
+    return id;
+}
+
 async function updateUserRole(userId, newRole) {
     await apiCall('/api/users/' + userId + '/role', {method: 'PUT', body: JSON.stringify({role: newRole})});
     await loadUsers();

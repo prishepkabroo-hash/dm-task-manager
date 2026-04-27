@@ -51,6 +51,37 @@ def _safe_int(s, default=None):
     except (ValueError, TypeError): return default
 
 
+# -- rsw-v2 --
+def _auto_status_for_task(data):
+    """Если у задачи есть assigned_to, по умолчанию статус 'in_progress'."""
+    s = (data.get("status") or "").strip()
+    if s and s != "new":
+        return s
+    if data.get("assigned_to"):
+        return "in_progress"
+    return "new"
+
+
+def _add_admin_watchers_for_head_self(conn, task_id, creator_id, title):
+    """#4: если creator (head) поставил задачу СЕБЕ, добавить admin'ов в watchers."""
+    try:
+        u_role = conn.execute("SELECT role FROM users WHERE id=%s", (creator_id,)).fetchone()
+        if not u_role or u_role.get("role") != "head":
+            return
+        admins = conn.execute("SELECT id FROM users WHERE role='admin'").fetchall()
+        for a in admins:
+            if a["id"] == creator_id:
+                continue
+            try:
+                conn.execute("INSERT INTO task_watchers (task_id, user_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
+                             (task_id, a["id"]))
+                conn.execute("INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
+                             (a["id"], task_id, "watcher_added", f"Глава отдела поставил задачу себе: {title}"))
+            except Exception: pass
+    except Exception as e:
+        print(f"_add_admin_watchers fail: {e}")
+
+
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -2302,7 +2333,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             c = conn.execute(
                 "INSERT INTO tasks (title, description, status, priority, created_by, assigned_to, department_id, deadline, parent_task_id, sort_order) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                (title, _sanitize_text(data.get("description", "")), data.get("status", "new"), data.get("priority", "medium"),
+                (title, _sanitize_text(data.get("description", "")), _auto_status_for_task(data), data.get("priority", "medium"),
                  u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None,
                  data.get("parent_task_id") or None, int(data.get("sort_order") or 0)))
             task_id = c.fetchone()['id']
