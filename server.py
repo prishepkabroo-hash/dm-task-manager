@@ -82,6 +82,7 @@ def _add_admin_watchers_for_head_self(conn, task_id, creator_id, title):
         print(f"_add_admin_watchers fail: {e}")
 
 
+# -- rsw-v3 --
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -2337,6 +2338,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                  u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None,
                  data.get("parent_task_id") or None, int(data.get("sort_order") or 0)))
             task_id = c.fetchone()['id']
+            # -- rsw-v3 #4 head→self admin watcher
+            try: _add_admin_watchers_for_head_self(conn, task_id, u["id"], title)
+            except Exception as _e: print(f"head-self watcher fail: {_e}")
 
             # Log task creation with details
             log_activity(conn, task_id, u["id"], "task_created", title, new_value=title)
@@ -3153,6 +3157,18 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 conn.close()
                 return self._json({"error": "Invalid role"}, 400)
             conn.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, user_id))
+            # -- rsw-v3 #1 dept_id + session sync при head
+            _dept_id = (data or {}).get("department_id")
+            if new_role == "head" and _dept_id:
+                try:
+                    _did = int(_dept_id)
+                    conn.execute("UPDATE users SET department_id=%s WHERE id=%s", (_did, user_id))
+                    conn.execute("UPDATE departments SET head_user_id=%s WHERE id=%s", (user_id, _did))
+                except Exception as _e: print(f"head dept fail: {_e}")
+            try:
+                for _tk, _ses in list(sessions.items()):
+                    if _ses.get("id") == user_id: _ses["role"] = new_role
+            except Exception: pass
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
