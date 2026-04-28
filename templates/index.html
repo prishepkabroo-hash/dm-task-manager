@@ -12273,6 +12273,13 @@ function _tutFinish() {
     if (_tutorialIsInitial) {
         apiCall('/api/onboarding_done', {method:'POST'});
         if (currentUser) currentUser.onboarding_done = 1;
+        /* onboarding-fix-v1: цепочкой админское обучение */
+        if (currentUser && currentUser.role === 'admin' && !currentUser.admin_onboarding_done) {
+            setTimeout(() => {
+                if (typeof startAdminOnboarding === 'function') startAdminOnboarding();
+            }, 800);
+            return;
+        }
     }
     // Show completion modal
     var m = document.createElement('div');
@@ -13463,6 +13470,22 @@ async function submitResetPassword(uid) {
     if (r && r.ok) {
         showToast('Пароль сброшен. Сообщите пользователю новый пароль.', 'success');
         document.getElementById('rpOverlay').remove();
+    } else {
+        showToast(r && r.error || 'Ошибка', 'error');
+    }
+}
+</script>
+
+
+<script>
+/* onboarding-fix-v1 */
+async function resetOnboarding(uid, fullName) {
+    if (!confirm(`Сбросить обучение для «${fullName}»?\nПри следующем входе он снова увидит выбор обучения.`)) return;
+    const r = await apiCall('/api/admin/users/' + uid + '/reset-onboarding', {method: 'PUT'});
+    if (r && r.ok) {
+        showToast('Обучение сброшено', 'success');
+        await loadUsers();
+        renderAdmin();
     } else {
         showToast(r && r.error || 'Ошибка', 'error');
     }
