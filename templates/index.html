@@ -13169,6 +13169,57 @@ document.addEventListener('DOMContentLoaded', async () => {
 })();
 </script>
 
+
+<script>
+/* hide-self-popups-v1 — прячем текущего юзера в popup-списках */
+(function(){
+    'use strict';
+
+    function hideMeInPopups() {
+        if (!window.currentUser) return;
+        const myId = String(currentUser.id);
+        // Любой чекбокс watcher или coexec со значением currentUser.id
+        const selectors = [
+            '.detail-watcher-cb[value="' + myId + '"]',
+            '.detail-coexec-cb[value="' + myId + '"]'
+        ];
+        document.querySelectorAll(selectors.join(',')).forEach(cb => {
+            const label = cb.closest('label');
+            if (label) label.style.display = 'none';
+        });
+    }
+
+    // Запускаем при открытии модалки задачи (когда чекбоксы появляются в DOM)
+    const observer = new MutationObserver(function(mutations) {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                if (node.nodeType !== 1) continue;
+                // Если добавилась нода с чекбоксами — переприменим
+                if (node.querySelector && (
+                    node.querySelector('.detail-watcher-cb') ||
+                    node.querySelector('.detail-coexec-cb')
+                )) {
+                    setTimeout(hideMeInPopups, 30);
+                    return;
+                }
+                if (node.classList && (
+                    node.classList.contains('detail-watcher-cb') ||
+                    node.classList.contains('detail-coexec-cb')
+                )) {
+                    setTimeout(hideMeInPopups, 30);
+                    return;
+                }
+            }
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Также при загрузке (если модалка уже открыта)
+    document.addEventListener('DOMContentLoaded', hideMeInPopups);
+    if (document.readyState !== 'loading') hideMeInPopups();
+})();
+</script>
+
 </body>
 </html>
 
