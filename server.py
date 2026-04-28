@@ -3147,6 +3147,113 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json({"ok": True})
 
+        # admin-user-mgmt-v1: создание пользователя
+        if path == "/api/admin/users":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+            username = (data.get("username") or "").strip()
+            full_name = (data.get("full_name") or "").strip()
+            password = data.get("password") or ""
+            new_role = data.get("role") or "member"
+            dept_id = data.get("department_id")
+            if not username or not full_name or not password:
+                conn.close()
+                return self._json({"error": "username, full_name, password обязательны"}, 400)
+            if new_role not in ("admin", "head", "member"):
+                conn.close()
+                return self._json({"error": "роль некорректна"}, 400)
+            try: dept_id = int(dept_id) if dept_id else None
+            except: dept_id = None
+            # Проверяем уникальность username
+            exists = conn.execute("SELECT id FROM users WHERE username=%s", (username,)).fetchone()
+            if exists:
+                conn.close()
+                return self._json({"error": f"пользователь {username} уже существует"}, 400)
+            import hashlib, secrets
+            salt = secrets.token_hex(16)
+            h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000)
+            ph = salt + ":" + h.hex()
+            try:
+                new_id = conn.execute(
+                    "INSERT INTO users (username, full_name, password_hash, role, department_id, avatar_color, onboarding_done) VALUES (%s,%s,%s,%s,%s,'#7c3aed',1) RETURNING id",
+                    (username, full_name, ph, new_role, dept_id)
+                ).fetchone()["id"]
+                conn.execute("INSERT INTO user_stats (user_id) VALUES (%s) ON CONFLICT (user_id) DO NOTHING", (new_id,))
+                conn.commit(); conn.close()
+                return self._json({"ok": True, "id": new_id})
+            except Exception as e:
+                conn.close()
+                return self._json({"error": f"ошибка создания: {e}"}, 500)
+
+        # admin-user-mgmt-v1: обновить имя/отдел
+        if path.startswith("/api/admin/users/") and not path.endswith("/password") and not path.endswith("/role"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+            try: target_id = int(path.split("/")[4])
+            except:
+                conn.close()
+                return self._json({"error": "bad id"}, 400)
+            updates = []
+            params = []
+            if "full_name" in data:
+                updates.append("full_name=%s"); params.append((data["full_name"] or "").strip())
+            if "department_id" in data:
+                _did = data["department_id"]
+                try: _did = int(_did) if _did else None
+                except: _did = None
+                updates.append("department_id=%s"); params.append(_did)
+            if "username" in data:
+                _un = (data["username"] or "").strip()
+                if _un:
+                    # проверим уникальность
+                    exists = conn.execute("SELECT id FROM users WHERE username=%s AND id<>%s", (_un, target_id)).fetchone()
+                    if exists:
+                        conn.close()
+                        return self._json({"error": f"username {_un} занят"}, 400)
+                    updates.append("username=%s"); params.append(_un)
+            if not updates:
+                conn.close()
+                return self._json({"error": "ничего не обновляем"}, 400)
+            params.append(target_id)
+            conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id=%s", params)
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
+        # admin-user-mgmt-v1: сбросить пароль
+        if path.startswith("/api/admin/users/") and path.endswith("/password"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            user_role = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
+            if not user_role or user_role["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+            try: target_id = int(path.split("/")[4])
+            except:
+                conn.close()
+                return self._json({"error": "bad id"}, 400)
+            new_password = data.get("password") or ""
+            if not new_password or len(new_password) < 4:
+                conn.close()
+                return self._json({"error": "пароль минимум 4 символа"}, 400)
+            import hashlib, secrets
+            salt = secrets.token_hex(16)
+            h = hashlib.pbkdf2_hmac("sha256", new_password.encode(), salt.encode(), 100000)
+            ph = salt + ":" + h.hex()
+            conn.execute("UPDATE users SET password_hash=%s WHERE id=%s", (ph, target_id))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
         if path.startswith("/api/users/") and "/role" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)

@@ -10591,7 +10591,9 @@ async function renderAdmin() {
     const users = await apiCall('/api/admin/users');
     const usersList = document.getElementById('adminUsersList');
     if (users && users.length) {
-        usersList.innerHTML = users.map(user => {
+        // admin-user-mgmt-v1 — кнопка добавления над списком
+        const addBtn = `<button onclick="showAddUserModal()" style="margin-bottom:12px;padding:10px 16px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">+ Добавить пользователя</button>`;
+        usersList.innerHTML = addBtn + users.map(user => {
             const roleColor = user.role === 'admin' ? 'var(--blue)' : user.role === 'head' ? 'var(--purple)' : 'var(--text-light)';
             const roleName = user.role === 'admin' ? 'Администратор' : user.role === 'head' ? 'Глава отдела' : 'Сотрудник';
             return `
@@ -13327,6 +13329,143 @@ async function _detailEditDescription(taskId) {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); textarea.blur(); }
         if (e.key === 'Escape') { saved = true; showTaskDetail(taskId); }
     });
+}
+</script>
+
+
+<script>
+/* admin-user-mgmt-v1 */
+async function showAddUserModal() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const deptOpts = '<option value="">— Без отдела —</option>' + (allDepartments || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    const html = `
+        <div id="addUserOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)document.getElementById('addUserOverlay').remove()">
+            <div style="background:white;border-radius:14px;padding:24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+                <h3 style="margin:0 0 16px;font-size:18px;color:#0f172a;">Новый пользователь</h3>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <input id="auFullName" placeholder="Полное имя (например: Иван Петров)" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                    <input id="auUsername" placeholder="Логин (например: petrov)" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                    <input id="auPassword" type="text" placeholder="Пароль (минимум 4 символа)" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                    <select id="auRole" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                        <option value="member">Сотрудник</option>
+                        <option value="head">Глава отдела</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                    <select id="auDept" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">${deptOpts}</select>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('addUserOverlay').remove()" style="padding:8px 16px;border:1px solid #e5e7eb;background:white;border-radius:8px;cursor:pointer;font-size:13px;">Отмена</button>
+                    <button onclick="submitAddUser()" style="padding:8px 16px;border:none;background:#4f46e5;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Создать</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(() => document.getElementById('auFullName').focus(), 50);
+}
+
+async function submitAddUser() {
+    const full_name = document.getElementById('auFullName').value.trim();
+    const username = document.getElementById('auUsername').value.trim();
+    const password = document.getElementById('auPassword').value;
+    const role = document.getElementById('auRole').value;
+    const dept_id = document.getElementById('auDept').value || null;
+    if (!full_name || !username || !password) {
+        showToast('Заполните все поля', 'error'); return;
+    }
+    if (password.length < 4) {
+        showToast('Пароль минимум 4 символа', 'error'); return;
+    }
+    const r = await apiCall('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({full_name, username, password, role, department_id: dept_id ? parseInt(dept_id) : null})
+    });
+    if (r && r.ok) {
+        showToast('Пользователь создан', 'success');
+        document.getElementById('addUserOverlay').remove();
+        await loadUsers();
+        renderAdmin();
+    } else {
+        showToast(r && r.error || 'Ошибка', 'error');
+    }
+}
+
+async function showEditUserModal(uid) {
+    const user = (allUsers || []).find(u => u.id === uid);
+    if (!user) return;
+    const deptOpts = '<option value="">— Без отдела —</option>' + (allDepartments || []).map(d => `<option value="${d.id}" ${d.id === user.department_id ? 'selected' : ''}>${d.name}</option>`).join('');
+    const html = `
+        <div id="editUserOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)document.getElementById('editUserOverlay').remove()">
+            <div style="background:white;border-radius:14px;padding:24px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+                <h3 style="margin:0 0 16px;font-size:18px;color:#0f172a;">Редактировать пользователя</h3>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <input id="euFullName" value="${escHtml(user.full_name)}" placeholder="Полное имя" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                    <input id="euUsername" value="${escHtml(user.username || '')}" placeholder="Логин" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                    <select id="euDept" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">${deptOpts}</select>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('editUserOverlay').remove()" style="padding:8px 16px;border:1px solid #e5e7eb;background:white;border-radius:8px;cursor:pointer;font-size:13px;">Отмена</button>
+                    <button onclick="submitEditUser(${uid})" style="padding:8px 16px;border:none;background:#4f46e5;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function submitEditUser(uid) {
+    const full_name = document.getElementById('euFullName').value.trim();
+    const username = document.getElementById('euUsername').value.trim();
+    const dept_id = document.getElementById('euDept').value || null;
+    const r = await apiCall('/api/admin/users/' + uid, {
+        method: 'PUT',
+        body: JSON.stringify({full_name, username, department_id: dept_id ? parseInt(dept_id) : null})
+    });
+    if (r && r.ok) {
+        showToast('Сохранено', 'success');
+        document.getElementById('editUserOverlay').remove();
+        await loadUsers();
+        renderAdmin();
+    } else {
+        showToast(r && r.error || 'Ошибка', 'error');
+    }
+}
+
+async function showResetPasswordModal(uid) {
+    const user = (allUsers || []).find(u => u.id === uid);
+    if (!user) return;
+    const html = `
+        <div id="rpOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)document.getElementById('rpOverlay').remove()">
+            <div style="background:white;border-radius:14px;padding:24px;width:min(380px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+                <h3 style="margin:0 0 8px;font-size:18px;color:#0f172a;">Сбросить пароль</h3>
+                <p style="margin:0 0 16px;font-size:13px;color:#64748b;">Для пользователя <strong>${escHtml(user.full_name)}</strong> (${escHtml(user.username || '')})</p>
+                <input id="rpPwd" type="text" placeholder="Новый пароль" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+                <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('rpOverlay').remove()" style="padding:8px 16px;border:1px solid #e5e7eb;background:white;border-radius:8px;cursor:pointer;font-size:13px;">Отмена</button>
+                    <button onclick="submitResetPassword(${uid})" style="padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Сбросить</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(() => document.getElementById('rpPwd').focus(), 50);
+}
+
+async function submitResetPassword(uid) {
+    const password = document.getElementById('rpPwd').value;
+    if (!password || password.length < 4) {
+        showToast('Минимум 4 символа', 'error'); return;
+    }
+    const r = await apiCall('/api/admin/users/' + uid + '/password', {
+        method: 'PUT',
+        body: JSON.stringify({password})
+    });
+    if (r && r.ok) {
+        showToast('Пароль сброшен. Сообщите пользователю новый пароль.', 'success');
+        document.getElementById('rpOverlay').remove();
+    } else {
+        showToast(r && r.error || 'Ошибка', 'error');
+    }
 }
 </script>
 
