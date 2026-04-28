@@ -8446,7 +8446,9 @@ function _renderTaskWatchersForDept(deptId) {
                     _autoWatcherId = _myDept.head_user_id;
                 }
                 if (!_autoWatcherId) {
-                    const _admin = (allUsers || []).find(uu => uu.role === 'admin' && uu.id !== currentUser.id);
+                    /* dudarev-main-admin-v1 */
+                    const _dudarev = (allUsers || []).find(uu => uu.username === 'dudarev' && uu.id !== currentUser.id);
+                    const _admin = _dudarev || (allUsers || []).find(uu => uu.role === 'admin' && uu.id !== currentUser.id);
                     if (_admin) _autoWatcherId = _admin.id;
                 }
                 if (_autoWatcherId && u.id === _autoWatcherId) {
