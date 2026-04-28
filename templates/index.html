@@ -8876,8 +8876,8 @@ async function showTaskDetail(taskId) {
 
     // Main tab — плоский канвас, без карточек-в-карточках
     document.getElementById('td-main').innerHTML = `
-        <!-- Описание (inline, без рамки) -->
-        ${task.description ? `<div style="padding:6px 2px 18px;margin-bottom:18px;border-bottom:1px solid #f1f5f9;font-size:14px;color:#334155;line-height:1.65;white-space:pre-wrap;">${_catsEscape(task.description)}</div>` : ''}
+        <!-- Описание (inline, кликабельное, inline-edit-v1) -->
+        <div id="detailDescriptionInline" onclick="_detailEditDescription(${task.id})" title="Кликни чтобы редактировать" style="padding:8px 10px;margin-bottom:18px;border-bottom:1px solid #f1f5f9;font-size:14px;color:${task.description ? '#334155' : '#cbd5e1'};line-height:1.65;white-space:pre-wrap;cursor:text;border-radius:6px;transition:background 0.15s;${task.description ? '' : 'font-style:italic;'}" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='transparent'">${task.description ? _catsEscape(task.description) : 'Добавить описание задачи...'}</div>
 
         <!-- chips-clean-v1 Соисполнители -->
         <div class="td-chip td-chip--coexec">
@@ -13245,6 +13245,87 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 30);
     }, true);
 })();
+</script>
+
+
+<script>
+/* inline-edit-v1 */
+async function _detailEditTitle(taskId) {
+    const div = document.getElementById('detailTitleInline');
+    if (!div) return;
+    const currentText = div.textContent || '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.style.cssText = 'width:100%;font-size:24px;font-weight:700;color:#0f172a;line-height:1.2;letter-spacing:-0.3px;border:1px solid #4f46e5;border-radius:6px;padding:2px 6px;outline:none;background:white;font-family:inherit;';
+    div.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let saved = false;
+    async function save() {
+        if (saved) return;
+        saved = true;
+        const newTitle = input.value.trim();
+        if (newTitle && newTitle !== currentText) {
+            try {
+                await apiCall('/api/tasks/' + taskId, {
+                    method: 'PUT',
+                    body: JSON.stringify({title: newTitle})
+                });
+                const task = (typeof allTasks !== 'undefined') ? allTasks.find(t => t.id === taskId) : null;
+                if (task) task.title = newTitle;
+                if (typeof showToast === 'function') showToast('Название обновлено', 'success');
+            } catch(e) {
+                if (typeof showToast === 'function') showToast('Ошибка сохранения', 'error');
+            }
+        }
+        showTaskDetail(taskId);
+    }
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { saved = true; showTaskDetail(taskId); }
+    });
+}
+
+async function _detailEditDescription(taskId) {
+    const div = document.getElementById('detailDescriptionInline');
+    if (!div) return;
+    const task = (typeof allTasks !== 'undefined') ? allTasks.find(t => t.id === taskId) : null;
+    const currentText = task ? (task.description || '') : '';
+    const textarea = document.createElement('textarea');
+    textarea.value = currentText;
+    textarea.placeholder = 'Описание задачи...';
+    textarea.style.cssText = 'width:100%;min-height:80px;font-size:14px;color:#334155;line-height:1.65;border:1px solid #4f46e5;border-radius:6px;padding:8px 10px;outline:none;background:white;font-family:inherit;resize:vertical;margin-bottom:18px;box-sizing:border-box;';
+    div.replaceWith(textarea);
+    textarea.focus();
+
+    let saved = false;
+    async function save() {
+        if (saved) return;
+        saved = true;
+        const newDesc = textarea.value.trim();
+        if (newDesc !== currentText) {
+            try {
+                await apiCall('/api/tasks/' + taskId, {
+                    method: 'PUT',
+                    body: JSON.stringify({description: newDesc})
+                });
+                if (task) task.description = newDesc;
+                if (typeof showToast === 'function') showToast('Описание обновлено', 'success');
+            } catch(e) {
+                if (typeof showToast === 'function') showToast('Ошибка сохранения', 'error');
+            }
+        }
+        showTaskDetail(taskId);
+    }
+    textarea.addEventListener('blur', save);
+    textarea.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); textarea.blur(); }
+        if (e.key === 'Escape') { saved = true; showTaskDetail(taskId); }
+    });
+}
 </script>
 
 </body>
