@@ -8290,7 +8290,7 @@ function _renderTaskWatchersForDept(deptId) {
         cb.name = 'taskWatchers';
         /* auto-watcher-v3 */
         try {
-            const _isCreatingTask_v3 = !taskId;
+            const _isCreatingTask_v3 = (typeof taskId === 'undefined') ? true : !taskId;
             if (_isCreatingTask_v3 && currentUser && currentUser.role !== 'admin') {
                 let _autoWatcherId = null;
                 const _myDept = (allDepartments || []).find(d => d.id === currentUser.department_id);
