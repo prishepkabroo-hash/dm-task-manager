@@ -8889,7 +8889,7 @@ async function showTaskDetail(taskId) {
             </span>
             <button class="td-chip-plus" id="coexecToggleBtn" type="button" aria-label="Добавить">+</button>
             <div class="td-chip-popup" id="detailCoexecList" style="display:none;">
-                ${allUsers.filter(u => u.id !== task.assigned_to && u.id !== (window.currentUser||{}).id).map(u => `<label class="td-chip-popup-row" onclick="event.stopPropagation();"><input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})">${escHtml(u.full_name)}</label>`).join('')}
+                ${allUsers.filter(u => u.id !== task.assigned_to && (!currentUser || u.id !== currentUser.id)).map(u => `<label class="td-chip-popup-row" onclick="event.stopPropagation();"><input type="checkbox" value="${u.id}" class="detail-coexec-cb" ${(task.coexecutors || []).some(c => c.id === u.id) ? 'checked' : ''} onchange="detailToggleCoexecutor(${u.id})">${escHtml(u.full_name)}</label>`).join('')}
             </div>
         </div>
 
@@ -8901,7 +8901,7 @@ async function showTaskDetail(taskId) {
             <span class="td-chip-value" id="detailWatchersDisplay"></span>
             <button class="td-chip-plus" type="button" aria-label="Добавить">+</button>
             <div class="td-chip-popup" id="detailWatchersList" style="display:none;">
-                ${allUsers.filter(u => u.id !== (window.currentUser||{}).id).map(u => `<label class="td-chip-popup-row" onclick="event.stopPropagation();"><input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})">${escHtml(u.full_name)}</label>`).join('')}
+                ${allUsers.filter(u => !currentUser || u.id !== currentUser.id).map(u => `<label class="td-chip-popup-row" onclick="event.stopPropagation();"><input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})">${escHtml(u.full_name)}</label>`).join('')}
             </div>
         </div>
 
@@ -13221,12 +13221,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 
 
+
 <script>
-/* hide-self-popups-v2 */
+/* hide-self-popups-v3 */
 (function(){
     'use strict';
     function hideSelfRow(popup) {
-        if (!popup || !window.currentUser) return;
+        if (!popup) return;
+        if (typeof currentUser === 'undefined' || !currentUser) return;
         const myId = String(currentUser.id);
         popup.querySelectorAll('label').forEach(label => {
             const cb = label.querySelector('input[type=checkbox]');
