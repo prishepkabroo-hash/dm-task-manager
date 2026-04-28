@@ -4243,6 +4243,159 @@
     accent-color: #4f46e5;
 }
 
+
+/* welcome-intro-v1 */
+.wi-overlay {
+    position: fixed; inset: 0; z-index: 10001;
+    background: linear-gradient(135deg, #0a0a1a 0%, #1a1530 50%, #0a0a1a 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+}
+.wi-overlay::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top, rgba(99,102,241,0.25), transparent 60%),
+                radial-gradient(ellipse at bottom, rgba(34,211,238,0.12), transparent 55%);
+    pointer-events: none;
+}
+.wi-card {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 40px 36px 32px;
+    max-width: 560px;
+    width: 100%;
+    color: white;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    animation: wi-slide-in 0.4s ease;
+}
+@keyframes wi-slide-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.wi-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #a78bfa;
+    margin-bottom: 12px;
+}
+.wi-title {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #ffffff, #c7d2fe);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.wi-subtitle {
+    font-size: 17px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+    margin-bottom: 16px;
+    line-height: 1.4;
+}
+.wi-body {
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 24px;
+}
+.wi-list {
+    display: flex; flex-direction: column; gap: 10px;
+    margin-bottom: 24px;
+}
+.wi-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+}
+.wi-item-icon { font-size: 22px; flex-shrink: 0; }
+.wi-item-content { flex: 1; }
+.wi-item-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.wi-item-text { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.45; }
+.wi-item-text-only { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.45; }
+
+.wi-checks {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 24px;
+}
+.wi-check {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: rgba(255,255,255,0.8);
+}
+.wi-check::before {
+    content: '✓';
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(99,102,241,0.25);
+    color: #c7d2fe;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+}
+
+.wi-controls {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 8px;
+}
+.wi-dots {
+    display: flex; gap: 6px;
+    margin-right: auto;
+}
+.wi-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    transition: all 0.2s;
+}
+.wi-dot.active { background: #a78bfa; width: 22px; border-radius: 4px; }
+.wi-btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+}
+.wi-btn-back {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.wi-btn-back:hover { background: rgba(255,255,255,0.1); color: white; }
+.wi-btn-skip {
+    background: transparent;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    padding: 8px 12px;
+}
+.wi-btn-skip:hover { color: rgba(255,255,255,0.8); }
+.wi-btn-next {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+}
+.wi-btn-next:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); }
+.wi-btn-cta {
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    color: white;
+    padding: 12px 28px;
+    font-size: 15px;
+    box-shadow: 0 6px 20px rgba(139,92,246,0.4);
+}
+.wi-btn-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(139,92,246,0.55); }
+
 </style>
 </head>
 <body>
@@ -13490,6 +13643,176 @@ async function resetOnboarding(uid, fullName) {
         showToast(r && r.error || 'Ошибка', 'error');
     }
 }
+</script>
+
+
+<script>
+/* welcome-intro-v1 */
+(function(){
+    'use strict';
+
+    const SLIDES = [
+        {
+            kind: 'hero',
+            eyebrow: 'Корпоративный таск-менеджер',
+            title: 'Добро пожаловать в DM Tasks',
+            subtitle: 'Все задачи команды — в одном месте',
+            body: 'Никаких потерянных поручений в чатах, забытых дедлайнов и непонятно кто за что отвечает. Каждая задача знает своего хозяина.'
+        },
+        {
+            kind: 'problem',
+            eyebrow: 'Знакомо?',
+            title: 'Без системы — хаос',
+            body: 'Что обычно происходит без таск-менеджера:',
+            list: [
+                { icon: '📱', text: 'Поручения теряются в десятке чатов' },
+                { icon: '⏰', text: 'Дедлайны срываются — никто не напомнил' },
+                { icon: '🤷', text: 'Никто не помнит кто за что отвечает' },
+                { icon: '📊', text: 'Руководитель не видит общую картину' }
+            ]
+        },
+        {
+            kind: 'solution',
+            eyebrow: 'Со мной',
+            title: 'Один центр для всех задач',
+            body: 'Каждая задача — у конкретного человека, с дедлайном, статусом и историей. Без потерь.',
+            features: [
+                { icon: '👥', title: 'Кто что делает', text: 'Назначай ответственных и соисполнителей. Прозрачно.' },
+                { icon: '🔔', title: 'Никто не забудет', text: 'Уведомления о задачах, дедлайнах и комментариях.' },
+                { icon: '👁', title: 'Видимость руководителя', text: 'Глава отдела видит всё что делают его сотрудники.' },
+                { icon: '🏆', title: 'Мотивация', text: 'Уровни, очки и рейтинг за выполненные задачи.' }
+            ]
+        },
+        {
+            kind: 'gets',
+            eyebrow: 'Что умеет',
+            title: 'Твой штаб задач',
+            items: [
+                { icon: '✅', title: 'Подзадачи', text: 'Разбивай большое на шаги. Следи за прогрессом.' },
+                { icon: '💬', title: 'Обсуждение', text: 'Комментарии прямо в задаче. С файлами и голосом.' },
+                { icon: '🗓', title: 'Разные виды', text: 'Список, календарь, воронки — смотри как удобно.' },
+                { icon: '📈', title: 'Аналитика', text: 'Сколько задач сделано, кто эффективнее.' }
+            ]
+        },
+        {
+            kind: 'cta',
+            eyebrow: 'Поехали',
+            title: 'Готов начать?',
+            body: 'Я могу провести краткую экскурсию или подробный тур по каждому разделу. Выбирай как удобно.',
+            checks: [
+                'Все твои задачи в одном месте',
+                'Не пропустишь дедлайны и комментарии',
+                'Команда увидит твою работу'
+            ],
+            primary: '🚀 Начнём'
+        }
+    ];
+
+    let _wiIdx = 0;
+
+    window.showWelcomeIntro = function() {
+        if (document.getElementById('wiOverlay')) return;
+        _wiIdx = 0;
+        const overlay = document.createElement('div');
+        overlay.className = 'wi-overlay';
+        overlay.id = 'wiOverlay';
+        document.body.appendChild(overlay);
+        renderSlide();
+
+        document.addEventListener('keydown', _wiKey);
+    };
+
+    function _wiKey(e) {
+        if (e.key === 'ArrowRight') next();
+        if (e.key === 'ArrowLeft') prev();
+        if (e.key === 'Escape' && _wiIdx >= 2) skip();
+    }
+
+    function _esc(s) { return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    function renderSlide() {
+        const s = SLIDES[_wiIdx];
+        const overlay = document.getElementById('wiOverlay');
+        if (!overlay) return;
+
+        let body = '';
+        if (s.kind === 'hero') {
+            body = `<div class="wi-eyebrow">${_esc(s.eyebrow)}</div>
+                <div class="wi-title">${_esc(s.title)}</div>
+                <div class="wi-subtitle">${_esc(s.subtitle)}</div>
+                <div class="wi-body">${_esc(s.body)}</div>`;
+        } else if (s.kind === 'problem') {
+            body = `<div class="wi-eyebrow">${_esc(s.eyebrow)}</div>
+                <div class="wi-title">${_esc(s.title)}</div>
+                <div class="wi-body">${_esc(s.body)}</div>
+                <div class="wi-list">
+                    ${s.list.map(item => `<div class="wi-item"><span class="wi-item-icon">${item.icon}</span><span class="wi-item-text-only">${_esc(item.text)}</span></div>`).join('')}
+                </div>`;
+        } else if (s.kind === 'solution' || s.kind === 'gets') {
+            const items = s.features || s.items;
+            body = `<div class="wi-eyebrow">${_esc(s.eyebrow)}</div>
+                <div class="wi-title">${_esc(s.title)}</div>
+                ${s.body ? `<div class="wi-body">${_esc(s.body)}</div>` : ''}
+                <div class="wi-list">
+                    ${items.map(item => `<div class="wi-item"><span class="wi-item-icon">${item.icon}</span><div class="wi-item-content"><div class="wi-item-title">${_esc(item.title)}</div><div class="wi-item-text">${_esc(item.text)}</div></div></div>`).join('')}
+                </div>`;
+        } else if (s.kind === 'cta') {
+            body = `<div class="wi-eyebrow">${_esc(s.eyebrow)}</div>
+                <div class="wi-title">${_esc(s.title)}</div>
+                <div class="wi-body">${_esc(s.body)}</div>
+                <div class="wi-checks">
+                    ${s.checks.map(c => `<div class="wi-check">${_esc(c)}</div>`).join('')}
+                </div>`;
+        }
+
+        const isLast = _wiIdx === SLIDES.length - 1;
+        const isFirst = _wiIdx === 0;
+        const dots = SLIDES.map((_, i) => `<div class="wi-dot ${i === _wiIdx ? 'active' : ''}"></div>`).join('');
+
+        const controls = isLast
+            ? `<div class="wi-controls">
+                <div class="wi-dots">${dots}</div>
+                <button class="wi-btn wi-btn-back" onclick="_wiPrev()">Назад</button>
+                <button class="wi-btn wi-btn-cta" onclick="_wiFinish()">${_esc(s.primary)}</button>
+            </div>`
+            : `<div class="wi-controls">
+                <div class="wi-dots">${dots}</div>
+                ${_wiIdx >= 2 ? '<button class="wi-btn wi-btn-skip" onclick="_wiSkip()">Пропустить</button>' : ''}
+                ${!isFirst ? '<button class="wi-btn wi-btn-back" onclick="_wiPrev()">Назад</button>' : ''}
+                <button class="wi-btn wi-btn-next" onclick="_wiNext()">Далее →</button>
+            </div>`;
+
+        overlay.innerHTML = `<div class="wi-card">${body}${controls}</div>`;
+    }
+
+    function next() { if (_wiIdx < SLIDES.length - 1) { _wiIdx++; renderSlide(); } }
+    function prev() { if (_wiIdx > 0) { _wiIdx--; renderSlide(); } }
+    function skip() { close(); }
+    function finish() { close(); if (typeof showTutorialChoice === 'function') showTutorialChoice(true); }
+    function close() {
+        const o = document.getElementById('wiOverlay');
+        if (o) o.remove();
+        document.removeEventListener('keydown', _wiKey);
+    }
+
+    window._wiNext = next;
+    window._wiPrev = prev;
+    window._wiSkip = skip;
+    window._wiFinish = finish;
+})();
+
+/* welcome-intro-v1: перехватываем startUserOnboarding чтобы сначала показать интро */
+(function(){
+    'use strict';
+    const orig = window.startUserOnboarding;
+    window.startUserOnboarding = function() {
+        if (typeof showWelcomeIntro === 'function') {
+            showWelcomeIntro();
+        } else if (typeof orig === 'function') {
+            orig();
+        }
+    };
+})();
 </script>
 
 </body>
