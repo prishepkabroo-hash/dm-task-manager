@@ -13933,11 +13933,47 @@ async function resetOnboarding(uid, fullName) {
         const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
         if (!u) return { name: 'друг', role: 'member', deptName: '', isHead: false, isAdmin: false };
         const dept = (typeof allDepartments !== 'undefined' && allDepartments) ? allDepartments.find(d => d.id === u.department_id) : null;
+        /* tutorial-genitive-v1 */
+        function _deptGen(name) {
+            if (!name) return '';
+            const map = {
+                'Отдел продаж': 'Отдела продаж',
+                'Склад': 'Склада',
+                'Клуб': 'Клуба',
+                'Технический отдел': 'Технического отдела',
+                'Финансовый отдел': 'Финансового отдела',
+                'Маркетинг': 'Маркетинга',
+                'Бухгалтерия': 'Бухгалтерии',
+                'Производство': 'Производства'
+            };
+            if (map[name]) return map[name];
+            // Эвристика для неизвестных названий
+            const words = name.split(' ');
+            const last = words[words.length - 1];
+            if (/[бвгджзйклмнпрстфхцчшщ]$/i.test(last)) {
+                words[words.length - 1] = last + 'а';
+                return words.join(' ');
+            }
+            if (last.endsWith('ь')) {
+                words[words.length - 1] = last.slice(0, -1) + 'я';
+                return words.join(' ');
+            }
+            if (last.endsWith('а')) {
+                words[words.length - 1] = last.slice(0, -1) + 'ы';
+                return words.join(' ');
+            }
+            if (last.endsWith('я')) {
+                words[words.length - 1] = last.slice(0, -1) + 'и';
+                return words.join(' ');
+            }
+            return name;
+        }
         return {
             name: u.full_name || u.username || 'друг',
             firstName: (u.full_name || '').split(' ')[0] || u.username || '',
             role: u.role,
             deptName: dept ? dept.name : '',
+            deptGen: dept ? _deptGen(dept.name) : '',
             deptId: u.department_id,
             isHead: u.role === 'head',
             isAdmin: u.role === 'admin',
@@ -13951,8 +13987,8 @@ async function resetOnboarding(uid, fullName) {
         const youAre = c.isAdmin
             ? 'Ты — <strong>администратор</strong>, видишь всё в системе.'
             : c.isHead
-                ? `Ты — <strong>глава ${c.deptName || 'отдела'}</strong>. Видишь задачи всех своих сотрудников.`
-                : `Ты — сотрудник <strong>${c.deptName || 'компании'}</strong>. Видишь только свои задачи и задачи где ты помогаешь.`;
+                ? `Ты — <strong>глава ${c.deptGen || c.deptName || 'отдела'}</strong>. Видишь задачи всех своих сотрудников.`
+                : `Ты — сотрудник <strong>${c.deptGen || c.deptName || 'компании'}</strong>. Видишь только свои задачи и задачи где ты помогаешь.`;
 
         const deptHint = c.isAdmin
             ? 'видишь все отделы компании'
