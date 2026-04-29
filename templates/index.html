@@ -4653,6 +4653,38 @@
     outline-offset: -4px;
 }
 
+
+/* coexec-polish-v1 */
+.coexec-marker-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fef3c7, #fbbf24);
+    color: white;
+    font-size: 11px;
+    margin-left: 6px;
+    cursor: help;
+}
+.coexec-info-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    color: #0369a1;
+    border-radius: 8px;
+    font-size: 12px;
+    margin: 10px 0;
+    line-height: 1.4;
+}
+.coexec-info-banner-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
 </style>
 </head>
 <body>
@@ -14908,6 +14940,56 @@ window._cvDrop = async function(e, col, deptId) {
             // Найдём task в allTasks
             const task = (typeof allTasks !== 'undefined') ? allTasks.find(t => t.id === taskId) : null;
             if (task) setTimeout(() => _injectMyDeadline(task), 100);
+            return r;
+        };
+    }
+})();
+</script>
+
+
+<script>
+/* coexec-polish-v1 */
+(function(){
+    'use strict';
+
+    /* Подмешиваем 🤝 в title-element карточек если текущий юзер — coexec */
+    function _isCoexecOf(task) {
+        if (!task || !currentUser) return false;
+        if (task.assigned_to === currentUser.id) return false;
+        if (task.created_by === currentUser.id) return false;
+        const c = task.coexecutors || [];
+        return c.some(x => (x.id || x) === currentUser.id);
+    }
+
+    /* Перехватываем showTaskDetail чтобы добавить info-banner про синхронизацию */
+    const _origShowTaskDetail = window.showTaskDetail;
+    if (typeof _origShowTaskDetail === 'function') {
+        const _wrappedDetail = window.showTaskDetail;  /* уже обёрнут в Phase 6 */
+        window.showTaskDetail = async function(taskId) {
+            const r = await _wrappedDetail.apply(this, arguments);
+            const task = (typeof allTasks !== 'undefined') ? allTasks.find(t => t.id === taskId) : null;
+            if (task && _isCoexecOf(task)) {
+                setTimeout(() => {
+                    const tdMain = document.getElementById('td-main');
+                    if (!tdMain) return;
+                    if (tdMain.querySelector('.coexec-info-banner')) return;
+                    const banner = document.createElement('div');
+                    banner.className = 'coexec-info-banner';
+                    banner.innerHTML = `
+                        <span class="coexec-info-banner-icon">ℹ️</span>
+                        <span><strong>Синхронизировано с создателем:</strong> название, описание, комментарии, подзадачи, файлы. <strong>Только у тебя:</strong> воронка, дедлайн, приоритет.</span>
+                    `;
+                    // Вставляем после жёлтого блока с дедлайном
+                    const yellow = document.getElementById('my-coexec-deadline-block');
+                    if (yellow && yellow.nextSibling) {
+                        tdMain.insertBefore(banner, yellow.nextSibling);
+                    } else if (yellow) {
+                        tdMain.appendChild(banner);
+                    } else {
+                        tdMain.insertBefore(banner, tdMain.firstChild);
+                    }
+                }, 200);
+            }
             return r;
         };
     }
