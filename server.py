@@ -1597,6 +1597,16 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         if path in ("/", "/login", "/register", "/dashboard", "/kanban", "/funnel", "/list"):
             return self._html(os.path.join(TEMPLATES_DIR, "index.html"))
 
+        # health-v1: простой ping-эндпоинт для мониторинга
+        if path == "/health" or path == "/api/health":
+            try:
+                _c = get_db()
+                _c.execute("SELECT 1").fetchone()
+                _c.close()
+                return self._json({"status": "ok"})
+            except Exception as _e:
+                return self._json({"status": "error", "detail": str(_e)}, 500)
+
         if path == "/api/me":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
