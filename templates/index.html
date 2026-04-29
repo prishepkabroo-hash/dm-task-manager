@@ -4880,6 +4880,79 @@
     transition: none;
 }
 
+
+/* coexec-size-v1 */
+.cv-view-toggle {
+    display: inline-flex;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 2px;
+    gap: 1px;
+}
+.cv-view-btn {
+    padding: 5px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.cv-view-btn:hover { color: #0f172a; }
+.cv-view-btn.active {
+    background: white;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.06);
+}
+
+/* Компактный — только заголовок + кружок */
+.cv-cols.cv-mode-compact .cv-card {
+    padding: 8px 12px;
+}
+.cv-cols.cv-mode-compact .cv-card-row { display: none; }
+.cv-cols.cv-mode-compact .cv-card-title {
+    margin-bottom: 0;
+    font-size: 13px;
+    padding-right: 24px;
+}
+.cv-cols.cv-mode-compact .cv-card-title::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    margin-right: 8px;
+    vertical-align: middle;
+    margin-top: -2px;
+}
+
+/* Детальный — добавляем описание */
+.cv-cols.cv-mode-detailed .cv-card {
+    padding: 14px 16px;
+}
+.cv-cols.cv-mode-detailed .cv-card-title {
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+.cv-card-desc {
+    display: none;
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+    line-height: 1.45;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.cv-cols.cv-mode-detailed .cv-card-desc { display: -webkit-box; }
+
+/* Колонки в зависимости от режима */
+.cv-cols.cv-mode-compact .cv-col { flex: 0 0 240px; }
+.cv-cols.cv-mode-detailed .cv-col { flex: 0 0 340px; }
+
 </style>
 </head>
 <body>
@@ -15755,6 +15828,115 @@ window._cvDrop = async function(e, col, deptId) {
             task.dept_funnel_id = prev;
             renderCoexecView();
             showToast('Сетевая ошибка', 'error');
+        }
+    }
+})();
+</script>
+
+
+<script>
+/* coexec-size-v1 */
+(function(){
+    'use strict';
+
+    if (typeof catsTreeState !== 'undefined' && !catsTreeState.cvViewMode) {
+        try {
+            catsTreeState.cvViewMode = localStorage.getItem('cvViewMode') || 'normal';
+        } catch(e) { catsTreeState.cvViewMode = 'normal'; }
+    }
+
+    window._cvSetViewMode = function(mode) {
+        catsTreeState.cvViewMode = mode;
+        try { localStorage.setItem('cvViewMode', mode); } catch(e) {}
+        renderCoexecView();
+    };
+
+    /* Перепишем _cvCard чтобы добавить описание (видно только в detailed) */
+    const _origCvCard = window._cvCard;
+    window._cvCard = function(t) {
+        const html = _origCvCard(t);
+        // Вставим .cv-card-desc после title
+        if (t.description) {
+            const desc = `<div class="cv-card-desc">${escHtml(t.description)}</div>`;
+            return html.replace('</div>\n                <div class="cv-card-row">', desc + '</div>\n                <div class="cv-card-row">')
+                       .replace('</div>\n                <div class="cv-card-row">', desc + '</div>\n                <div class="cv-card-row">');
+        }
+        return html;
+    };
+
+    /* Перепишем _cvToolbar чтобы добавить переключатель режима */
+    const _origToolbar = window._cvToolbar;
+    window._cvToolbar = function() {
+        const orig = _origToolbar ? _origToolbar() : '';
+        const mode = catsTreeState.cvViewMode || 'normal';
+        const toggle = `
+            <div class="cv-view-toggle">
+                <button class="cv-view-btn ${mode === 'compact' ? 'active' : ''}" onclick="_cvSetViewMode('compact')" title="Компактный">▬</button>
+                <button class="cv-view-btn ${mode === 'normal' ? 'active' : ''}" onclick="_cvSetViewMode('normal')" title="Средний">▤</button>
+                <button class="cv-view-btn ${mode === 'detailed' ? 'active' : ''}" onclick="_cvSetViewMode('detailed')" title="Детальный">▦</button>
+            </div>
+        `;
+        // Вставим toggle в конец тулбара (или сразу после фильтров)
+        return orig.replace('</div>', toggle + '</div>');
+    };
+
+    /* После рендера — добавим класс cv-mode-X на .cv-cols */
+    const _origRender = window.renderCoexecView;
+    if (typeof _origRender === 'function') {
+        window.renderCoexecView = function() {
+            const r = _origRender.apply(this, arguments);
+            const cols = document.querySelector('.cv-cols');
+            if (cols) {
+                cols.classList.remove('cv-mode-compact', 'cv-mode-normal', 'cv-mode-detailed');
+                cols.classList.add('cv-mode-' + (catsTreeState.cvViewMode || 'normal'));
+            }
+            return r;
+        };
+    }
+})();
+
+/* Усилим авто-скролл */
+(function(){
+    'use strict';
+    /* Перехватим всё что внутри fastdrag — переопределим только функцию _autoScroll */
+    /* К сожалению она private. Поэтому добавим глобальный обработчик pointermove во время drag. */
+
+    let _scrollIv = null;
+    let _isDragging = false;
+
+    document.addEventListener('pointerdown', function(e) {
+        if (e.target.closest('.cv-card')) {
+            _isDragging = false; // станет true после смещения
+            const start = { x: e.clientX, y: e.clientY };
+            function move(ev) {
+                if (!_isDragging) {
+                    if ((ev.clientX-start.x)**2 + (ev.clientY-start.y)**2 > 36) _isDragging = true;
+                }
+                if (_isDragging) {
+                    _scroll(ev);
+                }
+            }
+            function up() {
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', up);
+                if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
+                _isDragging = false;
+            }
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', up);
+        }
+    }, true);
+
+    function _scroll(ev) {
+        const container = document.querySelector('.cv-cols');
+        if (!container) return;
+        const r = container.getBoundingClientRect();
+        const edge = 140, speed = 40;
+        if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
+        if (ev.clientX > r.right - edge) {
+            _scrollIv = setInterval(() => container.scrollLeft += speed, 8);
+        } else if (ev.clientX < r.left + edge) {
+            _scrollIv = setInterval(() => container.scrollLeft -= speed, 8);
         }
     }
 })();
