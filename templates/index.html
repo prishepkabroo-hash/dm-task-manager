@@ -16792,8 +16792,11 @@ window._cvDrop = async function(e, col, deptId) {
 </script>
 
 
+
+
+
 <script>
-/* tutorial-rewrite-v7 — robust Genie-style */
+/* tutorial-rewrite-v8 — role-specific tutorials */
 (function(){
     'use strict';
 
@@ -16811,10 +16814,8 @@ window._cvDrop = async function(e, col, deptId) {
     }
     function _role() { return _u().role || 'member'; }
 
-    /* Находит элемент по селектору ИЛИ по совпадению текста */
     function _findEl(opts) {
         if (!opts) return null;
-        // 1. Пробуем селекторы
         if (opts.sel) {
             for (const s of opts.sel.split(',').map(x => x.trim())) {
                 try {
@@ -16823,14 +16824,13 @@ window._cvDrop = async function(e, col, deptId) {
                 } catch(e){}
             }
         }
-        // 2. Поиск по тексту (точное совпадение — короткие элементы)
         if (opts.text) {
             const wanted = opts.text.toLowerCase();
             const all = document.querySelectorAll('a, button, [role="button"], [role="link"], li, .nav-item, [class*="nav"], [class*="menu-item"], [class*="sidebar"] *');
             for (const el of all) {
                 const t = (el.innerText || el.textContent || '').trim().toLowerCase();
-                if (t === wanted || t.startsWith(wanted + ' ') || t.startsWith(wanted + '\n')) {
-                    if (el.offsetParent !== null && t.length < 80) return el;
+                if ((t === wanted || t.startsWith(wanted + ' ') || t.startsWith(wanted + '\n')) && el.offsetParent !== null && t.length < 80) {
+                    return el;
                 }
             }
         }
@@ -16838,149 +16838,322 @@ window._cvDrop = async function(e, col, deptId) {
     }
 
     function _highlight(el) {
-        document.querySelectorAll('.tutv7-hl').forEach(x => x.classList.remove('tutv7-hl'));
+        document.querySelectorAll('.tutv8-hl').forEach(x => x.classList.remove('tutv8-hl'));
         if (el) {
-            el.classList.add('tutv7-hl');
+            el.classList.add('tutv8-hl');
             try { el.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
         }
     }
 
-    function _esc(s) {
-        return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-    }
-    function _md(s) {
-        return _esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    function _esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function _md(s) { return _esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); }
+
+    /* === ОБЩИЕ БЛОКИ (используются во всех ролях) === */
+    function commonGamification() {
+        return [
+            {
+                title: '🏎️ Геймификация — общая идея',
+                body: 'За каждую закрытую задачу ты получаешь **километры**. Накапливаешь — поднимаешься по **уровням**. Параллельно зарабатываешь **награды** за особые штуки.'
+            },
+            {
+                title: '⛽ Километры',
+                body: 'Начисляются автоматически когда задача → «Готово». Чем выше **приоритет** и **сложность** (подзадачи, комментарии) — тем больше км. Видно в профиле.'
+            },
+            {
+                title: '🏁 9 уровней',
+                body: 'От **Босоногого** до **Чемпиона**. Каждый уровень открывает новую аватарку-машинку.'
+            },
+            {
+                title: '🏆 7 наград',
+                body: '**Первая задача** • **Стабильность** (каждый день) • **Скоростной** (раньше срока) • **Марафонец** (много за неделю) • **Сотня** (100 задач) • **Звезда отдела** • **Ранняя пташка**'
+            }
+        ];
     }
 
-    /* Шаги. У каждого есть title, body, опционально target и hint */
-    function buildSteps() {
+    function commonSupport() {
+        return [{
+            target: { sel: 'button[onclick*="feedback"], .feedback-btn', text: 'Обратная связь' },
+            hint: 'Кнопки **«Поддержка»** и **«Обратная связь»** внизу слева',
+            title: '💬 Связь с разработчиком',
+            body: 'Если что-то сломалось — «Поддержка». Идея или замечание — «Обратная связь». Лукиан получит сообщение и ответит.'
+        }];
+    }
+
+    /* === MEMBER (сотрудник) === */
+    function buildMemberSteps() {
         const name = _firstName();
         const dept = _deptName();
-        const role = _role();
         const steps = [];
 
         steps.push({
             title: 'Привет, ' + name + '!',
-            body: 'Я научу тебя пользоваться таск-менеджером Dudarev Motorsport за пару минут. Я буду подсвечивать что куда жать. Ты делаешь действие, потом «Дальше →».'
-        });
-
-        // Дашборд
-        steps.push({
-            target: { sel: '[data-page="dashboard"], a[href*="dashboard"], [onclick*="dashboard"]', text: 'Дашборд' },
-            hint: 'Найди и нажми **«Дашборд»** в меню слева',
-            title: '📊 Дашборд',
-            body: 'Это твоя главная страница. Здесь видишь:\n• Свои активные задачи\n• Сколько закрыл за неделю/месяц\n• Прогресс до следующего уровня\n• Последние действия команды'
-        });
-
-        // Категории
-        steps.push({
-            target: { sel: '[data-page="categories"], a[href*="categories"]', text: 'Категории' },
-            hint: 'Теперь нажми **«Категории»**',
-            title: '🗂️ Категории — отделы компании',
             body: dept
-                ? 'Здесь все отделы Dudarev Motorsport. Слева — список отделов. Твой — **' + dept + '**. У каждого свои воронки и команда.'
-                : 'Здесь все отделы Dudarev Motorsport. Слева — список отделов. У каждого свои воронки и команда.'
+                ? 'Ты сотрудник отдела **' + dept + '**. Покажу как работать с задачами в Dudarev Motorsport. ~12 шагов.'
+                : 'Покажу как работать с задачами в Dudarev Motorsport. ~12 шагов.'
         });
 
         steps.push({
-            title: '📋 Воронки внутри отдела',
-            body: 'Выбери любой отдел слева — справа появятся колонки-воронки. Каждая колонка — этап задачи: например **Новая → В работе → На проверке → Готово**. Перетаскивай карточки между колонками — статус обновится автоматически.'
+            target: { sel: '.sidebar, #sidebar', text: null },
+            title: 'Меню слева',
+            body: 'Главная навигация. Дашборд, категории, календарь, рейтинг, профиль.'
+        });
+
+        steps.push({
+            target: { text: 'Дашборд' },
+            hint: 'Жми **«Дашборд»**',
+            title: '📊 Дашборд',
+            body: 'Главная страница: твои активные задачи, прогресс до уровня, последние действия команды.'
+        });
+
+        steps.push({
+            target: { text: 'Категории' },
+            hint: 'Открой **«Категории»**',
+            title: '🗂️ Твой отдел',
+            body: dept
+                ? 'Слева список отделов. Твой — **' + dept + '**. Кликни и увидишь свои задачи.'
+                : 'Слева список отделов. Кликни на свой и увидишь задачи отдела.'
+        });
+
+        steps.push({
+            title: '📋 Воронки задач',
+            body: 'Колонки = этапы. Например **Новая → В работе → На проверке → Готово**. Тащи карточку между колонками — статус обновится.'
         });
 
         steps.push({
             title: '🃏 Карточка задачи',
-            body: 'Клик по карточке — откроется детальная страница: **описание** (правится прямо там), **комментарии** (текст/файлы/голосовые), **подзадачи**, **наблюдатели**, **соисполнители**.'
+            body: 'Клик по задаче — детальная страница: описание (правится прямо там), комментарии, файлы, голосовые, подзадачи, наблюдатели, соисполнители.'
         });
 
-        // Воронка (отдельный пункт меню)
         steps.push({
-            target: { sel: '[data-page="kanban"], [data-page="funnel"], a[href*="funnel"]', text: 'Воронка' },
-            hint: 'Перейди в **«Воронка»** в меню',
-            title: '📊 Воронка',
-            body: 'Канбан-доска со всеми задачами. Колонки = этапы, карточки = задачи. Самый удобный режим для работы.'
+            target: { text: 'Совместные задачи' },
+            hint: 'Жми **«Совместные задачи»**',
+            title: '🤝 Совместные задачи',
+            body: 'Если коллега назначил тебя соисполнителем — задача появится тут. У тебя свой персональный дедлайн и приоритет.'
         });
 
-        // Календарь
         steps.push({
-            target: { sel: '[data-page="calendar"], a[href*="calendar"]', text: 'Календарь' },
+            target: { text: 'Календарь' },
             hint: 'Открой **«Календарь»**',
             title: '📅 Календарь',
-            body: 'Все дедлайны на одном экране. Виды: **месяц / неделя / день**. Клик по дате — мгновенное создание задачи на этот день. Точки на датах — задачи с дедлайном.'
+            body: 'Все дедлайны на одном экране. Виды месяц/неделя/день. Клик по дате создаёт задачу.'
         });
 
-        // Рейтинг
         steps.push({
-            target: { sel: '[data-page="rating"], [data-page="leaderboard"], a[href*="rating"]', text: 'Рейтинг' },
-            hint: 'Жми **«Рейтинг»**',
-            title: '🏆 Рейтинг',
-            body: 'Топ всей команды по километрам. Видишь кто сколько закрыл задач, кто впереди по уровню. Полезно чтобы понять где ты в общей таблице.'
-        });
-
-        // Профиль
-        steps.push({
-            target: { sel: '[data-page="profile"], a[href*="profile"]', text: 'Профиль' },
+            target: { text: 'Профиль' },
             hint: 'Открой **«Профиль»**',
             title: '👤 Профиль',
-            body: 'Тут видишь свой уровень, прогресс до следующего, все полученные награды. Можешь сменить пароль, посмотреть свою статистику.'
+            body: 'Твой уровень, прогресс до следующего, награды. Тут же меняешь пароль.'
         });
 
-        // Создание задачи
-        steps.push({
-            target: { sel: 'button[onclick*="createTask"], .create-task-btn, [class*="fab"]', text: '+ Задача' },
-            hint: 'Кнопка **«+ Задача»** наверху справа (или «+» внизу)',
-            title: '➕ Как создать задачу',
-            body: 'Открывается форма. Заполняешь:\n• **Заголовок** и **описание**\n• **Исполнитель** — кто делает\n• **Дедлайн** и **приоритет**\n• **Соисполнители** — те кто помогает (увидят задачу в «Совместных»)\n• **Наблюдатели** — те кто следят'
-        });
-
-        // === ГЕЙМИФИКАЦИЯ ===
-        steps.push({
-            title: '🏎️ Геймификация — что это?',
-            body: 'Это не просто таск-менеджер. За каждую закрытую задачу ты получаешь **километры**. Накапливаешь — поднимаешься по **уровням** и зарабатываешь **награды**.'
-        });
-
-        steps.push({
-            title: '⛽ Километры (км)',
-            body: 'Начисляются автоматически когда задача → «Готово». Сколько именно — зависит от **приоритета** и **сложности** (есть подзадачи/комментарии — больше). Свои км видишь в профиле слева снизу.'
-        });
-
-        steps.push({
-            title: '🏁 9 уровней — от Босоногого до Чемпиона',
-            body: 'Каждый уровень — новая аватарка-машинка:\n1. Босоногий\n2. Бегун\n3. Велосипедист\n4. Скутерист\n5. Мотоциклист\n6. Гонщик\n7. Профи\n8. Чемпион\n9. Легенда\n(точные названия и иконки — в профиле)'
-        });
-
-        steps.push({
-            title: '🏆 7 наград',
-            body: '**Первая задача** — закрыл первую\n**Стабильность** — закрывал каждый день недели\n**Скоростной** — решил быстрее срока\n**Марафонец** — много за неделю\n**Сотня** — 100 задач закрыто\n**Звезда отдела** — топ-1 внутри отдела\n**Ранняя пташка** — начал утром'
-        });
-
-        // Поддержка / обратная связь
-        steps.push({
-            target: { sel: 'button[onclick*="feedback"], .feedback-btn', text: 'Обратная связь' },
-            hint: 'Кнопка **«Обратная связь»** внизу',
-            title: '💬 Обратная связь и поддержка',
-            body: 'Если что-то сломалось или есть идея — жми «Обратная связь». Если совсем непонятно — «Поддержка». Лукиан получит сообщение и ответит.'
-        });
-
-        if (role === 'admin') {
-            steps.push({
-                target: { sel: '[data-page="admin"], a[href*="admin"]', text: 'Управление' },
-                hint: 'Жми **«Управление»** (только админ видит)',
-                title: '⚙️ Админка',
-                body: 'Управление пользователями, отделами, ролями. Можно создать юзера, поменять роль, переключить отдел.'
-            });
-        } else if (role === 'head') {
-            steps.push({
-                title: '⚙️ Ты — глава отдела',
-                body: 'Ты можешь редактировать воронки своего отдела ' + (dept || '') + ', ставить задачи сотрудникам и видеть весь отдел в дашборде.'
-            });
-        }
+        steps.push(...commonGamification());
+        steps.push(...commonSupport());
 
         steps.push({
             title: 'Готово, ' + name + '! 🏁',
-            body: 'Теперь ты знаешь всё. Возникнут вопросы — жми «Поддержка». Удачных задач, держи скорость!'
+            body: 'Теперь ты знаешь всё что нужно. Удачных задач — держи скорость!'
         });
 
         return steps;
+    }
+
+    /* === HEAD (руководитель отдела) === */
+    function buildHeadSteps() {
+        const name = _firstName();
+        const dept = _deptName();
+        const steps = [];
+
+        steps.push({
+            title: 'Привет, ' + name + '!',
+            body: dept
+                ? 'Ты **руководитель отдела ' + dept + '**. У тебя расширенные права. Покажу что ты можешь делать своими руками. ~15 шагов.'
+                : 'Ты **руководитель отдела**. У тебя расширенные права. ~15 шагов.'
+        });
+
+        steps.push({
+            target: { sel: '.sidebar, #sidebar' },
+            title: 'Меню слева',
+            body: 'Стандартные разделы + у тебя есть управление воронками своего отдела.'
+        });
+
+        steps.push({
+            target: { text: 'Дашборд' },
+            hint: 'Жми **«Дашборд»**',
+            title: '📊 Дашборд руководителя',
+            body: 'Помимо своих задач — видишь сводку по сотрудникам отдела: кто что делает, у кого сколько в работе.'
+        });
+
+        steps.push({
+            target: { text: 'Категории' },
+            hint: 'Открой **«Категории»**',
+            title: '🗂️ Управление отделом',
+            body: dept
+                ? 'Тут отдел **' + dept + '**. Ты можешь редактировать его воронки — добавлять/убирать колонки, переименовывать.'
+                : 'Тут твой отдел. Можешь редактировать воронки — добавлять/убирать колонки.'
+        });
+
+        steps.push({
+            title: '➕ Создать новую воронку',
+            body: 'Кнопка «+» рядом с воронками. Дай название (например «Стажёры», «Ремонт», «Горячее») — она появится как ещё один список колонок.'
+        });
+
+        steps.push({
+            title: '✏️ Редактировать колонки',
+            body: 'Клик на название колонки — переименовать. Drag-and-drop колонок — переставить. Можно добавить новый этап (например «Тестирование»).'
+        });
+
+        steps.push({
+            title: '👥 Назначить задачу сотруднику',
+            body: 'Создаёшь задачу → в поле «Исполнитель» выбираешь сотрудника своего отдела. Он сразу увидит её у себя в Дашборде. Можно добавить **соисполнителей** — они помогают.'
+        });
+
+        steps.push({
+            title: '👀 Наблюдатели',
+            body: 'Если хочешь следить за задачей сотрудника, не вмешиваясь в выполнение — добавь себя в наблюдатели. Будут приходить уведомления о всех изменениях.'
+        });
+
+        steps.push({
+            target: { text: 'Совместные задачи' },
+            hint: 'Жми **«Совместные»**',
+            title: '🤝 Совместные задачи',
+            body: 'Когда ты назначаешь себя соисполнителем чужой задачи (например задача из другого отдела) — она попадает сюда. У тебя свой дедлайн.'
+        });
+
+        steps.push({
+            target: { text: 'Календарь' },
+            hint: 'Открой **«Календарь»**',
+            title: '📅 Календарь команды',
+            body: 'Видишь дедлайны не только свои, но и сотрудников отдела. Удобно понимать когда у кого что горит.'
+        });
+
+        steps.push({
+            target: { text: 'Рейтинг' },
+            hint: 'Жми **«Рейтинг»**',
+            title: '🏆 Рейтинг',
+            body: 'Топ всей команды по километрам. Видишь кто из твоего отдела на каком месте.'
+        });
+
+        steps.push(...commonGamification());
+
+        steps.push({
+            title: '🎯 Главная задача руководителя',
+            body: 'Не просто закрывать свои задачи, но и следить чтобы у сотрудников отдела не было заваленных дедлайнов. Если у кого-то скопилось — помоги, перераспредели.'
+        });
+
+        steps.push(...commonSupport());
+
+        steps.push({
+            title: 'Готово, ' + name + '! 🏁',
+            body: 'Управляй отделом ' + (dept || '') + ' эффективно. Удачи!'
+        });
+
+        return steps;
+    }
+
+    /* === ADMIN === */
+    function buildAdminSteps() {
+        const name = _firstName();
+        const steps = [];
+
+        steps.push({
+            title: 'Привет, ' + name + '!',
+            body: 'Ты **админ системы** — у тебя максимальные права. Управление пользователями, отделами, всеми задачами. Покажу за ~18 шагов.'
+        });
+
+        steps.push({
+            target: { sel: '.sidebar, #sidebar' },
+            title: 'Меню слева',
+            body: 'Все стандартные разделы + дополнительные «Управление» (юзеры, отделы, роли).'
+        });
+
+        steps.push({
+            target: { text: 'Дашборд' },
+            hint: 'Открой **«Дашборд»**',
+            title: '📊 Глобальный дашборд',
+            body: 'Видишь всё. Все задачи всех отделов. Сводка по компании: сколько в работе, сколько закрыто, кто отстаёт.'
+        });
+
+        steps.push({
+            target: { text: 'Категории' },
+            hint: 'Жми **«Категории»**',
+            title: '🗂️ Все отделы Dudarev Motorsport',
+            body: 'Слева — список всех отделов. Можешь зайти в любой и редактировать его воронки. Полный доступ.'
+        });
+
+        steps.push({
+            target: { text: 'Управление' },
+            hint: 'Найди раздел **«Управление»** или **«Админка»** в меню',
+            title: '⚙️ Управление пользователями',
+            body: 'Главная админская страница. Список всех юзеров с ролями и отделами. Можно создать нового, поменять роль, переключить отдел.'
+        });
+
+        steps.push({
+            title: '➕ Создать нового сотрудника',
+            body: 'Кнопка «Новый пользователь». Заполняешь:\n• Логин (латиницей)\n• ФИО\n• Пароль (минимум 6 символов)\n• Роль: admin / руководитель / сотрудник\n• Отдел (для не-админа)\n\nПосле создания юзер сразу может логиниться.'
+        });
+
+        steps.push({
+            title: '🔄 Изменить роль',
+            body: 'У существующего юзера можно поднять/опустить роль. Например сделать сотрудника руководителем отдела — он получит право редактировать воронки.'
+        });
+
+        steps.push({
+            title: '🗑️ Уволить сотрудника',
+            body: 'Удаление через крестик/кнопку «Деактивировать». Юзер становится **неактивным** — пропадает из списков, не может залогиниться. Но его старые задачи остаются (история не теряется).'
+        });
+
+        steps.push({
+            title: '🏢 Управление отделами',
+            body: 'Можешь создать новый отдел (например «Маркетинг»), переименовать существующий, изменить иконку/цвет. Сотрудники назначаются в отдел через карточку юзера.'
+        });
+
+        steps.push({
+            title: '📜 Журнал действий',
+            body: 'Все важные действия (создание юзера, смена роли, деактивация) пишутся в журнал. Можно посмотреть кто что сделал и когда. Доступно только админу.'
+        });
+
+        steps.push({
+            target: { text: 'Совместные задачи' },
+            hint: 'Жми **«Совместные»**',
+            title: '🤝 Совместные задачи',
+            body: 'Если ты назначаешь себя соисполнителем чужой задачи — она попадает сюда. Удобно когда участвуешь в проекте другого отдела.'
+        });
+
+        steps.push({
+            target: { text: 'Календарь' },
+            hint: 'Открой **«Календарь»**',
+            title: '📅 Глобальный календарь',
+            body: 'Все дедлайны всех отделов. Удобно следить за критичными сроками компании.'
+        });
+
+        steps.push({
+            target: { text: 'Рейтинг' },
+            hint: 'Жми **«Рейтинг»**',
+            title: '🏆 Рейтинг всей компании',
+            body: 'Топ всех юзеров. Видишь кто эффективнее, кто отстаёт.'
+        });
+
+        steps.push(...commonGamification());
+
+        steps.push({
+            title: '🛡️ Безопасность',
+            body: 'Каждую ночь в 03:00 МСК делается **бэкап БД** (хранится 14 дней).\n5 неверных паролей с одного IP → блок на 15 минут.\nЕсть `/health` endpoint для мониторинга.'
+        });
+
+        steps.push(...commonSupport());
+
+        steps.push({
+            title: 'Готово, ' + name + '! 🏁',
+            body: 'Ты в курсе всех инструментов. Управляй системой эффективно — Лукиан всегда на связи если что-то непонятно.'
+        });
+
+        return steps;
+    }
+
+    function buildSteps() {
+        const role = _role();
+        if (role === 'admin') return buildAdminSteps();
+        if (role === 'head') return buildHeadSteps();
+        return buildMemberSteps();
     }
 
     let _state = { steps: [], idx: 0 };
@@ -16990,31 +17163,30 @@ window._cvDrop = async function(e, col, deptId) {
         if (!s) { _close(); return; }
         const total = _state.steps.length;
         const isLast = _state.idx === total - 1;
-        const card = document.getElementById('tutv7-card');
+        const card = document.getElementById('tutv8-card');
         if (!card) return;
 
-        // Подсветка цели
         const target = s.target ? _findEl(s.target) : null;
         _highlight(target);
 
         const bodyHtml = (s.body || '').split('\n').map(l => _md(l)).join('<br>');
-        const hintHtml = s.hint ? '<div class="tutv7-hint">👉 ' + _md(s.hint) + '</div>' : '';
+        const hintHtml = s.hint ? '<div class="tutv8-hint">👉 ' + _md(s.hint) + '</div>' : '';
         const isAction = !!s.hint;
 
         card.innerHTML =
-            '<div class="tutv7-progress"><div class="tutv7-progress-bar" style="width:' + (((_state.idx+1)/total)*100) + '%"></div></div>' +
-            '<div class="tutv7-meta"><span class="tutv7-mode' + (isAction ? ' tutv7-mode-action' : '') + '">' + (isAction ? 'Действие' : 'Обучение') + '</span> <span class="tutv7-counter">' + (_state.idx+1) + ' / ' + total + '</span></div>' +
-            (s.title ? '<h3 class="tutv7-title">' + _md(s.title) + '</h3>' : '') +
+            '<div class="tutv8-progress"><div class="tutv8-progress-bar" style="width:' + (((_state.idx+1)/total)*100) + '%"></div></div>' +
+            '<div class="tutv8-meta"><span class="tutv8-mode' + (isAction ? ' tutv8-mode-action' : '') + '">' + (isAction ? 'Действие' : 'Обучение') + '</span> <span class="tutv8-counter">' + (_state.idx+1) + ' / ' + total + '</span></div>' +
+            (s.title ? '<h3 class="tutv8-title">' + _md(s.title) + '</h3>' : '') +
             hintHtml +
-            (s.body ? '<div class="tutv7-body">' + bodyHtml + '</div>' : '') +
-            '<div class="tutv7-buttons">' +
-                '<button class="tutv7-btn tutv7-back" ' + (_state.idx===0?'disabled':'') + '>← Назад</button>' +
-                '<button class="tutv7-btn tutv7-skip">Пропустить</button>' +
-                '<button class="tutv7-btn tutv7-next">' + (isLast ? 'Закончить ✓' : 'Дальше →') + '</button>' +
+            (s.body ? '<div class="tutv8-body">' + bodyHtml + '</div>' : '') +
+            '<div class="tutv8-buttons">' +
+                '<button class="tutv8-btn tutv8-back" ' + (_state.idx===0?'disabled':'') + '>← Назад</button>' +
+                '<button class="tutv8-btn tutv8-skip">Пропустить</button>' +
+                '<button class="tutv8-btn tutv8-next">' + (isLast ? 'Закончить ✓' : 'Дальше →') + '</button>' +
             '</div>';
-        card.querySelector('.tutv7-back').onclick = function(){ if (_state.idx > 0) { _state.idx--; _renderStep(); } };
-        card.querySelector('.tutv7-skip').onclick = _close;
-        card.querySelector('.tutv7-next').onclick = function(){
+        card.querySelector('.tutv8-back').onclick = function(){ if (_state.idx > 0) { _state.idx--; _renderStep(); } };
+        card.querySelector('.tutv8-skip').onclick = _close;
+        card.querySelector('.tutv8-next').onclick = function(){
             if (isLast) _close();
             else { _state.idx++; _renderStep(); }
         };
@@ -17023,11 +17195,11 @@ window._cvDrop = async function(e, col, deptId) {
     function _open() {
         _state.steps = buildSteps();
         _state.idx = 0;
-        let card = document.getElementById('tutv7-card');
+        let card = document.getElementById('tutv8-card');
         if (!card) {
             card = document.createElement('div');
-            card.id = 'tutv7-card';
-            card.className = 'tutv7-card';
+            card.id = 'tutv8-card';
+            card.className = 'tutv8-card';
             document.body.appendChild(card);
         }
         card.style.display = 'block';
@@ -17035,14 +17207,13 @@ window._cvDrop = async function(e, col, deptId) {
     }
 
     function _close() {
-        document.querySelectorAll('.tutv7-hl').forEach(x => x.classList.remove('tutv7-hl'));
-        const card = document.getElementById('tutv7-card');
+        document.querySelectorAll('.tutv8-hl').forEach(x => x.classList.remove('tutv8-hl'));
+        const card = document.getElementById('tutv8-card');
         if (card) card.style.display = 'none';
     }
 
-    /* Удаляем все старые v3/v4/v5 карточки если остались */
     function cleanupOld() {
-        ['tutv3-card','tutv3-choice','tutv4-card','tutv4-choice','tutv5-card','tutv5-choice'].forEach(id => {
+        ['tutv3-card','tutv3-choice','tutv4-card','tutv4-choice','tutv5-card','tutv5-choice','tutv7-card'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.remove();
         });
@@ -17051,13 +17222,11 @@ window._cvDrop = async function(e, col, deptId) {
     setTimeout(cleanupOld, 100);
     setTimeout(cleanupOld, 500);
 
-    /* Подмена точки входа */
     window.showTutorialChoice = _open;
     window.startUserOnboarding = _open;
     window.startTutorial = _open;
     window.showOnboarding = _open;
 
-    /* Перехват кликов на ВСЕ варианты кнопок «Обучение» / «?» / «Help» */
     document.addEventListener('click', function(e){
         let n = e.target;
         for (let i = 0; i < 8 && n; i++, n = n.parentElement) {
@@ -17065,19 +17234,16 @@ window._cvDrop = async function(e, col, deptId) {
             const cls = (typeof n.className === 'string') ? n.className.toLowerCase() : '';
             const txt = (n.innerText || n.textContent || '').trim().toLowerCase();
             const title = (n.title || n.getAttribute('aria-label') || '').toLowerCase();
-            // Текст кнопки
             if (txt && txt.length < 40) {
                 if (txt === 'обучение' || txt.includes('пройти обучение') || txt.includes('начать обучение')) {
                     e.preventDefault(); e.stopImmediatePropagation();
                     _open(); return;
                 }
             }
-            // Title / aria-label
             if (title && (title.includes('обучение') || title.includes('помощь') || title.includes('подсказ'))) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 _open(); return;
             }
-            // Class содержит help/onboard/tutorial
             if (cls && (cls.includes('help-btn') || cls.includes('onboard-btn') || cls.includes('tutorial-btn'))) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 _open(); return;
@@ -17085,29 +17251,28 @@ window._cvDrop = async function(e, col, deptId) {
         }
     }, true);
 
-    /* CSS */
     const css = document.createElement('style');
     css.textContent =
-'.tutv7-card{position:fixed;bottom:24px;right:24px;width:420px;max-width:calc(100vw - 48px);background:#fff;color:#1a1f2e;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:22px;z-index:99999;font-family:inherit;animation:tutv7slide .25s ease-out}' +
-'@keyframes tutv7slide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}' +
-'.tutv7-progress{height:4px;background:#e7eaf2;border-radius:2px;overflow:hidden;margin-bottom:12px}' +
-'.tutv7-progress-bar{height:100%;background:linear-gradient(90deg,#5a73ff,#8b5cf6);transition:width .3s}' +
-'.tutv7-meta{display:flex;justify-content:space-between;font-size:12px;color:#6b7590;margin-bottom:10px}' +
-'.tutv7-mode{background:#eef0f8;padding:3px 10px;border-radius:10px;color:#5a73ff;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.5px}' +
-'.tutv7-mode-action{background:#fff4e0;color:#d97706}' +
-'.tutv7-title{font-size:18px;font-weight:700;margin:8px 0 10px;color:#1a1f2e;line-height:1.3}' +
-'.tutv7-hint{font-size:15px;line-height:1.4;color:#1a1f2e;margin:6px 0 12px;padding:12px 14px;background:#fff8eb;border-left:3px solid #d97706;border-radius:6px}' +
-'.tutv7-body{font-size:14px;line-height:1.6;color:#4a5060;margin:0 0 18px}' +
-'.tutv7-body strong{color:#1a1f2e;font-weight:600}' +
-'.tutv7-buttons{display:flex;gap:8px;justify-content:space-between;align-items:center}' +
-'.tutv7-btn{padding:9px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px}' +
-'.tutv7-back{background:#f3f4f8;color:#1a1f2e}' +
-'.tutv7-back:disabled{opacity:.4;cursor:not-allowed}' +
-'.tutv7-skip{background:transparent;color:#6b7590}' +
-'.tutv7-next{background:linear-gradient(90deg,#5a73ff,#8b5cf6);color:#fff;flex:0 0 auto}' +
-'.tutv7-hl{outline:3px solid #f59e0b !important;outline-offset:3px;border-radius:6px;animation:tutv7pulse 1.2s infinite;position:relative;z-index:9998}' +
-'@keyframes tutv7pulse{0%,100%{outline-color:#f59e0b}50%{outline-color:#fbbf24}}' +
-'@media (max-width:600px){.tutv7-card{right:8px;left:8px;bottom:8px;width:auto}}';
+'.tutv8-card{position:fixed;bottom:24px;right:24px;width:430px;max-width:calc(100vw - 48px);background:#fff;color:#1a1f2e;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:22px;z-index:99999;font-family:inherit;animation:tutv8slide .25s ease-out;max-height:calc(100vh - 48px);overflow-y:auto}' +
+'@keyframes tutv8slide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}' +
+'.tutv8-progress{height:4px;background:#e7eaf2;border-radius:2px;overflow:hidden;margin-bottom:12px}' +
+'.tutv8-progress-bar{height:100%;background:linear-gradient(90deg,#5a73ff,#8b5cf6);transition:width .3s}' +
+'.tutv8-meta{display:flex;justify-content:space-between;font-size:12px;color:#6b7590;margin-bottom:10px}' +
+'.tutv8-mode{background:#eef0f8;padding:3px 10px;border-radius:10px;color:#5a73ff;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.5px}' +
+'.tutv8-mode-action{background:#fff4e0;color:#d97706}' +
+'.tutv8-title{font-size:18px;font-weight:700;margin:8px 0 10px;color:#1a1f2e;line-height:1.3}' +
+'.tutv8-hint{font-size:15px;line-height:1.4;color:#1a1f2e;margin:6px 0 12px;padding:12px 14px;background:#fff8eb;border-left:3px solid #d97706;border-radius:6px}' +
+'.tutv8-body{font-size:14px;line-height:1.6;color:#4a5060;margin:0 0 18px}' +
+'.tutv8-body strong{color:#1a1f2e;font-weight:600}' +
+'.tutv8-buttons{display:flex;gap:8px;justify-content:space-between;align-items:center}' +
+'.tutv8-btn{padding:9px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px}' +
+'.tutv8-back{background:#f3f4f8;color:#1a1f2e}' +
+'.tutv8-back:disabled{opacity:.4;cursor:not-allowed}' +
+'.tutv8-skip{background:transparent;color:#6b7590}' +
+'.tutv8-next{background:linear-gradient(90deg,#5a73ff,#8b5cf6);color:#fff;flex:0 0 auto}' +
+'.tutv8-hl{outline:3px solid #f59e0b !important;outline-offset:3px;border-radius:6px;animation:tutv8pulse 1.2s infinite;position:relative;z-index:9998}' +
+'@keyframes tutv8pulse{0%,100%{outline-color:#f59e0b}50%{outline-color:#fbbf24}}' +
+'@media (max-width:600px){.tutv8-card{right:8px;left:8px;bottom:8px;width:auto}}';
     document.head.appendChild(css);
 })();
 </script>
