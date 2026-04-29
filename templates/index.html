@@ -16456,19 +16456,29 @@ window._cvDrop = async function(e, col, deptId) {
         return null;
     }
 
+    let _scrollEdgeStartedAt = 0;
+
     function _scroll(ev) {
-        /* coexec-slow-v1: edge 20px, speed 100/frame */
+        /* coexec-comfort-v1: 30 px/frame, edge 30px, delay 300ms */
         const c = document.querySelector('.cv-cols');
         if (!c) { _scrollVx = 0; return; }
         c.style.scrollBehavior = 'auto';
         const r = c.getBoundingClientRect();
-        const edge = 20;       // только самая граница
-        const SPEED = 100;     // ~6000 px/sec — успеешь среагировать
-        if (ev.clientX > r.right - edge) {
-            _scrollVx = SPEED;
-        } else if (ev.clientX < r.left + edge) {
-            _scrollVx = -SPEED;
+        const edge = 30;
+        const SPEED = 30;       // ~1800 px/sec
+        const DELAY = 300;      // ms перед стартом
+        const inEdgeRight = ev.clientX > r.right - edge;
+        const inEdgeLeft = ev.clientX < r.left + edge;
+        if (inEdgeRight || inEdgeLeft) {
+            if (!_scrollEdgeStartedAt) _scrollEdgeStartedAt = Date.now();
+            const heldFor = Date.now() - _scrollEdgeStartedAt;
+            if (heldFor >= DELAY) {
+                _scrollVx = inEdgeRight ? SPEED : -SPEED;
+            } else {
+                _scrollVx = 0;
+            }
         } else {
+            _scrollEdgeStartedAt = 0;
             _scrollVx = 0;
         }
         _loop();
