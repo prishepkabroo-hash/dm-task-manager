@@ -5017,6 +5017,13 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
+
+/* coexec-extreme-v1 — гарантируем что smooth scroll отключён */
+.cv-cols {
+    scroll-behavior: auto !important;
+    overscroll-behavior-x: contain;
+}
+
 </style>
 </head>
 <body>
@@ -16450,12 +16457,14 @@ window._cvDrop = async function(e, col, deptId) {
     }
 
     function _scroll(ev) {
-        /* coexec-uniform-v1: константная скорость во всех режимах */
+        /* coexec-extreme-v1: 2500px/frame */
         const c = document.querySelector('.cv-cols');
         if (!c) { _scrollVx = 0; return; }
+        // Отключаем smooth-scroll если был
+        c.style.scrollBehavior = 'auto';
         const r = c.getBoundingClientRect();
-        const edge = 150;
-        const SPEED = 250;  // px/frame — константно для всех режимов
+        const edge = 250;
+        const SPEED = 2500;  // экстремально
         if (ev.clientX > r.right - edge) {
             _scrollVx = SPEED;
         } else if (ev.clientX < r.left + edge) {
