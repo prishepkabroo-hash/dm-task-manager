@@ -17279,6 +17279,199 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<script>
+/* mention-smart-v1 — умный @-mention с ласковыми именами + добавление в coexec */
+(function(){
+    'use strict';
+
+    // Russian nickname → first-name mapping
+    const NICK = {
+        'коля':'николай','колян':'николай',
+        'саша':'александр','сашка':'александр','саня':'александр','шура':'александр',
+        'миша':'михаил','мишка':'михаил',
+        'дима':'дмитрий','димон':'дмитрий',
+        'серёжа':'сергей','сережа':'сергей','серёга':'сергей','серега':'сергей',
+        'аня':'анна','анют':'анна',
+        'маша':'мария','машенька':'мария',
+        'катя':'екатерина','катюша':'екатерина',
+        'таня':'татьяна',
+        'оля':'ольга',
+        'лена':'елена','ленок':'елена',
+        'наташа':'наталья','натали':'наталья',
+        'ира':'ирина',
+        'света':'светлана',
+        'юля':'юлия',
+        'костя':'константин',
+        'кир':'кирилл',
+        'макс':'максим',
+        'илюша':'илья',
+        'гриша':'григорий',
+        'вова':'владимир','володя':'владимир',
+        'женя':'евгений',
+        'рома':'роман',
+        'витя':'виктор',
+        'тёма':'артём','тема':'артём',
+        'игорёк':'игорь',
+        'паша':'павел',
+        'стёпа':'степан',
+        'стас':'станислав',
+        'ярик':'ярослав',
+        'тима':'тимофей',
+        'матвей':'матвей',
+        'даня':'данил',
+        'лёша':'алексей','леша':'алексей','алёша':'алексей',
+        'егор':'егор',
+        'лука':'лукьян','лукиан':'лукьян','лукьян':'лукьян',
+    };
+
+    function getAllUsers() {
+        return (typeof allUsers !== 'undefined' && Array.isArray(allUsers)) ? allUsers : [];
+    }
+
+    function _matchUsers(query) {
+        const q = (query || '').toLowerCase().trim();
+        const users = getAllUsers();
+        if (!q) return users.slice(0, 10);
+        const expanded = NICK[q] || q;
+        return users.filter(u => {
+            const fn = (u.full_name || '').toLowerCase();
+            const un = (u.username || '').toLowerCase();
+            // Полное совпадение / подстрока в full_name
+            if (fn.includes(q) || fn.includes(expanded)) return true;
+            // Username
+            if (un.includes(q)) return true;
+            // По частям имени
+            const parts = fn.split(/\s+/);
+            for (const p of parts) {
+                if (p.startsWith(q) || p.startsWith(expanded)) return true;
+            }
+            return false;
+        }).slice(0, 12);
+    }
+
+    let _dd = null;
+    let _state = { input: null, atPos: -1, items: [], selectedIdx: 0 };
+
+    function _hideAllExisting() {
+        document.querySelectorAll('.mention-dropdown, .mention-dropdown-v2').forEach(el => {
+            if (el !== _dd) el.style.display = 'none';
+        });
+    }
+
+    function _esc(s) {
+        return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+
+    function _show(input, atPos, query) {
+        const items = _matchUsers(query);
+        if (!items.length) { _hide(); return; }
+        if (!_dd) {
+            _dd = document.createElement('div');
+            _dd.className = 'mention-dropdown-v2';
+            _dd.style.cssText = 'position:absolute;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:240px;max-width:320px;max-height:300px;overflow-y:auto;z-index:99999;padding:6px;font-size:14px';
+            document.body.appendChild(_dd);
+        }
+        _hideAllExisting();
+        const rect = input.getBoundingClientRect();
+        _dd.style.left = rect.left + 'px';
+        _dd.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+        _dd.innerHTML = items.map((u, i) => {
+            const dept = (typeof allDepartments !== 'undefined' && Array.isArray(allDepartments))
+                ? (allDepartments.find(d => d.id === u.department_id) || {}).name : null;
+            return `<div class="mention-item-v2" data-idx="${i}" style="padding:8px 12px;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;${i===0?'background:#eff6ff':''}">
+                <span style="width:24px;height:24px;border-radius:50%;background:${u.avatar_color||'#64748b'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">${_esc((u.full_name||'?').charAt(0))}</span>
+                <span style="flex:1">
+                    <div style="font-weight:600;color:#1a1f2e">${_esc(u.full_name)}</div>
+                    ${dept ? `<div style="font-size:11px;color:#94a3b8">${_esc(dept)}</div>` : ''}
+                </span>
+            </div>`;
+        }).join('');
+        _state = { input, atPos, items, selectedIdx: 0 };
+        _dd.style.display = 'block';
+        _dd.querySelectorAll('.mention-item-v2').forEach(el => {
+            el.addEventListener('mousedown', e => {
+                e.preventDefault();
+                _select(parseInt(el.dataset.idx));
+            });
+        });
+    }
+
+    function _hide() {
+        if (_dd) _dd.style.display = 'none';
+        _state.input = null;
+    }
+
+    function _select(idx) {
+        const s = _state;
+        if (!s.input || !s.items[idx]) return;
+        const u = s.items[idx];
+        const val = s.input.value;
+        const before = val.substring(0, s.atPos);
+        const after = val.substring(s.input.selectionStart || val.length);
+        const insertion = '@' + u.full_name + ' ';
+        s.input.value = before + insertion + after;
+        s.input.focus();
+        const newPos = before.length + insertion.length;
+        try { s.input.setSelectionRange(newPos, newPos); } catch(e){}
+        _hide();
+        // Триггерим input event чтобы реактивные обработчики обновились
+        s.input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // Перехват input на ВСЕХ полях ввода — capture phase, до старого механизма
+    document.addEventListener('input', function(e) {
+        const t = e.target;
+        if (!t || (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA')) return;
+        const val = t.value || '';
+        const pos = t.selectionStart != null ? t.selectionStart : val.length;
+        let atIdx = -1;
+        for (let i = pos - 1; i >= 0; i--) {
+            const ch = val[i];
+            if (ch === '@') { atIdx = i; break; }
+            if (ch === ' ' || ch === '\n' || ch === '\t') break;
+        }
+        if (atIdx === -1) { _hide(); return; }
+        const query = val.substring(atIdx + 1, pos);
+        _show(t, atIdx, query);
+    }, true);
+
+    document.addEventListener('keydown', function(e) {
+        if (!_state.input || !_dd || _dd.style.display === 'none') return;
+        if (['ArrowDown','ArrowUp','Enter','Tab','Escape'].includes(e.key)) {
+            if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault(); e.stopImmediatePropagation();
+                _select(_state.selectedIdx);
+            } else if (e.key === 'Escape') {
+                e.preventDefault(); _hide();
+            } else {
+                e.preventDefault();
+                const dir = e.key === 'ArrowDown' ? 1 : -1;
+                let i = _state.selectedIdx + dir;
+                if (i < 0) i = _state.items.length - 1;
+                if (i >= _state.items.length) i = 0;
+                _state.selectedIdx = i;
+                _dd.querySelectorAll('.mention-item-v2').forEach((el, j) => {
+                    el.style.background = j === i ? '#eff6ff' : '';
+                });
+            }
+        }
+    }, true);
+
+    document.addEventListener('click', function(e) {
+        if (_dd && _dd.contains(e.target)) return;
+        _hide();
+    });
+
+    // Прячем старые dropdown'ы каждые 200мс на всякий случай
+    setInterval(() => {
+        document.querySelectorAll('.mention-dropdown').forEach(el => {
+            if (el.style.display !== 'none') el.style.display = 'none';
+        });
+    }, 200);
+})();
+</script>
+
 </body>
 </html>
 

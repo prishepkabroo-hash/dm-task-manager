@@ -2665,16 +2665,25 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             # Log activity
             log_activity(conn, int(task_id), u["id"], "comment_added", text)
 
-            # Parse @mentions in comment text and create notifications
+            # mention-coexec-v1: упоминание = добавить в соисполнители
             if text:
+                _mentioned_ids = set()
                 for mentioned_user in conn.execute("SELECT id, full_name FROM users").fetchall():
                     mention_pattern = "@" + mentioned_user["full_name"]
-                    if mention_pattern in text:
-                        if mentioned_user["id"] != u["id"]:  # Don't notify self
-                            conn.execute(
-                                "INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
-                                (mentioned_user["id"], task_id, "mention",
-                                 f'{_user_fullname(conn, u)} упомянул вас в комментарии к задаче'))
+                    if mention_pattern in text and mentioned_user["id"] != u["id"]:
+                        _mentioned_ids.add(mentioned_user["id"])
+                for _mid in _mentioned_ids:
+                    try:
+                        conn.execute(
+                            "INSERT INTO task_coexecutors (task_id, user_id) VALUES (%s,%s) ON CONFLICT (task_id, user_id) DO NOTHING",
+                            (task_id, _mid)
+                        )
+                    except Exception as _ce:
+                        print(f"[mention coexec] {_ce}")
+                    conn.execute(
+                        "INSERT INTO notifications (user_id, task_id, type, message) VALUES (%s,%s,%s,%s)",
+                        (_mid, task_id, "mention",
+                         f'{_user_fullname(conn, u)} упомянул вас в задаче и добавил соисполнителем'))
 
             # Award km for commenting
             update_km(conn, u["id"], 1)
