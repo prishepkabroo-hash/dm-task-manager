@@ -14828,7 +14828,9 @@ window._cvDrop = async function(e, col, deptId) {
         // Получим текущий override
         const override = await _fetchMyOverride(task.id);
         const myDl = override.deadline_override;
+        const myPrio = override.priority_override;
         const masterDl = task.deadline;
+        const masterPrio = task.priority;
 
         const block = document.createElement('div');
         block.id = 'my-coexec-deadline-block';
@@ -14842,41 +14844,59 @@ window._cvDrop = async function(e, col, deptId) {
                 <div style="font-size:13px;color:#475569;">
                     Общий дедлайн (от создателя): <strong>${_fmtDeadlineShort(masterDl)}</strong>
                 </div>
+                <div style="font-size:13px;color:#475569;">
+                    Общий приоритет: <strong>${_prioMap[masterPrio] || '—'}</strong>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="font-size:13px;color:#0f172a;font-weight:600;">🗓 Мой дедлайн:</div>
+                <input type="datetime-local" id="myCoexecDeadlineInput" value="${myDl ? new Date(myDl).toISOString().slice(0,16) : (masterDl ? new Date(masterDl).toISOString().slice(0,16) : '')}" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="font-size:13px;color:#0f172a;font-weight:600;">⚑ Мой приоритет:</div>
+                <select id="myCoexecPriorityInput" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;background:white;">
+                    <option value="">— как у создателя (${_prioMap[masterPrio] || '—'}) —</option>
+                    <option value="low" ${myPrio === 'low' ? 'selected' : ''}>Низкий</option>
+                    <option value="medium" ${myPrio === 'medium' ? 'selected' : ''}>Средний</option>
+                    <option value="high" ${myPrio === 'high' ? 'selected' : ''}>Высокий</option>
+                </select>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
-                <div style="font-size:13px;color:#0f172a;font-weight:600;">🗓 Мой персональный дедлайн:</div>
-                <input type="datetime-local" id="myCoexecDeadlineInput" value="${myDl ? new Date(myDl).toISOString().slice(0,16) : (masterDl ? new Date(masterDl).toISOString().slice(0,16) : '')}" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;">
-                <button onclick="_saveMyCoexecDeadline(${task.id})" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Сохранить</button>
-                ${myDl ? `<button onclick="_clearMyCoexecDeadline(${task.id})" style="padding:6px 12px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:8px;cursor:pointer;font-size:12px;">Сбросить</button>` : ''}
+                <button onclick="_saveMyCoexecOverrides(${task.id})" style="padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Сохранить</button>
+                ${(myDl || myPrio) ? `<button onclick="_clearMyCoexecOverrides(${task.id})" style="padding:8px 14px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:8px;cursor:pointer;font-size:13px;">Сбросить всё</button>` : ''}
             </div>
-            <div style="font-size:11px;color:#64748b;">У создателя задача останется с общим дедлайном. Календарь покажет тебе твой персональный.</div>
+            <div style="font-size:11px;color:#64748b;">У создателя задача останется с общим дедлайном и приоритетом. Тебе покажется твой персональный.</div>
         `;
         tdMain.insertBefore(block, tdMain.firstChild);
     }
 
-    window._saveMyCoexecDeadline = async function(taskId) {
-        const inp = document.getElementById('myCoexecDeadlineInput');
-        if (!inp) return;
-        const val = inp.value;  // YYYY-MM-DDTHH:MM
+    /* coexec-priority-v1 */
+    const _prioMap = { low: 'Низкий', medium: 'Средний', high: 'Высокий' };
+
+    window._saveMyCoexecOverrides = async function(taskId) {
+        const dl = document.getElementById('myCoexecDeadlineInput');
+        const pr = document.getElementById('myCoexecPriorityInput');
+        const dlVal = dl && dl.value ? (dl.value + ':00') : null;
+        const prVal = pr && pr.value ? pr.value : null;
         const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
             method: 'PUT',
-            body: JSON.stringify({deadline_override: val ? val + ':00' : null})
+            body: JSON.stringify({deadline_override: dlVal, priority_override: prVal})
         });
         if (r && r.ok) {
-            showToast('Персональный дедлайн сохранён', 'success');
+            showToast('Сохранено', 'success');
         } else {
             showToast(r && r.error || 'Ошибка', 'error');
         }
     };
 
-    window._clearMyCoexecDeadline = async function(taskId) {
+    window._clearMyCoexecOverrides = async function(taskId) {
         const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
             method: 'PUT',
-            body: JSON.stringify({deadline_override: null})
+            body: JSON.stringify({deadline_override: null, priority_override: null})
         });
         if (r && r.ok) {
-            showToast('Персональный дедлайн сброшен', 'success');
-            showTaskDetail(taskId);  // перерисовать
+            showToast('Персональные настройки сброшены', 'success');
+            showTaskDetail(taskId);
         }
     };
 
