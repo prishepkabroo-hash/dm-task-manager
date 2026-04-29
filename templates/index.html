@@ -14218,10 +14218,47 @@ async function resetOnboarding(uid, fullName) {
 </script>
 
 
+
 <script>
-/* user-titles-v1 — кастомные титулы юзеров */
+/* user-titles-v2 — кастомные титулы per-отдел */
 (function(){
     'use strict';
+
+    // Per-отдел карта: {head: 'титул руководителя', member: 'титул сотрудника'}
+    const DEPT_TITLES = {
+        'Отдел продаж': {
+            head: 'РОП',
+            member: 'Менеджер Отдела продаж'
+        },
+        'Клуб': {
+            head: 'Руководитель симрейсинг клуба',
+            member: 'Сотрудник клуба'
+        },
+        'Склад': {
+            head: 'Руководитель склада',
+            member: 'Менеджер склада'
+        },
+        'Технический отдел': {
+            head: 'Технический руководитель',
+            member: 'Технический специалист'
+        },
+        'Финансовый отдел': {
+            head: 'Финансовый директор',
+            member: 'Финансовый специалист'
+        },
+        'Маркетинг': {
+            head: 'Руководитель маркетинга',
+            member: 'Маркетолог'
+        },
+        'Бухгалтерия': {
+            head: 'Главный бухгалтер',
+            member: 'Бухгалтер'
+        },
+        'Производство': {
+            head: 'Руководитель производства',
+            member: 'Сотрудник производства'
+        }
+    };
 
     function _deptGen(name) {
         if (!name) return '';
@@ -14251,8 +14288,12 @@ async function resetOnboarding(uid, fullName) {
 
     /**
      * Возвращает человеческий титул юзера.
-     * @param {object} user - {role, username, department_id, ...}
-     * @param {string} [deptName] - Опционально, иначе берём из allDepartments
+     * Приоритет:
+     * 1. dudarev → 'Ген. дир.'
+     * 2. admin → 'Администратор'
+     * 3. head в карте DEPT_TITLES → кастомный
+     * 4. member в карте DEPT_TITLES → кастомный
+     * 5. Fallback: «Руководитель + Х» / «Сотрудник + Х» (X в род. падеже)
      */
     window.formatUserTitle = function(user, deptName) {
         if (!user) return '';
@@ -14262,15 +14303,19 @@ async function resetOnboarding(uid, fullName) {
             const d = (typeof allDepartments !== 'undefined' && allDepartments) ? allDepartments.find(dd => dd.id === user.department_id) : null;
             if (d) deptName = d.name;
         }
+        const t = deptName ? DEPT_TITLES[deptName] : null;
         if (user.role === 'head') {
-            if (deptName === 'Отдел продаж') return 'РОП';
+            if (t && t.head) return t.head;
             return deptName ? ('Руководитель ' + _deptGen(deptName)) : 'Руководитель';
         }
         if (user.role === 'member') {
-            return deptName ? ('Менеджер ' + _deptGen(deptName)) : 'Менеджер';
+            if (t && t.member) return t.member;
+            return deptName ? ('Сотрудник ' + _deptGen(deptName)) : 'Сотрудник';
         }
         return 'Сотрудник';
     };
+
+    /* user-titles-v2 marker */
 })();
 </script>
 
