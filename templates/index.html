@@ -6598,6 +6598,8 @@ async function renderDashboard() {
 let catsTreeState = {
     selectedCategoryId: null,     // null/'all' | 'none' | 'done' | number
     selectedDeptId: null,         // null = all departments, number = specific dept
+    coexecMode: false,            // /* coexec-sidebar-v1 */ режим "Совместные задачи"
+    coexecTasks: [],              // кэш coexec-задач
     expandedIds: new Set(),
     allCategories: [],
     // Sidebar collapsed into an icon-only rail
@@ -6820,6 +6822,10 @@ function _catsPlural(n, forms) {
 }
 
 async function renderKanban() {
+    /* coexec-sidebar-v1 — обновляем кэш coexec-задач */
+    if (typeof loadCoexecTasks === 'function' && (catsTreeState.coexecTasks === undefined || catsTreeState.coexecTasks.length === 0)) {
+        await loadCoexecTasks();
+    }
     const sidebar = document.getElementById('catsSidebar');
     const header = document.getElementById('catsHeader');
     const list = document.getElementById('catsList');
@@ -6858,6 +6864,18 @@ async function renderKanban() {
     // "All departments" item
     const allActive = deptId === null;
     const allCount = topLevelTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length;
+    /* coexec-sidebar-v1 */
+    const _coexecCount = (catsTreeState.coexecTasks || []).length;
+    const _coexecActive = !!catsTreeState.coexecMode;
+    sbHtml += '<div class="cats-dept-item' + (_coexecActive ? ' active' : '') + '" onclick="selectCoexecMode()" style="' +
+        (_coexecActive ? '' : 'background:linear-gradient(to right, #fef3c7 0%, transparent 100%);') + '">' +
+        '<span class="cats-dept-item-dot" style="background:#f59e0b;">' +
+            '<span class="cats-dept-item-letter">🤝</span>' +
+        '</span>' +
+        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">Совместные задачи</span>' +
+        (_coexecCount > 0 ? '<span class="cats-dept-item-count">' + _coexecCount + '</span>' : '') +
+    '</div>';
+    sbHtml += '<div style="height:8px;"></div>';
     sbHtml += '<div class="cat-tree-section" title="Отделы компании">🏢 Отделы</div>';
     if (_isAdminKan) {
     sbHtml += '<div class="cats-dept-item' + (allActive ? ' active' : '') + '" onclick="selectCatsDept(null)">' +
@@ -14376,6 +14394,36 @@ async function resetOnboarding(uid, fullName) {
         if (profilePage && profilePage.classList.contains('active')) injectBtn();
     }, 2000);
 })();
+</script>
+
+
+<script>
+/* coexec-sidebar-v1 */
+async function loadCoexecTasks() {
+    try {
+        const r = await apiCall('/api/tasks/coexec-view');
+        catsTreeState.coexecTasks = Array.isArray(r) ? r : [];
+        return catsTreeState.coexecTasks;
+    } catch (e) {
+        catsTreeState.coexecTasks = [];
+        return [];
+    }
+}
+
+window.selectCoexecMode = function() {
+    catsTreeState.coexecMode = true;
+    catsTreeState.selectedDeptId = null;
+    renderKanban();
+};
+
+/* Когда юзер кликает на любой отдел — выходим из coexec-режима */
+const _origSelectCatsDept = window.selectCatsDept;
+if (typeof _origSelectCatsDept === 'function') {
+    window.selectCatsDept = function(deptId) {
+        catsTreeState.coexecMode = false;
+        return _origSelectCatsDept.call(this, deptId);
+    };
+}
 </script>
 
 </body>
