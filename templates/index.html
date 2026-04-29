@@ -4833,6 +4833,34 @@
     margin-top: 4px;
 }
 
+
+/* coexec-smoothdrag-v1 */
+.cv-card { user-select: none; -webkit-user-select: none; }
+.cv-card.cv-being-dragged {
+    opacity: 0.4;
+    pointer-events: none;
+}
+.cv-drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 99999;
+    width: 280px;
+    background: white;
+    border: 2px solid #6366f1;
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 12px 32px rgba(99,102,241,0.35);
+    transform: rotate(-2deg) scale(1.02);
+    cursor: grabbing;
+    transition: none;
+}
+.cv-col.cv-drop-target {
+    background: #eef2ff;
+    border-top-width: 6px;
+    box-shadow: inset 0 0 0 2px #6366f1;
+}
+.cv-cols { padding: 4px; }
+
 </style>
 </head>
 <body>
@@ -15339,6 +15367,181 @@ window._cvDrop = async function(e, col, deptId) {
 
         list.innerHTML = `<div class="cv-wrap"><div class="cv-cols">${cols}</div></div>`;
     };
+})();
+</script>
+
+
+<script>
+/* coexec-smoothdrag-v1 — плавный drag через pointer events */
+(function(){
+    'use strict';
+
+    let _dragState = null;
+
+    /* После рендера coexec-view навешиваем pointer-обработчики */
+    const _origRender = window.renderCoexecView;
+    if (typeof _origRender === 'function') {
+        window.renderCoexecView = function() {
+            const r = _origRender.apply(this, arguments);
+            setTimeout(_attachDragHandlers, 50);
+            return r;
+        };
+    }
+
+    function _attachDragHandlers() {
+        document.querySelectorAll('.cv-card').forEach(card => {
+            // Снимаем native drag — он мешает
+            card.removeAttribute('draggable');
+            card.removeAttribute('ondragstart');
+            card.removeAttribute('ondragend');
+            // Сохраняем onclick (для открытия задачи)
+            // Добавляем pointerdown
+            card.addEventListener('pointerdown', _onCardPointerDown);
+        });
+
+        document.querySelectorAll('.cv-col').forEach(col => {
+            col.removeAttribute('ondragover');
+            col.removeAttribute('ondragleave');
+            col.removeAttribute('ondrop');
+        });
+    }
+
+    function _onCardPointerDown(e) {
+        // Только левая кнопка мыши
+        if (e.button !== 0) return;
+        // Игнорируем клик на кнопку удаления
+        if (e.target.closest('.cv-card-delete')) return;
+
+        const card = e.currentTarget;
+        const taskId = parseInt(card.dataset.taskId);
+        if (!taskId) return;
+
+        const startX = e.clientX, startY = e.clientY;
+        let isDragging = false;
+        let ghost = null;
+
+        function onMove(ev) {
+            const dx = ev.clientX - startX, dy = ev.clientY - startY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (!isDragging && dist > 6) {
+                // Начинаем drag
+                isDragging = true;
+                _dragState = { taskId, card };
+                card.classList.add('cv-being-dragged');
+                ghost = card.cloneNode(true);
+                ghost.classList.remove('cv-being-dragged');
+                ghost.classList.add('cv-drag-ghost');
+                ghost.style.left = (ev.clientX - 140) + 'px';
+                ghost.style.top = (ev.clientY - 30) + 'px';
+                document.body.appendChild(ghost);
+                document.body.style.cursor = 'grabbing';
+            }
+            if (isDragging) {
+                ghost.style.left = (ev.clientX - 140) + 'px';
+                ghost.style.top = (ev.clientY - 30) + 'px';
+                _highlightDropTarget(ev);
+                _autoScroll(ev);
+            }
+        }
+
+        function onUp(ev) {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            document.removeEventListener('pointercancel', onUp);
+            document.body.style.cursor = '';
+            _stopScroll();
+
+            if (isDragging) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                // Найдём колонку под курсором
+                const target = _findColUnder(ev.clientX, ev.clientY);
+                if (target) {
+                    const newDeptId = target.dataset.deptId === 'null' ? null : Number(target.dataset.deptId);
+                    _doDrop(taskId, newDeptId);
+                }
+                if (ghost) ghost.remove();
+                card.classList.remove('cv-being-dragged');
+                document.querySelectorAll('.cv-col.cv-drop-target').forEach(c => c.classList.remove('cv-drop-target'));
+                _dragState = null;
+                // Подавляем последующий click
+                const supress = (e2) => {
+                    e2.stopPropagation(); e2.preventDefault();
+                    document.removeEventListener('click', supress, true);
+                };
+                document.addEventListener('click', supress, true);
+                setTimeout(() => document.removeEventListener('click', supress, true), 50);
+            }
+        }
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
+    }
+
+    function _findColUnder(x, y) {
+        const cols = document.querySelectorAll('.cv-col');
+        for (const c of cols) {
+            const r = c.getBoundingClientRect();
+            if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return c;
+        }
+        return null;
+    }
+
+    function _highlightDropTarget(ev) {
+        const target = _findColUnder(ev.clientX, ev.clientY);
+        document.querySelectorAll('.cv-col').forEach(c => {
+            if (c === target) c.classList.add('cv-drop-target');
+            else c.classList.remove('cv-drop-target');
+        });
+    }
+
+    let _scrollIv = null;
+    function _autoScroll(ev) {
+        const container = document.querySelector('.cv-cols');
+        if (!container) return;
+        const r = container.getBoundingClientRect();
+        const edge = 80, speed = 12;
+        if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
+        if (ev.clientX > r.right - edge) {
+            _scrollIv = setInterval(() => container.scrollLeft += speed, 16);
+        } else if (ev.clientX < r.left + edge) {
+            _scrollIv = setInterval(() => container.scrollLeft -= speed, 16);
+        }
+    }
+    function _stopScroll() {
+        if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
+    }
+
+    async function _doDrop(taskId, newDeptId) {
+        const task = (catsTreeState.coexecTasks || []).find(t => t.id === taskId);
+        if (!task) return;
+        const cur = (task.dept_funnel_id !== undefined) ? task.dept_funnel_id : null;
+        if (cur === newDeptId) return;
+        // Оптимистично
+        const prev = task.dept_funnel_id;
+        task.dept_funnel_id = newDeptId;
+        renderCoexecView();
+        try {
+            const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    dept_funnel_id: newDeptId,
+                    deadline_override: task.deadline_override || null,
+                    priority_override: task.priority_override || null
+                })
+            });
+            if (!r || !r.ok) {
+                task.dept_funnel_id = prev;
+                renderCoexecView();
+                showToast(r && r.error || 'Ошибка переноса', 'error');
+            }
+        } catch(e) {
+            task.dept_funnel_id = prev;
+            renderCoexecView();
+            showToast('Сетевая ошибка', 'error');
+        }
+    }
 })();
 </script>
 
