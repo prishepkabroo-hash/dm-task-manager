@@ -7189,8 +7189,10 @@ function _renderCatsFilterPanel() {
     // Список исполнителей
     const users = (allUsers || []).slice();
     users.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    /* role-filters-v1 */
+    const _visUsers = (typeof visibleUsers === 'function') ? visibleUsers() : users;
     let userOpts = '<option value="">Все исполнители</option>';
-    users.forEach(u => {
+    _visUsers.forEach(u => {
         const sel = catsFilterState.assignee === u.id ? ' selected' : '';
         userOpts += '<option value="' + u.id + '"' + sel + '>' + _catsEscape(u.full_name || u.username) + '</option>';
     });
@@ -7198,8 +7200,10 @@ function _renderCatsFilterPanel() {
     // Список отделов
     const depts = (allDepartments || []).slice();
     depts.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    /* role-filters-v1 */
+    const _visDepts = (typeof visibleDepartments === 'function') ? visibleDepartments() : depts;
     let deptOpts = '<option value="">Все отделы</option>';
-    depts.forEach(d => {
+    _visDepts.forEach(d => {
         const sel = catsFilterState.department === d.id ? ' selected' : '';
         deptOpts += '<option value="' + d.id + '"' + sel + '>' + _catsEscape(d.name) + '</option>';
     });
@@ -16563,6 +16567,87 @@ window._cvDrop = async function(e, col, deptId) {
             showToast(r && r.error || 'Ошибка', 'error');
         }
     };
+})();
+</script>
+
+
+<script>
+/* role-filters-v1 — единые правила для фильтров */
+(function(){
+    'use strict';
+
+    /**
+     * Какие отделы юзер может фильтровать в выпадашках.
+     * admin → все, head/member → только свой отдел.
+     */
+    window.visibleDepartments = function() {
+        if (typeof allDepartments === 'undefined' || !allDepartments) return [];
+        if (!currentUser) return [];
+        if (currentUser.role === 'admin') return allDepartments.slice();
+        if (currentUser.department_id) {
+            return allDepartments.filter(d => d.id === currentUser.department_id);
+        }
+        return [];
+    };
+
+    /**
+     * Какие юзеры могут быть в фильтре исполнителей.
+     * admin → все, head → юзеры своего отдела, member → пусто.
+     */
+    window.visibleUsers = function() {
+        if (typeof allUsers === 'undefined' || !allUsers) return [];
+        if (!currentUser) return [];
+        if (currentUser.role === 'admin') return allUsers.slice();
+        if (currentUser.role === 'head' && currentUser.department_id) {
+            return allUsers.filter(u => u.department_id === currentUser.department_id);
+        }
+        // member — фильтр скрываем
+        return [];
+    };
+
+    /**
+     * Должен ли вообще показываться фильтр по отделу.
+     * Для member/head со одним отделом — нет смысла.
+     */
+    window.shouldShowDeptFilter = function() {
+        if (!currentUser) return false;
+        return currentUser.role === 'admin';
+    };
+
+    /**
+     * Должен ли показываться фильтр по исполнителю.
+     */
+    window.shouldShowAssigneeFilter = function() {
+        if (!currentUser) return false;
+        return currentUser.role === 'admin' || currentUser.role === 'head';
+    };
+
+    /* Заполняем listDepartmentFilter при переключении на List page */
+    function populateListFilter() {
+        const sel = document.getElementById('listDepartmentFilter');
+        if (!sel) return;
+        const depts = visibleDepartments();
+        if (!shouldShowDeptFilter() || depts.length <= 1) {
+            sel.style.display = 'none';
+            return;
+        }
+        sel.style.display = '';
+        sel.innerHTML = '<option value="">Все отделы</option>' +
+            depts.map(d => `<option value="${d.id}">${escHtml(d.name)}</option>`).join('');
+    }
+
+    /* Хук в navigate / renderList */
+    const _origRenderList = window.renderList;
+    if (typeof _origRenderList === 'function') {
+        window.renderList = async function() {
+            populateListFilter();
+            return _origRenderList.apply(this, arguments);
+        };
+    }
+
+    /* Также на старте загрузим */
+    document.addEventListener('DOMContentLoaded', populateListFilter);
+    if (document.readyState !== 'loading') setTimeout(populateListFilter, 200);
 })();
 </script>
 
