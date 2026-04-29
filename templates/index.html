@@ -16665,6 +16665,298 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<script>
+/* tutorial-rewrite-v3 — полная замена обучения */
+(function(){
+    'use strict';
+
+    function _u() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : {}; }
+    function _firstName() {
+        const u = _u();
+        const fn = u.full_name || u.username || 'друг';
+        return String(fn).split(' ')[0] || 'друг';
+    }
+    function _deptName() {
+        const u = _u();
+        if (!u.department_id) return 'твоего отдела';
+        if (typeof allDepartments !== 'undefined' && Array.isArray(allDepartments)) {
+            const d = allDepartments.find(x => x.id === u.department_id);
+            if (d) return d.name;
+        }
+        return 'твоего отдела';
+    }
+    function _isAdmin() { return _u().role === 'admin'; }
+
+    function buildQuickSteps() {
+        const name = _firstName();
+        const dept = _deptName();
+        const steps = [];
+        steps.push({
+            target: null,
+            title: 'Привет, ' + name + '!',
+            body: 'Это таск-менеджер команды Dudarev Motorsport. Покажу главное за минуту.'
+        });
+        steps.push({
+            target: '.sidebar, #sidebar, [class*="sidebar"]',
+            title: 'Меню слева',
+            body: 'Все основные разделы тут: Дашборд, Мои задачи, Категории, Календарь.'
+        });
+        if (_isAdmin()) {
+            steps.push({
+                target: '[data-page="categories"], a[href*="categories"]',
+                title: 'Отделы компании',
+                body: 'Тут все отделы Dudarev Motorsport. Кликни любой — увидишь его задачи и команду.'
+            });
+        } else {
+            steps.push({
+                target: '[data-page="categories"], a[href*="categories"]',
+                title: 'Твой отдел — ' + dept,
+                body: 'Открой «Категории» — там задачи отдела ' + dept + '.'
+            });
+        }
+        steps.push({
+            target: '.kanban, [class*="kanban"], .funnels',
+            title: 'Канбан-доска',
+            body: 'Колонки — это этапы. Тащи карточку между колонками — статус обновится.'
+        });
+        steps.push({
+            target: 'button[onclick*="createTask"], .create-task-btn',
+            title: 'Создать задачу',
+            body: 'Кнопка «+» внизу справа. Можешь поставить задачу себе или коллеге.'
+        });
+        return steps;
+    }
+
+    function buildDetailedSteps() {
+        const name = _firstName();
+        const dept = _deptName();
+        const role = _u().role || 'member';
+        const steps = [];
+
+        steps.push({
+            target: null,
+            title: 'Добро пожаловать, ' + name,
+            body: 'Сейчас разберём интерфейс по шагам. Двигайся кнопкой «Дальше →».'
+        });
+
+        steps.push({
+            target: '.sidebar, #sidebar, [class*="sidebar"]',
+            title: 'Боковое меню',
+            body: 'Слева — вся навигация. Дашборд, мои задачи, категории, календарь, список.'
+        });
+
+        steps.push({
+            target: '[data-page="dashboard"], a[href*="dashboard"]',
+            title: 'Дашборд',
+            body: 'Сводка: твои задачи в работе, прогресс, последние действия команды.'
+        });
+
+        steps.push({
+            target: '[data-page="categories"], a[href*="categories"]',
+            title: 'Категории — отделы Dudarev Motorsport',
+            body: 'Видишь все отделы компании. Твой отдел — ' + dept + '. У каждого свои воронки и задачи.'
+        });
+
+        steps.push({
+            target: '.kanban-column, [class*="column"], .funnel',
+            title: 'Воронки (колонки)',
+            body: 'Каждая колонка — этап задачи. Например: Новая → В работе → На проверке → Готово.'
+        });
+
+        steps.push({
+            target: '.task-card, [class*="task-card"], [class*="td-row"]',
+            title: 'Карточка задачи',
+            body: 'Клик по задаче открывает детальную страницу: описание, комментарии, файлы, подзадачи.'
+        });
+
+        steps.push({
+            target: '.task-card, [class*="task-card"]',
+            title: 'Перетаскивание',
+            body: 'Просто тащи карточку между колонками — статус обновится автоматически.'
+        });
+
+        steps.push({
+            target: '[data-page="coexec"], a[href*="coexec"]',
+            title: 'Совместные задачи',
+            body: 'Если коллега назначил тебя соисполнителем — задача появится тут с твоим личным дедлайном.'
+        });
+
+        steps.push({
+            target: '[data-page="calendar"], a[href*="calendar"]',
+            title: 'Календарь',
+            body: 'Все дедлайны на одном экране. Виды: месяц, неделя, день. Клик по дате создаёт задачу.'
+        });
+
+        steps.push({
+            target: '[data-page="list"], a[href*="list"]',
+            title: 'Список задач',
+            body: 'Все задачи плоским списком. Удобно искать и фильтровать.'
+        });
+
+        steps.push({
+            target: 'button[onclick*="createTask"], .create-task-btn',
+            title: 'Создать задачу',
+            body: 'Заголовок, описание, исполнитель, дедлайн. Можно добавить соисполнителей и наблюдателей.'
+        });
+
+        steps.push({
+            target: '.user-info, .profile-link, [class*="user-footer"]',
+            title: 'Уровни и километры',
+            body: 'За закрытую задачу получаешь км. Накопил — поднялся в уровне (от Босоногого до Чемпиона).'
+        });
+
+        steps.push({
+            target: 'button[onclick*="feedback"], .feedback-btn',
+            title: 'Обратная связь',
+            body: 'Что-то сломалось или есть идея? Жми «Обратная связь» — Лукиан получит сообщение.'
+        });
+
+        if (role === 'admin' || role === 'head') {
+            steps.push({
+                target: '[data-page="admin"], a[href*="admin"], .admin-link',
+                title: role === 'admin' ? 'Админка' : 'Управление отделом',
+                body: role === 'admin'
+                    ? 'Управление пользователями, отделами и системой.'
+                    : 'Ты глава отдела ' + dept + ' — управляй воронками и задачами своих сотрудников.'
+            });
+        }
+
+        steps.push({
+            target: null,
+            title: 'Готово!',
+            body: 'Теперь ты знаешь главное. Если что — есть «Тех. поддержка» в правом нижнем углу.'
+        });
+
+        return steps;
+    }
+
+    let _tut = { steps: [], idx: 0, mode: 'quick' };
+
+    function _findEl(selector) {
+        if (!selector) return null;
+        try {
+            const sels = selector.split(',').map(s => s.trim());
+            for (const s of sels) {
+                const el = document.querySelector(s);
+                if (el && el.offsetParent !== null) return el;
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    function _highlight(el) {
+        document.querySelectorAll('.tutv3-hl').forEach(x => x.classList.remove('tutv3-hl'));
+        if (el) {
+            el.classList.add('tutv3-hl');
+            try { el.scrollIntoView({behavior: 'smooth', block: 'center'}); } catch(e){}
+        }
+    }
+
+    function _esc(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function _renderStep() {
+        const s = _tut.steps[_tut.idx];
+        if (!s) { _close(); return; }
+        const el = _findEl(s.target);
+        _highlight(el);
+        const card = document.getElementById('tutv3-card');
+        if (!card) return;
+        const total = _tut.steps.length;
+        card.innerHTML =
+            '<div class="tutv3-progress"><div class="tutv3-progress-bar" style="width:' + (((_tut.idx+1)/total)*100) + '%"></div></div>' +
+            '<div class="tutv3-meta"><span class="tutv3-mode">' + (_tut.mode === 'quick' ? 'Быстрое' : 'Подробное') + '</span> <span class="tutv3-counter">' + (_tut.idx+1) + ' / ' + total + '</span></div>' +
+            '<h3 class="tutv3-title">' + _esc(s.title) + '</h3>' +
+            '<p class="tutv3-body">' + _esc(s.body) + '</p>' +
+            '<div class="tutv3-buttons">' +
+                '<button class="tutv3-btn tutv3-back" ' + (_tut.idx===0?'disabled':'') + '>← Назад</button>' +
+                '<button class="tutv3-btn tutv3-skip">Пропустить</button>' +
+                '<button class="tutv3-btn tutv3-next">' + (_tut.idx === total-1 ? 'Закончить ✓' : 'Дальше →') + '</button>' +
+            '</div>';
+        card.querySelector('.tutv3-back').onclick = function() { if (_tut.idx > 0) { _tut.idx--; _renderStep(); } };
+        card.querySelector('.tutv3-skip').onclick = _close;
+        card.querySelector('.tutv3-next').onclick = function() {
+            if (_tut.idx === total-1) _close();
+            else { _tut.idx++; _renderStep(); }
+        };
+    }
+
+    function _open(mode) {
+        _tut.mode = mode;
+        _tut.steps = (mode === 'quick') ? buildQuickSteps() : buildDetailedSteps();
+        _tut.idx = 0;
+        let card = document.getElementById('tutv3-card');
+        if (!card) {
+            card = document.createElement('div');
+            card.id = 'tutv3-card';
+            card.className = 'tutv3-card';
+            document.body.appendChild(card);
+        }
+        card.style.display = 'block';
+        _renderStep();
+    }
+
+    function _close() {
+        document.querySelectorAll('.tutv3-hl').forEach(x => x.classList.remove('tutv3-hl'));
+        const card = document.getElementById('tutv3-card');
+        if (card) card.style.display = 'none';
+        const ch = document.getElementById('tutv3-choice');
+        if (ch) ch.remove();
+    }
+
+    window.showTutorialChoice = function() {
+        const old = document.getElementById('tutv3-choice');
+        if (old) old.remove();
+        const wrap = document.createElement('div');
+        wrap.id = 'tutv3-choice';
+        wrap.className = 'tutv3-overlay';
+        wrap.innerHTML =
+            '<div class="tutv3-choice-card">' +
+                '<h3>Как тебя обучить?</h3>' +
+                '<button class="tutv3-choice-btn" data-mode="quick">⚡ Быстрое<span>5 шагов — главное за минуту</span></button>' +
+                '<button class="tutv3-choice-btn" data-mode="detailed">📚 Подробное<span>15 шагов — разберём каждый блок</span></button>' +
+                '<button class="tutv3-choice-skip">Пропустить</button>' +
+            '</div>';
+        document.body.appendChild(wrap);
+        wrap.querySelectorAll('.tutv3-choice-btn').forEach(function(b){
+            b.onclick = function() { wrap.remove(); _open(b.dataset.mode); };
+        });
+        wrap.querySelector('.tutv3-choice-skip').onclick = function() { wrap.remove(); };
+    };
+    window.startUserOnboarding = window.showTutorialChoice;
+    window.startTutorial = window.showTutorialChoice;
+
+    const css = document.createElement('style');
+    css.textContent =
+'.tutv3-card{position:fixed;bottom:24px;right:24px;width:380px;max-width:calc(100vw - 48px);background:#fff;color:#1a1f2e;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.4);padding:20px;z-index:99999;font-family:inherit}' +
+'.tutv3-progress{height:4px;background:#e7eaf2;border-radius:2px;overflow:hidden;margin-bottom:12px}' +
+'.tutv3-progress-bar{height:100%;background:linear-gradient(90deg,#5a73ff,#8b5cf6);transition:width .25s}' +
+'.tutv3-meta{display:flex;justify-content:space-between;font-size:12px;color:#6b7590;margin-bottom:8px}' +
+'.tutv3-mode{background:#eef0f8;padding:2px 10px;border-radius:10px;color:#5a73ff;font-weight:600}' +
+'.tutv3-title{font-size:18px;font-weight:700;margin:6px 0 8px;color:#1a1f2e}' +
+'.tutv3-body{font-size:14px;line-height:1.5;color:#4a5060;margin:0 0 16px}' +
+'.tutv3-buttons{display:flex;gap:8px;justify-content:space-between;align-items:center}' +
+'.tutv3-btn{padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px}' +
+'.tutv3-back{background:#f3f4f8;color:#1a1f2e}' +
+'.tutv3-back:disabled{opacity:.4;cursor:not-allowed}' +
+'.tutv3-skip{background:transparent;color:#6b7590}' +
+'.tutv3-next{background:linear-gradient(90deg,#5a73ff,#8b5cf6);color:#fff;flex:0 0 auto}' +
+'.tutv3-hl{outline:3px solid #5a73ff !important;outline-offset:3px;border-radius:6px;animation:tutv3pulse 1.5s infinite;position:relative;z-index:9998}' +
+'@keyframes tutv3pulse{0%,100%{outline-color:#5a73ff}50%{outline-color:#8b5cf6}}' +
+'.tutv3-overlay{position:fixed;inset:0;background:rgba(10,15,30,.6);display:flex;align-items:center;justify-content:center;z-index:99998}' +
+'.tutv3-choice-card{background:#fff;border-radius:16px;padding:28px;width:420px;max-width:calc(100vw - 32px);box-shadow:0 20px 60px rgba(0,0,0,.5)}' +
+'.tutv3-choice-card h3{margin:0 0 16px;font-size:20px;color:#1a1f2e;text-align:center}' +
+'.tutv3-choice-btn{display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:14px 18px;margin-bottom:10px;border:2px solid #e7eaf2;background:#fff;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;color:#1a1f2e;transition:all .15s;text-align:left}' +
+'.tutv3-choice-btn span{display:block;font-size:13px;font-weight:400;color:#6b7590;margin-top:4px}' +
+'.tutv3-choice-btn:hover{border-color:#5a73ff;transform:translateY(-1px)}' +
+'.tutv3-choice-skip{display:block;margin:8px auto 0;background:none;border:none;color:#6b7590;cursor:pointer;font-size:13px;padding:8px}' +
+'@media (max-width:600px){.tutv3-card{right:8px;left:8px;bottom:8px;width:auto}}';
+    document.head.appendChild(css);
+})();
+</script>
+
 </body>
 </html>
 
