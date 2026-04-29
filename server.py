@@ -1734,6 +1734,38 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json([dict(r) for r in rows])
 
+        # coexec-view-v1: список моих coexec-задач с overrides
+        if path == "/api/tasks/coexec-view":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            try:
+                rows = conn.execute("""
+                    SELECT t.id, t.title, t.description, t.status, t.priority, t.deadline,
+                           t.department_id, t.created_by, t.assigned_to, t.parent_task_id,
+                           cv.dept_funnel_id, cv.deadline_override, cv.priority_override,
+                           u1.full_name as creator_name,
+                           u2.full_name as assignee_name,
+                           d.name as department_name, d.color as department_color,
+                           (SELECT COUNT(*) FROM comments c WHERE c.task_id = t.id) as comment_count
+                    FROM tasks t
+                    INNER JOIN task_coexecutors tc ON tc.task_id = t.id
+                    LEFT JOIN task_coexec_view cv ON cv.task_id = t.id AND cv.user_id = %s
+                    LEFT JOIN users u1 ON t.created_by = u1.id
+                    LEFT JOIN users u2 ON t.assigned_to = u2.id
+                    LEFT JOIN departments d ON t.department_id = d.id
+                    WHERE tc.user_id = %s
+                      AND t.status != 'done' AND t.status != 'cancelled'
+                      AND t.parent_task_id IS NULL
+                    ORDER BY t.id DESC
+                """, (u["id"], u["id"])).fetchall()
+                return self._json([dict(r) for r in rows])
+            except Exception as _e:
+                print(f"coexec-view GET fail: {_e}")
+                return self._json({"error": str(_e)}, 500)
+            finally:
+                conn.close()
+
         if path == "/api/tasks":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
@@ -3313,6 +3345,47 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             except Exception: pass
             conn.commit(); conn.close()
             return self._json({"ok": True})
+
+        # coexec-view-v1: обновить мою воронку/дедлайн/приоритет
+        if "/coexec-view" in path and path.startswith("/api/tasks/"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                task_id = int(path.split("/")[3])
+            except:
+                return self._json({"error": "bad task id"}, 400)
+            conn = get_db()
+            try:
+                # Проверим что юзер действительно соисполнитель
+                row = conn.execute(
+                    "SELECT 1 FROM task_coexecutors WHERE task_id=%s AND user_id=%s",
+                    (task_id, u["id"])
+                ).fetchone()
+                if not row:
+                    return self._json({"error": "Вы не соисполнитель этой задачи"}, 403)
+                # Поля в data: dept_funnel_id, deadline_override, priority_override
+                _did = data.get("dept_funnel_id")
+                if _did is not None and _did != "":
+                    try: _did = int(_did)
+                    except: _did = None
+                else: _did = None
+                _ddl = data.get("deadline_override") or None
+                _prio = data.get("priority_override") or None
+                conn.execute("""
+                    INSERT INTO task_coexec_view (task_id, user_id, dept_funnel_id, deadline_override, priority_override)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (task_id, user_id) DO UPDATE SET
+                        dept_funnel_id = EXCLUDED.dept_funnel_id,
+                        deadline_override = EXCLUDED.deadline_override,
+                        priority_override = EXCLUDED.priority_override
+                """, (task_id, u["id"], _did, _ddl, _prio))
+                conn.commit()
+                return self._json({"ok": True})
+            except Exception as _e:
+                print(f"coexec-view PUT fail: {_e}")
+                return self._json({"error": str(_e)}, 500)
+            finally:
+                conn.close()
 
         if path.startswith("/api/tasks/"):
             u = self._user()
