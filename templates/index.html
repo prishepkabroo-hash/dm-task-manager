@@ -4396,6 +4396,113 @@
 }
 .wi-btn-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(139,92,246,0.55); }
 
+
+/* full-tutorial-v2 */
+.ft2-overlay {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 10001;
+    width: 380px;
+    pointer-events: auto;
+    animation: ft2-slide-in 0.3s ease;
+}
+@keyframes ft2-slide-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.ft2-card {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    border: 1px solid rgba(165,180,252,0.2);
+    border-radius: 18px;
+    padding: 22px 22px 18px;
+    color: white;
+    box-shadow: 0 20px 50px rgba(15,23,42,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+}
+.ft2-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #a5b4fc;
+    margin-bottom: 10px;
+}
+.ft2-icon-wrap {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+.ft2-title {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 10px;
+    color: white;
+}
+.ft2-body {
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.82);
+    margin-bottom: 18px;
+}
+.ft2-body strong { color: #fde68a; font-weight: 600; }
+.ft2-controls {
+    display: flex; align-items: center; gap: 8px;
+}
+.ft2-dots {
+    display: flex; gap: 5px;
+    margin-right: auto;
+}
+.ft2-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.2s;
+}
+.ft2-dot.active { background: #c4b5fd; width: 18px; border-radius: 3px; }
+.ft2-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+}
+.ft2-btn-back {
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.ft2-btn-back:hover { background: rgba(255,255,255,0.12); color: white; }
+.ft2-btn-skip {
+    background: transparent;
+    color: rgba(255,255,255,0.5);
+    padding: 6px 8px;
+    font-size: 12px;
+}
+.ft2-btn-skip:hover { color: rgba(255,255,255,0.85); }
+.ft2-btn-next {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+}
+.ft2-btn-next:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99,102,241,0.5); }
+.ft2-btn-cta {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 9px 18px;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.35);
+}
+
+/* Подсветка целевого элемента */
+.ft2-highlight {
+    position: relative;
+    z-index: 9998 !important;
+    box-shadow: 0 0 0 3px #818cf8, 0 0 24px rgba(129,140,248,0.6) !important;
+    border-radius: 8px !important;
+    transition: box-shadow 0.3s ease !important;
+}
+
 </style>
 </head>
 <body>
@@ -13816,168 +13923,210 @@ async function resetOnboarding(uid, fullName) {
 </script>
 
 
+
 <script>
-/* full-tutorial-v1 */
+/* full-tutorial-v2 */
 (function(){
     'use strict';
 
-    const QUICK_SLIDES = [
-        {
-            eyebrow: 'Раздел 1 из 6', icon: '📊',
-            title: 'Дашборд',
-            body: 'Главная страница после входа. Здесь видишь сводку: твои активные задачи, что просрочено, что нужно сделать сегодня. Отсюда удобно начинать день.'
-        },
-        {
-            eyebrow: 'Раздел 2 из 6', icon: '🗂',
-            title: 'Категории',
-            body: 'Все задачи компании в одном месте. Слева — список отделов, справа — воронки-колонки. Перетаскивай задачи между колонками, чтобы менять статус. Клик по кружку слева от задачи — быстрое выполнение.'
-        },
-        {
-            eyebrow: 'Раздел 3 из 6', icon: '📝',
-            title: 'Список и Календарь',
-            body: 'Список — все задачи в табличке с фильтрами. Календарь — те же задачи но по датам дедлайнов: месяц, неделя, день. Выбирай как удобнее работать.'
-        },
-        {
-            eyebrow: 'Раздел 4 из 6', icon: '🏆',
-            title: 'Геймификация',
-            body: 'За каждую выполненную задачу получаешь километры. Накопил — открыл новый уровень: от Босоногого до Чемпиона. Лидерборд показывает кто впереди в твоём отделе и в компании.'
-        },
-        {
-            eyebrow: 'Раздел 5 из 6', icon: '👤',
-            title: 'Профиль и Помощь',
-            body: 'Профиль — твоё имя, аватар, статистика. В шапке есть знак вопроса (❓) — нажми чтобы запустить обучение по любому разделу повторно.'
-        },
-        {
-            eyebrow: 'Готово!', icon: '🚀',
-            title: 'Поехали',
-            body: 'Краткий обзор закончен. Создавай задачи кнопкой ➕ внизу справа, ставь дедлайны, помогай команде. Всегда можно вернуться к обучению через ❓.',
-            isLast: true
-        }
-    ];
+    function _userCtx() {
+        const u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
+        if (!u) return { name: 'друг', role: 'member', deptName: '', isHead: false, isAdmin: false };
+        const dept = (typeof allDepartments !== 'undefined' && allDepartments) ? allDepartments.find(d => d.id === u.department_id) : null;
+        return {
+            name: u.full_name || u.username || 'друг',
+            firstName: (u.full_name || '').split(' ')[0] || u.username || '',
+            role: u.role,
+            deptName: dept ? dept.name : '',
+            deptId: u.department_id,
+            isHead: u.role === 'head',
+            isAdmin: u.role === 'admin',
+            isMember: u.role === 'member'
+        };
+    }
 
-    const DETAILED_SLIDES = [
-        {
-            eyebrow: 'Знакомство', icon: '👋',
-            title: 'Подробное обучение',
-            body: 'Сейчас разберём каждый раздел детально. ~10 минут — и ты знаешь систему как свои пять пальцев. В любой момент можешь пропустить.'
-        },
-        {
-            eyebrow: '1 / 14', icon: '📊',
-            title: 'Дашборд: главный экран',
-            body: 'Сразу после входа открывается дашборд. Здесь: счётчики (всего задач / в работе / просрочено), список твоих последних задач, мини-виджет геймификации — текущий уровень и сколько километров до следующего.'
-        },
-        {
-            eyebrow: '2 / 14', icon: '🗂',
-            title: 'Категории: левая панель',
-            body: 'В левой панели — список отделов компании. Цифра рядом с отделом показывает сколько активных задач. Кликни на отдел чтобы перейти к его воронкам. Внизу — раздел «Архив → Выполненные».'
-        },
-        {
-            eyebrow: '3 / 14', icon: '📋',
-            title: 'Категории: воронки',
-            body: 'Воронки — это колонки внутри отдела. Например в Отделе продаж могут быть «Новые», «В переговорах», «Закрыто». Перетаскивай задачи между колонками, чтобы передвигать по воронке.'
-        },
-        {
-            eyebrow: '4 / 14', icon: '➕',
-            title: 'Создание задачи',
-            body: 'Кнопка ➕ внизу справа открывает форму. Заполни название, описание, выбери отдел, исполнителя, приоритет, дедлайн. Можешь сразу выбрать соисполнителей и наблюдателей.'
-        },
-        {
-            eyebrow: '5 / 14', icon: '🔵',
-            title: 'Кружок статуса',
-            body: 'Слева от каждой задачи — кружок. Один клик: «Новая» → «Выполнена». Ещё клик: обратно. Так быстро отмечаешь готовое без открытия задачи.'
-        },
-        {
-            eyebrow: '6 / 14', icon: '✅',
-            title: 'Подзадачи',
-            body: 'Внутри задачи можешь создавать подзадачи — разбивай большое дело на шаги. Каждая подзадача — это полноценная задача со своими комментариями, дедлайном, исполнителем.'
-        },
-        {
-            eyebrow: '7 / 14', icon: '💬',
-            title: 'Комментарии',
-            body: 'Внутри задачи есть лента комментариев. Текст, файлы, голосовые. Через @имя — упоминание (тебе придёт уведомление). Удобно обсуждать задачу прямо в её карточке.'
-        },
-        {
-            eyebrow: '8 / 14', icon: '👁',
-            title: 'Наблюдатели и соисполнители',
-            body: 'Соисполнители — те кто помогает с задачей. Наблюдатели — те кто следит (получают уведомления). Глава твоего отдела автоматически наблюдает за тем что ты создаёшь.'
-        },
-        {
-            eyebrow: '9 / 14', icon: '📝',
-            title: 'Список: табличный вид',
-            body: 'Раздел «Список» показывает все задачи в одной таблице. Сортировка по любому столбцу. Фильтры по отделу, исполнителю, статусу, приоритету. Внизу — быстрая форма для создания.'
-        },
-        {
-            eyebrow: '10 / 14', icon: '📅',
-            title: 'Календарь',
-            body: 'Календарь — те же задачи но по датам дедлайнов. Виды: месяц, неделя, день. Клик по дате — создать задачу на этот день. Перетаскивай задачи на другую дату чтобы перенести.'
-        },
-        {
-            eyebrow: '11 / 14', icon: '🔔',
-            title: 'Уведомления',
-            body: 'В шапке колокольчик — там все уведомления: задачи назначили тебе, новые комментарии, упоминания, изменения дедлайна. Красная точка означает что есть непрочитанные.'
-        },
-        {
-            eyebrow: '12 / 14', icon: '🏆',
-            title: 'Геймификация',
-            body: '«Лидерборд» — рейтинг сотрудников по км. Уровни: Босоногий (0) → Самокатчик (100) → Моноколёсник (500) → Байкер (1500) → Водитель (3500) → Формула 3 / 2 / 1 → Чемпион (25000). Закрывай задачи — расти.'
-        },
-        {
-            eyebrow: '13 / 14', icon: '👤',
-            title: 'Профиль',
-            body: 'В разделе «Профиль» — твоё имя, аватар, статистика, текущий уровень. Можно сменить аватар, посмотреть достижения, перезапустить обучение.'
-        },
-        {
-            eyebrow: '14 / 14', icon: '❓',
-            title: 'Помощь и обучение',
-            body: 'Знак вопроса (❓) в шапке открывает повторное обучение. Не запомнил какой-то раздел — нажми и пройди заново. Также есть «Что нового» — там анонсы обновлений.'
-        },
-        {
-            eyebrow: 'Готово!', icon: '🎉',
-            title: 'Ты прошёл подробное обучение',
-            body: 'Теперь знаешь всё. Создавай задачи, выполняй их, помогай команде. Если что — обучение всегда под рукой через знак вопроса в шапке.',
-            isLast: true
-        }
-    ];
+    function buildSlides(mode) {
+        const c = _userCtx();
+        const greeting = `Привет, <strong>${c.firstName}</strong>!`;
+        const youAre = c.isAdmin
+            ? 'Ты — <strong>администратор</strong>, видишь всё в системе.'
+            : c.isHead
+                ? `Ты — <strong>глава ${c.deptName || 'отдела'}</strong>. Видишь задачи всех своих сотрудников.`
+                : `Ты — сотрудник <strong>${c.deptName || 'компании'}</strong>. Видишь только свои задачи и задачи где ты помогаешь.`;
 
-    let _ftIdx = 0;
+        const deptHint = c.isAdmin
+            ? 'видишь все отделы компании'
+            : `видишь только свой отдел — <strong>${c.deptName || 'твой'}</strong>`;
+
+        const QUICK = [
+            {
+                icon: '👋', eyebrow: 'Знакомство',
+                title: greeting,
+                body: `${youAre}<br><br>Пройдём краткий тур. Каждый шаг ~10 секунд.`,
+                page: 'dashboard'
+            },
+            {
+                icon: '📊', eyebrow: '1 / 5', title: 'Дашборд — главная',
+                body: 'После входа сюда. Видишь свои активные задачи, что просрочено, статистику. Удобно начинать день.',
+                page: 'dashboard'
+            },
+            {
+                icon: '🗂', eyebrow: '2 / 5', title: 'Категории — задачи в воронках',
+                body: `Слева ${deptHint}. Внутри отдела — колонки-воронки (этапы работы). Перетаскивай задачи между колонками. Клик по кружку слева от задачи — быстро отметить выполненной.`,
+                page: 'kanban'
+            },
+            {
+                icon: '➕', eyebrow: '3 / 5', title: 'Создать задачу',
+                body: 'Кнопка <strong>➕</strong> внизу справа. Заполни название, дедлайн, выбери исполнителя. Глава твоего отдела автоматически становится наблюдателем — он будет в курсе.',
+                page: 'kanban'
+            },
+            {
+                icon: '🏆', eyebrow: '4 / 5', title: 'Геймификация',
+                body: 'За каждую закрытую задачу — километры. Накопил — открыл новый уровень: от Босоногого до Чемпиона. В лидерборде видно кто впереди.',
+                page: 'leaderboard'
+            },
+            {
+                icon: '🚀', eyebrow: 'Готово!', title: 'Поехали',
+                body: 'Краткий обзор закончен. Если что-то забыл — нажми <strong>❓</strong> в шапке, можно пройти обучение заново по любому разделу.',
+                page: 'dashboard',
+                isLast: true
+            }
+        ];
+
+        const DETAILED = [
+            {
+                icon: '👋', eyebrow: 'Знакомство',
+                title: greeting,
+                body: `${youAre}<br><br>Сейчас разберём систему детально. Можешь нажать «Пропустить» в любой момент — повторно запустить через ❓ в шапке.`,
+                page: 'dashboard'
+            },
+            {
+                icon: '📊', eyebrow: '1 / 12', title: 'Дашборд: статистика',
+                body: 'Сразу после входа. Тут счётчики (всего / в работе / просрочено), последние задачи, мини-виджет с твоим уровнем и километрами.',
+                page: 'dashboard'
+            },
+            {
+                icon: '🗂', eyebrow: '2 / 12', title: 'Категории: левая панель',
+                body: c.isAdmin
+                    ? 'Все отделы компании. Цифра справа — сколько активных задач в отделе. Кликни на отдел чтобы увидеть его воронки.'
+                    : `Твой отдел — <strong>${c.deptName || '—'}</strong>. ${c.isHead ? 'Видишь все задачи отдела.' : 'Видишь свои задачи и задачи где ты соисполнитель/наблюдатель.'}`,
+                page: 'kanban'
+            },
+            {
+                icon: '📋', eyebrow: '3 / 12', title: 'Воронки — этапы работы',
+                body: 'Воронки — это колонки внутри отдела. Например «Новые», «В работе», «На проверке». Перетаскивай задачи между ними чтобы менять статус.',
+                page: 'kanban'
+            },
+            {
+                icon: '➕', eyebrow: '4 / 12', title: 'Создание задачи',
+                body: 'Кнопка <strong>➕</strong> внизу справа. Поля: название, описание, отдел, исполнитель, приоритет, дедлайн. Можно сразу выбрать соисполнителей и наблюдателей.',
+                page: 'kanban'
+            },
+            {
+                icon: '🔵', eyebrow: '5 / 12', title: 'Кружок статуса',
+                body: 'Слева от задачи — кружок. Один клик: «Новая» → «Выполнена». Ещё клик: обратно. Без открытия задачи.',
+                page: 'kanban'
+            },
+            {
+                icon: '✅', eyebrow: '6 / 12', title: 'Подзадачи',
+                body: 'Внутри открытой задачи — список подзадач. Разбивай большую задачу на шаги. Каждая подзадача — полноценная: со своими комментариями, дедлайном, исполнителем.',
+                page: 'kanban'
+            },
+            {
+                icon: '💬', eyebrow: '7 / 12', title: 'Комментарии и упоминания',
+                body: 'Внутри задачи — лента обсуждения. Текст, файлы, голосовые. Через <strong>@имя</strong> — упоминание (ему придёт уведомление).',
+                page: 'kanban'
+            },
+            {
+                icon: '👁', eyebrow: '8 / 12', title: 'Наблюдатели и соисполнители',
+                body: c.isHead
+                    ? 'Когда сотрудники твоего отдела создают задачи — ты автоматически наблюдатель. Получаешь уведомления о всём.'
+                    : `Соисполнители — те кто помогает с задачей. Наблюдатели — кто следит. ${c.deptName ? `Глава твоего отдела всегда в наблюдателях.` : 'Глава отдела или админ всегда в наблюдателях.'}`,
+                page: 'kanban'
+            },
+            {
+                icon: '📝', eyebrow: '9 / 12', title: 'Список и Календарь',
+                body: 'Кроме воронок есть «Список» (таблица с фильтрами) и «Календарь» (задачи по датам дедлайна). Выбирай удобный вид.',
+                page: 'list'
+            },
+            {
+                icon: '🔔', eyebrow: '10 / 12', title: 'Уведомления',
+                body: 'В шапке колокольчик. Туда приходит: задачи назначили тебе, новые комментарии, упоминания, изменения дедлайна. Красная точка = непрочитанные.',
+                page: 'dashboard'
+            },
+            {
+                icon: '🏆', eyebrow: '11 / 12', title: 'Геймификация',
+                body: 'Лидерборд — рейтинг сотрудников. Уровни: Босоногий → Самокатчик → Моноколёсник → Байкер → Водитель → Формула 3 / 2 / 1 → Чемпион. За каждую задачу +км.',
+                page: 'leaderboard'
+            },
+            {
+                icon: '👤', eyebrow: '12 / 12', title: 'Профиль и помощь',
+                body: 'Профиль — твоя статистика и настройки. <strong>❓</strong> в шапке — повторно запустить обучение. <strong>✨</strong> в шапке — что нового в системе.',
+                page: 'profile'
+            },
+            {
+                icon: '🎉', eyebrow: 'Готово!', title: 'Тур закончен',
+                body: 'Теперь знаешь всё. Если что-то забыл — нажми ❓ в шапке. Удачи!',
+                page: 'dashboard',
+                isLast: true
+            }
+        ];
+
+        return mode === 'detailed' ? DETAILED : QUICK;
+    }
+
     let _ftSlides = [];
+    let _ftIdx = 0;
     let _ftFinishCb = null;
-
-    function _esc(s) { return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
     function _ftKey(e) {
         if (e.key === 'ArrowRight') _ftNext();
         if (e.key === 'ArrowLeft') _ftPrev();
-        if (e.key === 'Escape' && _ftIdx >= 1) _ftClose();
+        if (e.key === 'Escape') _ftClose();
+    }
+
+    function _ftNavigate(page) {
+        if (typeof navigate === 'function') {
+            try { navigate(page); } catch(e) {}
+        } else if (typeof switchPage === 'function') {
+            try { switchPage(page); } catch(e) {}
+        } else if (typeof showPage === 'function') {
+            try { showPage(page); } catch(e) {}
+        } else {
+            const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+            if (navItem) navItem.click();
+        }
     }
 
     function _ftRender() {
         const s = _ftSlides[_ftIdx];
-        const overlay = document.getElementById('ftOverlay');
+        const overlay = document.getElementById('ft2Overlay');
         if (!overlay) return;
 
-        const dots = _ftSlides.map((_, i) => `<div class="wi-dot ${i === _ftIdx ? 'active' : ''}"></div>`).join('');
+        if (s.page) _ftNavigate(s.page);
+
+        const dots = _ftSlides.map((_, i) => `<div class="ft2-dot ${i === _ftIdx ? 'active' : ''}"></div>`).join('');
         const isFirst = _ftIdx === 0;
         const isLast = s.isLast || _ftIdx === _ftSlides.length - 1;
 
         const controls = isLast
-            ? `<div class="wi-controls">
-                <div class="wi-dots">${dots}</div>
-                <button class="wi-btn wi-btn-back" onclick="_ftPrev()">Назад</button>
-                <button class="wi-btn wi-btn-cta" onclick="_ftFinish()">✨ Завершить</button>
+            ? `<div class="ft2-controls">
+                <div class="ft2-dots">${dots}</div>
+                <button class="ft2-btn ft2-btn-back" onclick="_ftPrev()">Назад</button>
+                <button class="ft2-btn ft2-btn-cta" onclick="_ftFinish()">Завершить</button>
             </div>`
-            : `<div class="wi-controls">
-                <div class="wi-dots">${dots}</div>
-                ${_ftIdx >= 1 ? '<button class="wi-btn wi-btn-skip" onclick="_ftClose()">Пропустить</button>' : ''}
-                ${!isFirst ? '<button class="wi-btn wi-btn-back" onclick="_ftPrev()">Назад</button>' : ''}
-                <button class="wi-btn wi-btn-next" onclick="_ftNext()">Далее →</button>
+            : `<div class="ft2-controls">
+                <div class="ft2-dots">${dots}</div>
+                ${_ftIdx >= 1 ? '<button class="ft2-btn ft2-btn-skip" onclick="_ftClose()">Пропустить</button>' : ''}
+                ${!isFirst ? '<button class="ft2-btn ft2-btn-back" onclick="_ftPrev()">Назад</button>' : ''}
+                <button class="ft2-btn ft2-btn-next" onclick="_ftNext()">Далее →</button>
             </div>`;
 
-        overlay.innerHTML = `<div class="wi-card">
-            <div class="wi-eyebrow">${_esc(s.eyebrow)}</div>
-            <div style="font-size:48px;text-align:center;margin:8px 0 16px;">${s.icon}</div>
-            <div class="wi-title" style="text-align:center;">${_esc(s.title)}</div>
-            <div class="wi-body" style="text-align:center;">${_esc(s.body)}</div>
+        overlay.innerHTML = `<div class="ft2-card">
+            <div class="ft2-eyebrow">${s.eyebrow}</div>
+            <div class="ft2-icon-wrap">${s.icon}</div>
+            <div class="ft2-title">${s.title}</div>
+            <div class="ft2-body">${s.body}</div>
             ${controls}
         </div>`;
     }
@@ -13985,7 +14134,7 @@ async function resetOnboarding(uid, fullName) {
     window._ftNext = function() { if (_ftIdx < _ftSlides.length - 1) { _ftIdx++; _ftRender(); } };
     window._ftPrev = function() { if (_ftIdx > 0) { _ftIdx--; _ftRender(); } };
     window._ftClose = function() {
-        const o = document.getElementById('ftOverlay');
+        const o = document.getElementById('ft2Overlay');
         if (o) o.remove();
         document.removeEventListener('keydown', _ftKey);
         if (_ftFinishCb) _ftFinishCb();
@@ -13997,31 +14146,27 @@ async function resetOnboarding(uid, fullName) {
         _ftIdx = 0;
         _ftFinishCb = onFinish;
 
-        // Удаляем старые overlay
-        ['onboarding-overlay', 'onboarding-highlight', 'onboarding-tooltip', 'tutChoiceModal', 'tutDoneModal'].forEach(cls => {
-            document.querySelectorAll('.' + cls + ', #' + cls).forEach(el => el.remove());
+        ['onboarding-overlay', 'onboarding-highlight', 'onboarding-tooltip', 'tutChoiceModal', 'tutDoneModal', 'ftOverlay'].forEach(id => {
+            document.querySelectorAll('.' + id + ', #' + id).forEach(el => el.remove());
         });
 
         const overlay = document.createElement('div');
-        overlay.className = 'wi-overlay';
-        overlay.id = 'ftOverlay';
+        overlay.className = 'ft2-overlay';
+        overlay.id = 'ft2Overlay';
         document.body.appendChild(overlay);
         _ftRender();
         document.addEventListener('keydown', _ftKey);
     }
 
-    /* Переопределяем startTut — заменяем tooltip-обучение на слайдовое */
-    const _origStartTut = window.startTut;
+    /* Переопределяем startTut */
     window.startTut = function(mode) {
         document.getElementById('tutChoiceModal')?.remove();
-        const slides = mode === 'detailed' ? DETAILED_SLIDES : QUICK_SLIDES;
+        const slides = buildSlides(mode === 'detailed' ? 'detailed' : 'quick');
         startSlideTutorial(slides, function() {
-            // После окончания — пометить onboarding_done и показать модалку завершения
             if (typeof _tutorialIsInitial !== 'undefined' && _tutorialIsInitial) {
                 if (typeof apiCall === 'function') apiCall('/api/onboarding_done', {method:'POST'});
                 if (typeof currentUser !== 'undefined' && currentUser) currentUser.onboarding_done = 1;
                 _tutorialIsInitial = false;
-                /* full-tutorial-v1: цепочкой админское обучение если admin */
                 if (currentUser && currentUser.role === 'admin' && !currentUser.admin_onboarding_done) {
                     setTimeout(() => {
                         if (typeof startAdminOnboarding === 'function') startAdminOnboarding();
