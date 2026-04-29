@@ -9722,11 +9722,13 @@ async function showTaskDetail(taskId) {
             <span class="td-chip-label">
                 <span class="td-chip-icon"></span>Наблюдатели
             </span>
-            <span class="td-chip-value" id="detailWatchersDisplay"></span>
+            <span class="td-chip-value" id="detailWatchersDisplay">
+                ${(task.watchers || []).map(w => `<span class="td-chip-user">${avatarHTML(w.full_name, w.avatar_color, 16, w.avatar_url || '')}${escHtml(w.full_name)}<span class="td-chip-x" onclick="event.stopPropagation();detailToggleWatcher(${w.id})" title="Убрать">&times;</span></span>`).join('')}
+            </span>
             <button class="td-chip-plus" type="button" aria-label="Добавить">+</button>
             <div class="td-chip-popup" id="detailWatchersList" style="display:none;">
-                ${allUsers.filter(u => !currentUser || u.id !== currentUser.id).map(u => `<label class="td-chip-popup-row" onclick="event.stopPropagation();"><input type="checkbox" value="${u.id}" class="detail-watcher-cb" onchange="detailToggleWatcher(${u.id})">${escHtml(u.full_name)}</label>`).join('')}
-            </div>
+                ${allUsers.filter(u => !currentUser || u.id !== currentUser.id).map(u => `<label class="td-chip-popup-row" onclick="event.stopPropagation();"><input type="checkbox" value="${u.id}" class="detail-watcher-cb" ${(task.watchers || []).some(w => w.id === u.id) ? 'checked' : ''} onchange="detailToggleWatcher(${u.id})">${escHtml(u.full_name)}</label>`).join('')}
+            </div>  <!-- watchers-render-fix-v1 -->
         </div>
 
         <!-- Подзадачи -->
