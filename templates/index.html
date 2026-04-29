@@ -16676,382 +16676,7 @@ window._cvDrop = async function(e, col, deptId) {
 
 
 
-<script>
-/* tutorial-rewrite-v5 — интерактивное обучение в стиле Джинна */
-(function(){
-    'use strict';
 
-    function _u() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : {}; }
-    function _firstName() {
-        return String(_u().full_name || _u().username || 'друг').split(' ')[0];
-    }
-    function _deptName() {
-        const u = _u();
-        if (u.department_id && typeof allDepartments !== 'undefined' && Array.isArray(allDepartments)) {
-            const d = allDepartments.find(x => x.id === u.department_id);
-            if (d) return d.name;
-        }
-        return null;
-    }
-    function _role() { return _u().role || 'member'; }
-
-    function _findEl(selector) {
-        if (!selector) return null;
-        for (const s of selector.split(',').map(x => x.trim())) {
-            try {
-                const el = document.querySelector(s);
-                if (el && el.offsetParent !== null) return el;
-            } catch(e) {}
-        }
-        return null;
-    }
-
-    function _highlight(el) {
-        document.querySelectorAll('.tutv5-hl').forEach(x => x.classList.remove('tutv5-hl'));
-        if (el) {
-            el.classList.add('tutv5-hl');
-            try { el.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
-        }
-    }
-
-    function _esc(s) {
-        return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-    }
-    function _md(s) {
-        return _esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    }
-
-    /* === Шаги: каждый шаг либо "click" (ждём клик по target), либо "info" (просто показываем) === */
-    function buildSteps() {
-        const name = _firstName();
-        const dept = _deptName();
-        const role = _role();
-        const steps = [];
-
-        steps.push({
-            type: 'info',
-            title: 'Привет, ' + name + '!',
-            body: 'Я научу тебя пользоваться таск-менеджером Dudarev Motorsport. Будем действовать по очереди: я попрошу тебя нажать на раздел — ты нажмёшь — я расскажу что там. Поехали?'
-        });
-
-        // === ДАШБОРД ===
-        steps.push({
-            type: 'click',
-            target: '[data-page="dashboard"], a[href*="dashboard"], [onclick*="dashboard"]',
-            prompt: 'Найди в меню слева **«Дашборд»** и нажми на него.'
-        });
-        steps.push({
-            type: 'info',
-            title: '📊 Дашборд',
-            body: 'Это твоя главная страница. Здесь всё что важно прямо сейчас:\n• Твои активные задачи\n• Сколько закрыл за неделю/месяц\n• Прогресс до следующего уровня\n• Последние действия команды'
-        });
-
-        // === КАТЕГОРИИ ===
-        steps.push({
-            type: 'click',
-            target: '[data-page="categories"], a[href*="categories"], [onclick*="categories"]',
-            prompt: 'Теперь жми **«Категории»**.'
-        });
-        steps.push({
-            type: 'info',
-            title: '🗂️ Категории — отделы компании',
-            body: dept
-                ? 'Здесь все отделы Dudarev Motorsport. Слева — список отделов. Твой отдел — **' + dept + '**. У каждого отдела свои воронки задач и команда.'
-                : 'Здесь все отделы Dudarev Motorsport. Слева — список отделов. У каждого свои воронки и команда.'
-        });
-        steps.push({
-            type: 'info',
-            title: '📋 Воронки внутри отдела',
-            body: 'Когда выбираешь отдел — справа появляются колонки-воронки. Каждая колонка это **этап задачи**: например «Новая» → «В работе» → «На проверке» → «Готово». Перетаскивай карточки между колонками — статус обновится автоматически.'
-        });
-        steps.push({
-            type: 'info',
-            title: '🃏 Карточка задачи',
-            body: 'Клик по карточке задачи — откроется детальная страница: **описание** (можно править прямо там), **комментарии** (текст/файлы/голосовые), **подзадачи**, **наблюдатели**, **соисполнители**.'
-        });
-
-        // === СОВМЕСТНЫЕ ===
-        steps.push({
-            type: 'click',
-            target: '[data-page="coexec"], a[href*="coexec"], [onclick*="coexec"]',
-            prompt: 'Жми **«Совместные задачи»** в меню.'
-        });
-        steps.push({
-            type: 'info',
-            title: '🤝 Совместные задачи',
-            body: 'Если коллега назначил тебя **соисполнителем** — задача появится здесь, в твоём личном виде. Особенность: у тебя свой персональный дедлайн и приоритет, не зависящий от создателя. Перетаскивай карточки между отделами — это твоя личная воронка.'
-        });
-
-        // === КАЛЕНДАРЬ ===
-        steps.push({
-            type: 'click',
-            target: '[data-page="calendar"], a[href*="calendar"], [onclick*="calendar"]',
-            prompt: 'Открой **«Календарь»**.'
-        });
-        steps.push({
-            type: 'info',
-            title: '📅 Календарь',
-            body: 'Все дедлайны на одном экране. Виды: **месяц / неделя / день**. Клик по любой дате — мгновенное создание задачи на этот день. Цветные точки на датах — это задачи с дедлайнами.'
-        });
-
-        // === СПИСОК ===
-        steps.push({
-            type: 'click',
-            target: '[data-page="list"], a[href*="list"], [onclick*="list"]',
-            prompt: 'Перейди в **«Список задач»**.'
-        });
-        steps.push({
-            type: 'info',
-            title: '📑 Список задач',
-            body: 'Все задачи плоским списком. Удобно искать и фильтровать по отделу, исполнителю, статусу, приоритету. Сверху — поисковая строка.'
-        });
-
-        // === Создание задачи ===
-        steps.push({
-            type: 'info',
-            title: '➕ Как создать задачу',
-            body: 'Внизу справа — синяя кнопка «+». Жмёшь — открывается форма. Заполняешь:\n• **Заголовок** и **описание**\n• **Исполнитель** (кто делает)\n• **Дедлайн** и **приоритет**\n• **Соисполнители** (помогают)\n• **Наблюдатели** (просто следят за прогрессом)'
-        });
-
-        // === ГЕЙМИФИКАЦИЯ — отдельный блок ===
-        steps.push({
-            type: 'info',
-            title: '🏎️ Геймификация — это что?',
-            body: 'Это не просто скучный таск-менеджер. За каждую закрытую задачу ты получаешь **километры** — вырастаешь в **уровне** и зарабатываешь **награды**. Чем больше работаешь — тем круче машинка.'
-        });
-
-        steps.push({
-            type: 'info',
-            title: '⛽ Километры (км)',
-            body: 'Начисляются автоматически когда задача переходит в статус «Готово». Сколько именно зависит от **приоритета** задачи и **сложности** (количество подзадач, комментариев). Свои км видишь в профиле снизу слева — там же шкала прогресса до следующего уровня.'
-        });
-
-        steps.push({
-            type: 'info',
-            title: '🏁 9 уровней — от Босоногого до Чемпиона',
-            body: 'Каждый уровень открывает новую аватарку-машинку:\n1. Босоногий\n2. Бегун\n3. Велосипедист\n4. Скутерист\n5. Мотоциклист\n6. Гонщик\n7. Профи\n8. Чемпион\n9. Легенда\n\n(точные названия могут отличаться — смотри в профиле)'
-        });
-
-        steps.push({
-            type: 'info',
-            title: '🏆 7 уникальных достижений',
-            body: '**Первая задача** — закрыл первую\n**Стабильность** — закрывал каждый день недели\n**Скоростной** — решил быстрее срока\n**Марафонец** — много за неделю\n**Сотня** — 100 закрытых задач\n**Звезда отдела** — топ-1 внутри отдела\n**Ранняя пташка** — начал утром'
-        });
-
-        // Профиль
-        steps.push({
-            type: 'click',
-            target: '.user-info, .profile-link, [class*="user-footer"], [class*="profile"]',
-            prompt: 'Кликни на свой профиль внизу слева.'
-        });
-        steps.push({
-            type: 'info',
-            title: '👤 Профиль',
-            body: 'Тут видишь свой уровень, прогресс до следующего, все полученные награды. Можешь сменить пароль, посмотреть статистику.'
-        });
-
-        // Обратная связь
-        steps.push({
-            type: 'info',
-            title: '💬 Обратная связь и поддержка',
-            body: 'Снизу слева — кнопки **«Обратная связь»** и **«Тех. поддержка»**. Если что-то сломалось или есть идея — пиши, Лукиан получит сообщение и ответит.'
-        });
-
-        // Админка/глава
-        if (role === 'admin') {
-            steps.push({
-                type: 'click',
-                target: '[data-page="admin"], a[href*="admin"], .admin-link',
-                prompt: 'Открой **«Управление»** (только для админа).'
-            });
-            steps.push({
-                type: 'info',
-                title: '⚙️ Админка',
-                body: 'Управление пользователями, отделами, ролями. Можно создать юзера, поменять роль, переключить отдел, посмотреть журнал действий.'
-            });
-        } else if (role === 'head') {
-            steps.push({
-                type: 'info',
-                title: '⚙️ Управление отделом',
-                body: 'Ты глава отдела ' + (dept || '') + '. Можешь редактировать воронки своего отдела, ставить задачи сотрудникам, видеть весь отдел в дашборде.'
-            });
-        }
-
-        // Финал
-        steps.push({
-            type: 'info',
-            title: 'Готово, ' + name + '! 🏁',
-            body: 'Теперь ты знаешь всё. Возникнут вопросы — жми «Тех. поддержка» в правом нижнем углу. Удачных задач — держи скорость!'
-        });
-
-        return steps;
-    }
-
-    let _state = { steps: [], idx: 0, waiting: false, clickHandler: null };
-
-    function _waitForClick(targetSel) {
-        return new Promise((resolve) => {
-            const tryFind = () => _findEl(targetSel);
-            const target = tryFind();
-            if (target) _highlight(target);
-
-            _state.waiting = true;
-            const handler = function(e){
-                const cur = tryFind();
-                if (!cur) return;
-                if (cur === e.target || cur.contains(e.target)) {
-                    document.removeEventListener('click', handler, true);
-                    _state.clickHandler = null;
-                    _state.waiting = false;
-                    setTimeout(resolve, 400); // ждём навигацию
-                }
-            };
-            _state.clickHandler = handler;
-            document.addEventListener('click', handler, true);
-        });
-    }
-
-    function _renderInfo(s, isLast) {
-        const card = document.getElementById('tutv5-card');
-        if (!card) return;
-        const total = _state.steps.length;
-        const bodyHtml = _md(s.body).replace(/\n/g, '<br>');
-        card.innerHTML =
-            '<div class="tutv5-progress"><div class="tutv5-progress-bar" style="width:' + (((_state.idx+1)/total)*100) + '%"></div></div>' +
-            '<div class="tutv5-meta"><span class="tutv5-mode">Обучение</span> <span class="tutv5-counter">' + (_state.idx+1) + ' / ' + total + '</span></div>' +
-            (s.title ? '<h3 class="tutv5-title">' + _md(s.title) + '</h3>' : '') +
-            '<div class="tutv5-body">' + bodyHtml + '</div>' +
-            '<div class="tutv5-buttons">' +
-                '<button class="tutv5-btn tutv5-back" ' + (_state.idx===0?'disabled':'') + '>← Назад</button>' +
-                '<button class="tutv5-btn tutv5-skip">Пропустить</button>' +
-                '<button class="tutv5-btn tutv5-next">' + (isLast ? 'Закончить ✓' : 'Дальше →') + '</button>' +
-            '</div>';
-        card.querySelector('.tutv5-back').onclick = function(){ if (_state.idx > 0) { _state.idx--; _runStep(); } };
-        card.querySelector('.tutv5-skip').onclick = _close;
-        card.querySelector('.tutv5-next').onclick = function(){
-            if (isLast) _close();
-            else { _state.idx++; _runStep(); }
-        };
-    }
-
-    function _renderClickPrompt(s) {
-        const card = document.getElementById('tutv5-card');
-        if (!card) return;
-        const total = _state.steps.length;
-        card.innerHTML =
-            '<div class="tutv5-progress"><div class="tutv5-progress-bar" style="width:' + (((_state.idx+1)/total)*100) + '%"></div></div>' +
-            '<div class="tutv5-meta"><span class="tutv5-mode tutv5-mode-action">Действие</span> <span class="tutv5-counter">' + (_state.idx+1) + ' / ' + total + '</span></div>' +
-            '<div class="tutv5-prompt">👉 ' + _md(s.prompt) + '</div>' +
-            '<div class="tutv5-waiting">Жду клик…</div>' +
-            '<div class="tutv5-buttons">' +
-                '<button class="tutv5-btn tutv5-back" ' + (_state.idx===0?'disabled':'') + '>← Назад</button>' +
-                '<button class="tutv5-btn tutv5-skip">Пропустить обучение</button>' +
-            '</div>';
-        card.querySelector('.tutv5-back').onclick = function(){
-            if (_state.clickHandler) { document.removeEventListener('click', _state.clickHandler, true); _state.clickHandler = null; }
-            if (_state.idx > 0) { _state.idx--; _runStep(); }
-        };
-        card.querySelector('.tutv5-skip').onclick = _close;
-    }
-
-    async function _runStep() {
-        const s = _state.steps[_state.idx];
-        if (!s) { _close(); return; }
-        const isLast = _state.idx === _state.steps.length - 1;
-
-        if (s.type === 'click') {
-            _renderClickPrompt(s);
-            await _waitForClick(s.target);
-            // После клика — auto-advance к следующему шагу
-            _state.idx++;
-            if (_state.idx >= _state.steps.length) { _close(); return; }
-            _runStep();
-            return;
-        }
-
-        // info
-        _highlight(_findEl(s.target));
-        _renderInfo(s, isLast);
-    }
-
-    function _open() {
-        _state.steps = buildSteps();
-        _state.idx = 0;
-        let card = document.getElementById('tutv5-card');
-        if (!card) {
-            card = document.createElement('div');
-            card.id = 'tutv5-card';
-            card.className = 'tutv5-card';
-            document.body.appendChild(card);
-        }
-        card.style.display = 'block';
-        _runStep();
-    }
-
-    function _close() {
-        if (_state.clickHandler) { document.removeEventListener('click', _state.clickHandler, true); _state.clickHandler = null; }
-        document.querySelectorAll('.tutv5-hl').forEach(x => x.classList.remove('tutv5-hl'));
-        const card = document.getElementById('tutv5-card');
-        if (card) card.style.display = 'none';
-        const ch = document.getElementById('tutv5-choice');
-        if (ch) ch.remove();
-    }
-
-    /* === Подмена точки входа === */
-    function entry() { _open(); }
-    window.showTutorialChoice = entry;
-    window.startUserOnboarding = entry;
-    window.startTutorial = entry;
-
-    /* Перехват клика на любую кнопку с текстом «обучение» — по приоритету (capture phase) */
-    document.addEventListener('click', function(e){
-        let n = e.target;
-        for (let i = 0; i < 6 && n; i++, n = n.parentElement) {
-            const txt = (n.innerText || n.textContent || '').trim().toLowerCase();
-            if (!txt) continue;
-            if (txt.length < 60 && (txt.includes('пройти обучение') || txt === 'обучение' || txt.includes('начать обучение'))) {
-                e.preventDefault(); e.stopImmediatePropagation();
-                entry();
-                return;
-            }
-        }
-    }, true);
-
-    /* CSS */
-    const css = document.createElement('style');
-    css.textContent =
-'.tutv5-card{position:fixed;bottom:24px;right:24px;width:420px;max-width:calc(100vw - 48px);background:#fff;color:#1a1f2e;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:22px;z-index:99999;font-family:inherit;animation:tutv5slide .25s ease-out}' +
-'@keyframes tutv5slide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}' +
-'.tutv5-progress{height:4px;background:#e7eaf2;border-radius:2px;overflow:hidden;margin-bottom:12px}' +
-'.tutv5-progress-bar{height:100%;background:linear-gradient(90deg,#5a73ff,#8b5cf6);transition:width .3s}' +
-'.tutv5-meta{display:flex;justify-content:space-between;font-size:12px;color:#6b7590;margin-bottom:10px}' +
-'.tutv5-mode{background:#eef0f8;padding:3px 10px;border-radius:10px;color:#5a73ff;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.5px}' +
-'.tutv5-mode-action{background:#fff4e0;color:#d97706}' +
-'.tutv5-title{font-size:18px;font-weight:700;margin:8px 0 10px;color:#1a1f2e;line-height:1.3}' +
-'.tutv5-body{font-size:14px;line-height:1.6;color:#4a5060;margin:0 0 18px}' +
-'.tutv5-body strong{color:#1a1f2e;font-weight:600}' +
-'.tutv5-prompt{font-size:16px;line-height:1.45;color:#1a1f2e;margin:8px 0 12px;padding:14px;background:#fff8eb;border-left:3px solid #d97706;border-radius:6px}' +
-'.tutv5-waiting{font-size:13px;color:#6b7590;font-style:italic;margin-bottom:14px;text-align:center}' +
-'.tutv5-buttons{display:flex;gap:8px;justify-content:space-between;align-items:center}' +
-'.tutv5-btn{padding:9px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px}' +
-'.tutv5-back{background:#f3f4f8;color:#1a1f2e}' +
-'.tutv5-back:disabled{opacity:.4;cursor:not-allowed}' +
-'.tutv5-skip{background:transparent;color:#6b7590}' +
-'.tutv5-next{background:linear-gradient(90deg,#5a73ff,#8b5cf6);color:#fff;flex:0 0 auto}' +
-'.tutv5-hl{outline:3px solid #f59e0b !important;outline-offset:3px;border-radius:6px;animation:tutv5pulse 1.2s infinite;position:relative;z-index:9998;box-shadow:0 0 0 99999px rgba(0,0,0,.0)}' +
-'@keyframes tutv5pulse{0%,100%{outline-color:#f59e0b}50%{outline-color:#fbbf24}}' +
-'@media (max-width:600px){.tutv5-card{right:8px;left:8px;bottom:8px;width:auto}}';
-    document.head.appendChild(css);
-
-    /* Удаляем старые карточки v3/v4 если остались в DOM */
-    setTimeout(function(){
-        ['tutv3-card','tutv3-choice','tutv4-card','tutv4-choice'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.remove();
-        });
-    }, 100);
-})();
-</script>
 
 
 <script>
@@ -17163,6 +16788,327 @@ window._cvDrop = async function(e, col, deptId) {
             }
         } catch(e){}
     }
+})();
+</script>
+
+
+<script>
+/* tutorial-rewrite-v7 — robust Genie-style */
+(function(){
+    'use strict';
+
+    function _u() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : {}; }
+    function _firstName() {
+        return String(_u().full_name || _u().username || 'друг').split(' ')[0];
+    }
+    function _deptName() {
+        const u = _u();
+        if (u.department_id && typeof allDepartments !== 'undefined' && Array.isArray(allDepartments)) {
+            const d = allDepartments.find(x => x.id === u.department_id);
+            if (d) return d.name;
+        }
+        return null;
+    }
+    function _role() { return _u().role || 'member'; }
+
+    /* Находит элемент по селектору ИЛИ по совпадению текста */
+    function _findEl(opts) {
+        if (!opts) return null;
+        // 1. Пробуем селекторы
+        if (opts.sel) {
+            for (const s of opts.sel.split(',').map(x => x.trim())) {
+                try {
+                    const el = document.querySelector(s);
+                    if (el && el.offsetParent !== null) return el;
+                } catch(e){}
+            }
+        }
+        // 2. Поиск по тексту (точное совпадение — короткие элементы)
+        if (opts.text) {
+            const wanted = opts.text.toLowerCase();
+            const all = document.querySelectorAll('a, button, [role="button"], [role="link"], li, .nav-item, [class*="nav"], [class*="menu-item"], [class*="sidebar"] *');
+            for (const el of all) {
+                const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+                if (t === wanted || t.startsWith(wanted + ' ') || t.startsWith(wanted + '\n')) {
+                    if (el.offsetParent !== null && t.length < 80) return el;
+                }
+            }
+        }
+        return null;
+    }
+
+    function _highlight(el) {
+        document.querySelectorAll('.tutv7-hl').forEach(x => x.classList.remove('tutv7-hl'));
+        if (el) {
+            el.classList.add('tutv7-hl');
+            try { el.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
+        }
+    }
+
+    function _esc(s) {
+        return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+    function _md(s) {
+        return _esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    }
+
+    /* Шаги. У каждого есть title, body, опционально target и hint */
+    function buildSteps() {
+        const name = _firstName();
+        const dept = _deptName();
+        const role = _role();
+        const steps = [];
+
+        steps.push({
+            title: 'Привет, ' + name + '!',
+            body: 'Я научу тебя пользоваться таск-менеджером Dudarev Motorsport за пару минут. Я буду подсвечивать что куда жать. Ты делаешь действие, потом «Дальше →».'
+        });
+
+        // Дашборд
+        steps.push({
+            target: { sel: '[data-page="dashboard"], a[href*="dashboard"], [onclick*="dashboard"]', text: 'Дашборд' },
+            hint: 'Найди и нажми **«Дашборд»** в меню слева',
+            title: '📊 Дашборд',
+            body: 'Это твоя главная страница. Здесь видишь:\n• Свои активные задачи\n• Сколько закрыл за неделю/месяц\n• Прогресс до следующего уровня\n• Последние действия команды'
+        });
+
+        // Категории
+        steps.push({
+            target: { sel: '[data-page="categories"], a[href*="categories"]', text: 'Категории' },
+            hint: 'Теперь нажми **«Категории»**',
+            title: '🗂️ Категории — отделы компании',
+            body: dept
+                ? 'Здесь все отделы Dudarev Motorsport. Слева — список отделов. Твой — **' + dept + '**. У каждого свои воронки и команда.'
+                : 'Здесь все отделы Dudarev Motorsport. Слева — список отделов. У каждого свои воронки и команда.'
+        });
+
+        steps.push({
+            title: '📋 Воронки внутри отдела',
+            body: 'Выбери любой отдел слева — справа появятся колонки-воронки. Каждая колонка — этап задачи: например **Новая → В работе → На проверке → Готово**. Перетаскивай карточки между колонками — статус обновится автоматически.'
+        });
+
+        steps.push({
+            title: '🃏 Карточка задачи',
+            body: 'Клик по карточке — откроется детальная страница: **описание** (правится прямо там), **комментарии** (текст/файлы/голосовые), **подзадачи**, **наблюдатели**, **соисполнители**.'
+        });
+
+        // Воронка (отдельный пункт меню)
+        steps.push({
+            target: { sel: '[data-page="kanban"], [data-page="funnel"], a[href*="funnel"]', text: 'Воронка' },
+            hint: 'Перейди в **«Воронка»** в меню',
+            title: '📊 Воронка',
+            body: 'Канбан-доска со всеми задачами. Колонки = этапы, карточки = задачи. Самый удобный режим для работы.'
+        });
+
+        // Календарь
+        steps.push({
+            target: { sel: '[data-page="calendar"], a[href*="calendar"]', text: 'Календарь' },
+            hint: 'Открой **«Календарь»**',
+            title: '📅 Календарь',
+            body: 'Все дедлайны на одном экране. Виды: **месяц / неделя / день**. Клик по дате — мгновенное создание задачи на этот день. Точки на датах — задачи с дедлайном.'
+        });
+
+        // Рейтинг
+        steps.push({
+            target: { sel: '[data-page="rating"], [data-page="leaderboard"], a[href*="rating"]', text: 'Рейтинг' },
+            hint: 'Жми **«Рейтинг»**',
+            title: '🏆 Рейтинг',
+            body: 'Топ всей команды по километрам. Видишь кто сколько закрыл задач, кто впереди по уровню. Полезно чтобы понять где ты в общей таблице.'
+        });
+
+        // Профиль
+        steps.push({
+            target: { sel: '[data-page="profile"], a[href*="profile"]', text: 'Профиль' },
+            hint: 'Открой **«Профиль»**',
+            title: '👤 Профиль',
+            body: 'Тут видишь свой уровень, прогресс до следующего, все полученные награды. Можешь сменить пароль, посмотреть свою статистику.'
+        });
+
+        // Создание задачи
+        steps.push({
+            target: { sel: 'button[onclick*="createTask"], .create-task-btn, [class*="fab"]', text: '+ Задача' },
+            hint: 'Кнопка **«+ Задача»** наверху справа (или «+» внизу)',
+            title: '➕ Как создать задачу',
+            body: 'Открывается форма. Заполняешь:\n• **Заголовок** и **описание**\n• **Исполнитель** — кто делает\n• **Дедлайн** и **приоритет**\n• **Соисполнители** — те кто помогает (увидят задачу в «Совместных»)\n• **Наблюдатели** — те кто следят'
+        });
+
+        // === ГЕЙМИФИКАЦИЯ ===
+        steps.push({
+            title: '🏎️ Геймификация — что это?',
+            body: 'Это не просто таск-менеджер. За каждую закрытую задачу ты получаешь **километры**. Накапливаешь — поднимаешься по **уровням** и зарабатываешь **награды**.'
+        });
+
+        steps.push({
+            title: '⛽ Километры (км)',
+            body: 'Начисляются автоматически когда задача → «Готово». Сколько именно — зависит от **приоритета** и **сложности** (есть подзадачи/комментарии — больше). Свои км видишь в профиле слева снизу.'
+        });
+
+        steps.push({
+            title: '🏁 9 уровней — от Босоногого до Чемпиона',
+            body: 'Каждый уровень — новая аватарка-машинка:\n1. Босоногий\n2. Бегун\n3. Велосипедист\n4. Скутерист\n5. Мотоциклист\n6. Гонщик\n7. Профи\n8. Чемпион\n9. Легенда\n(точные названия и иконки — в профиле)'
+        });
+
+        steps.push({
+            title: '🏆 7 наград',
+            body: '**Первая задача** — закрыл первую\n**Стабильность** — закрывал каждый день недели\n**Скоростной** — решил быстрее срока\n**Марафонец** — много за неделю\n**Сотня** — 100 задач закрыто\n**Звезда отдела** — топ-1 внутри отдела\n**Ранняя пташка** — начал утром'
+        });
+
+        // Поддержка / обратная связь
+        steps.push({
+            target: { sel: 'button[onclick*="feedback"], .feedback-btn', text: 'Обратная связь' },
+            hint: 'Кнопка **«Обратная связь»** внизу',
+            title: '💬 Обратная связь и поддержка',
+            body: 'Если что-то сломалось или есть идея — жми «Обратная связь». Если совсем непонятно — «Поддержка». Лукиан получит сообщение и ответит.'
+        });
+
+        if (role === 'admin') {
+            steps.push({
+                target: { sel: '[data-page="admin"], a[href*="admin"]', text: 'Управление' },
+                hint: 'Жми **«Управление»** (только админ видит)',
+                title: '⚙️ Админка',
+                body: 'Управление пользователями, отделами, ролями. Можно создать юзера, поменять роль, переключить отдел.'
+            });
+        } else if (role === 'head') {
+            steps.push({
+                title: '⚙️ Ты — глава отдела',
+                body: 'Ты можешь редактировать воронки своего отдела ' + (dept || '') + ', ставить задачи сотрудникам и видеть весь отдел в дашборде.'
+            });
+        }
+
+        steps.push({
+            title: 'Готово, ' + name + '! 🏁',
+            body: 'Теперь ты знаешь всё. Возникнут вопросы — жми «Поддержка». Удачных задач, держи скорость!'
+        });
+
+        return steps;
+    }
+
+    let _state = { steps: [], idx: 0 };
+
+    function _renderStep() {
+        const s = _state.steps[_state.idx];
+        if (!s) { _close(); return; }
+        const total = _state.steps.length;
+        const isLast = _state.idx === total - 1;
+        const card = document.getElementById('tutv7-card');
+        if (!card) return;
+
+        // Подсветка цели
+        const target = s.target ? _findEl(s.target) : null;
+        _highlight(target);
+
+        const bodyHtml = (s.body || '').split('\n').map(l => _md(l)).join('<br>');
+        const hintHtml = s.hint ? '<div class="tutv7-hint">👉 ' + _md(s.hint) + '</div>' : '';
+        const isAction = !!s.hint;
+
+        card.innerHTML =
+            '<div class="tutv7-progress"><div class="tutv7-progress-bar" style="width:' + (((_state.idx+1)/total)*100) + '%"></div></div>' +
+            '<div class="tutv7-meta"><span class="tutv7-mode' + (isAction ? ' tutv7-mode-action' : '') + '">' + (isAction ? 'Действие' : 'Обучение') + '</span> <span class="tutv7-counter">' + (_state.idx+1) + ' / ' + total + '</span></div>' +
+            (s.title ? '<h3 class="tutv7-title">' + _md(s.title) + '</h3>' : '') +
+            hintHtml +
+            (s.body ? '<div class="tutv7-body">' + bodyHtml + '</div>' : '') +
+            '<div class="tutv7-buttons">' +
+                '<button class="tutv7-btn tutv7-back" ' + (_state.idx===0?'disabled':'') + '>← Назад</button>' +
+                '<button class="tutv7-btn tutv7-skip">Пропустить</button>' +
+                '<button class="tutv7-btn tutv7-next">' + (isLast ? 'Закончить ✓' : 'Дальше →') + '</button>' +
+            '</div>';
+        card.querySelector('.tutv7-back').onclick = function(){ if (_state.idx > 0) { _state.idx--; _renderStep(); } };
+        card.querySelector('.tutv7-skip').onclick = _close;
+        card.querySelector('.tutv7-next').onclick = function(){
+            if (isLast) _close();
+            else { _state.idx++; _renderStep(); }
+        };
+    }
+
+    function _open() {
+        _state.steps = buildSteps();
+        _state.idx = 0;
+        let card = document.getElementById('tutv7-card');
+        if (!card) {
+            card = document.createElement('div');
+            card.id = 'tutv7-card';
+            card.className = 'tutv7-card';
+            document.body.appendChild(card);
+        }
+        card.style.display = 'block';
+        _renderStep();
+    }
+
+    function _close() {
+        document.querySelectorAll('.tutv7-hl').forEach(x => x.classList.remove('tutv7-hl'));
+        const card = document.getElementById('tutv7-card');
+        if (card) card.style.display = 'none';
+    }
+
+    /* Удаляем все старые v3/v4/v5 карточки если остались */
+    function cleanupOld() {
+        ['tutv3-card','tutv3-choice','tutv4-card','tutv4-choice','tutv5-card','tutv5-choice'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        });
+    }
+    cleanupOld();
+    setTimeout(cleanupOld, 100);
+    setTimeout(cleanupOld, 500);
+
+    /* Подмена точки входа */
+    window.showTutorialChoice = _open;
+    window.startUserOnboarding = _open;
+    window.startTutorial = _open;
+    window.showOnboarding = _open;
+
+    /* Перехват кликов на ВСЕ варианты кнопок «Обучение» / «?» / «Help» */
+    document.addEventListener('click', function(e){
+        let n = e.target;
+        for (let i = 0; i < 8 && n; i++, n = n.parentElement) {
+            if (!n) break;
+            const cls = (typeof n.className === 'string') ? n.className.toLowerCase() : '';
+            const txt = (n.innerText || n.textContent || '').trim().toLowerCase();
+            const title = (n.title || n.getAttribute('aria-label') || '').toLowerCase();
+            // Текст кнопки
+            if (txt && txt.length < 40) {
+                if (txt === 'обучение' || txt.includes('пройти обучение') || txt.includes('начать обучение')) {
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    _open(); return;
+                }
+            }
+            // Title / aria-label
+            if (title && (title.includes('обучение') || title.includes('помощь') || title.includes('подсказ'))) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                _open(); return;
+            }
+            // Class содержит help/onboard/tutorial
+            if (cls && (cls.includes('help-btn') || cls.includes('onboard-btn') || cls.includes('tutorial-btn'))) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                _open(); return;
+            }
+        }
+    }, true);
+
+    /* CSS */
+    const css = document.createElement('style');
+    css.textContent =
+'.tutv7-card{position:fixed;bottom:24px;right:24px;width:420px;max-width:calc(100vw - 48px);background:#fff;color:#1a1f2e;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:22px;z-index:99999;font-family:inherit;animation:tutv7slide .25s ease-out}' +
+'@keyframes tutv7slide{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}' +
+'.tutv7-progress{height:4px;background:#e7eaf2;border-radius:2px;overflow:hidden;margin-bottom:12px}' +
+'.tutv7-progress-bar{height:100%;background:linear-gradient(90deg,#5a73ff,#8b5cf6);transition:width .3s}' +
+'.tutv7-meta{display:flex;justify-content:space-between;font-size:12px;color:#6b7590;margin-bottom:10px}' +
+'.tutv7-mode{background:#eef0f8;padding:3px 10px;border-radius:10px;color:#5a73ff;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.5px}' +
+'.tutv7-mode-action{background:#fff4e0;color:#d97706}' +
+'.tutv7-title{font-size:18px;font-weight:700;margin:8px 0 10px;color:#1a1f2e;line-height:1.3}' +
+'.tutv7-hint{font-size:15px;line-height:1.4;color:#1a1f2e;margin:6px 0 12px;padding:12px 14px;background:#fff8eb;border-left:3px solid #d97706;border-radius:6px}' +
+'.tutv7-body{font-size:14px;line-height:1.6;color:#4a5060;margin:0 0 18px}' +
+'.tutv7-body strong{color:#1a1f2e;font-weight:600}' +
+'.tutv7-buttons{display:flex;gap:8px;justify-content:space-between;align-items:center}' +
+'.tutv7-btn{padding:9px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px}' +
+'.tutv7-back{background:#f3f4f8;color:#1a1f2e}' +
+'.tutv7-back:disabled{opacity:.4;cursor:not-allowed}' +
+'.tutv7-skip{background:transparent;color:#6b7590}' +
+'.tutv7-next{background:linear-gradient(90deg,#5a73ff,#8b5cf6);color:#fff;flex:0 0 auto}' +
+'.tutv7-hl{outline:3px solid #f59e0b !important;outline-offset:3px;border-radius:6px;animation:tutv7pulse 1.2s infinite;position:relative;z-index:9998}' +
+'@keyframes tutv7pulse{0%,100%{outline-color:#f59e0b}50%{outline-color:#fbbf24}}' +
+'@media (max-width:600px){.tutv7-card{right:8px;left:8px;bottom:8px;width:auto}}';
+    document.head.appendChild(css);
 })();
 </script>
 
