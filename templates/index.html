@@ -4861,6 +4861,25 @@
 }
 .cv-cols { padding: 4px; }
 
+
+/* coexec-fastdrag-v1 */
+.cv-drag-ghost {
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 99999;
+    width: 280px;
+    background: white;
+    border: 2px solid #6366f1;
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 12px 32px rgba(99,102,241,0.35);
+    cursor: grabbing;
+    will-change: transform;
+    transform: translate3d(0,0,0);
+    transition: none;
+}
+
 </style>
 </head>
 <body>
@@ -15535,6 +15554,202 @@ window._cvDrop = async function(e, col, deptId) {
                 task.dept_funnel_id = prev;
                 renderCoexecView();
                 showToast(r && r.error || 'Ошибка переноса', 'error');
+            }
+        } catch(e) {
+            task.dept_funnel_id = prev;
+            renderCoexecView();
+            showToast('Сетевая ошибка', 'error');
+        }
+    }
+})();
+</script>
+
+
+<script>
+/* coexec-fastdrag-v1 — GPU-ускоренный drag */
+(function(){
+    'use strict';
+
+    let _drag = null;  // { taskId, ghost, offsetX, offsetY, x, y, scheduled }
+    let _scrollIv = null;
+
+    /* Хук в renderCoexecView чтобы навешать handlers после рендера */
+    const _origRender = window.renderCoexecView;
+    if (typeof _origRender === 'function') {
+        window.renderCoexecView = function() {
+            const r = _origRender.apply(this, arguments);
+            requestAnimationFrame(_attach);
+            return r;
+        };
+    }
+
+    function _attach() {
+        document.querySelectorAll('.cv-card').forEach(card => {
+            card.removeAttribute('draggable');
+            card.removeAttribute('ondragstart');
+            card.removeAttribute('ondragend');
+            card.removeEventListener('pointerdown', _down);
+            card.addEventListener('pointerdown', _down);
+        });
+        document.querySelectorAll('.cv-col').forEach(col => {
+            col.removeAttribute('ondragover');
+            col.removeAttribute('ondragleave');
+            col.removeAttribute('ondrop');
+        });
+    }
+
+    function _down(e) {
+        if (e.button !== 0) return;
+        if (e.target.closest('.cv-card-delete')) return;
+
+        const card = e.currentTarget;
+        const taskId = parseInt(card.dataset.taskId);
+        if (!taskId) return;
+
+        const startX = e.clientX, startY = e.clientY;
+        let started = false;
+
+        function move(ev) {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            if (!started && (dx*dx + dy*dy) > 36) {
+                _start(card, taskId, ev);
+                started = true;
+            }
+            if (started) {
+                _drag.x = ev.clientX;
+                _drag.y = ev.clientY;
+                _scheduleFrame();
+                _autoScroll(ev);
+            }
+        }
+
+        function up(ev) {
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+            document.removeEventListener('pointercancel', up);
+            if (started) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                _stop(ev);
+                // Suppress click
+                const sup = (e2) => { e2.stopPropagation(); e2.preventDefault(); document.removeEventListener('click', sup, true); };
+                document.addEventListener('click', sup, true);
+                setTimeout(() => document.removeEventListener('click', sup, true), 100);
+            }
+        }
+
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('pointercancel', up);
+    }
+
+    function _start(card, taskId, ev) {
+        const r = card.getBoundingClientRect();
+        const ghost = card.cloneNode(true);
+        ghost.classList.add('cv-drag-ghost');
+        ghost.style.width = r.width + 'px';
+        document.body.appendChild(ghost);
+        card.style.opacity = '0.3';
+        card.style.pointerEvents = 'none';
+        document.body.style.cursor = 'grabbing';
+
+        _drag = {
+            taskId,
+            card,
+            ghost,
+            offsetX: ev.clientX - r.left,
+            offsetY: ev.clientY - r.top,
+            x: ev.clientX,
+            y: ev.clientY,
+            scheduled: false
+        };
+    }
+
+    function _scheduleFrame() {
+        if (!_drag || _drag.scheduled) return;
+        _drag.scheduled = true;
+        requestAnimationFrame(_frame);
+    }
+
+    function _frame() {
+        if (!_drag) return;
+        _drag.scheduled = false;
+        const x = _drag.x - _drag.offsetX;
+        const y = _drag.y - _drag.offsetY;
+        _drag.ghost.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(-2deg)`;
+        // Подсветка drop target
+        const target = _findCol(_drag.x, _drag.y);
+        document.querySelectorAll('.cv-col').forEach(c => {
+            if (c === target) c.classList.add('cv-drop-target');
+            else c.classList.remove('cv-drop-target');
+        });
+    }
+
+    function _findCol(x, y) {
+        const cols = document.querySelectorAll('.cv-col');
+        for (const c of cols) {
+            const r = c.getBoundingClientRect();
+            if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return c;
+        }
+        return null;
+    }
+
+    function _autoScroll(ev) {
+        const container = document.querySelector('.cv-cols');
+        if (!container) return;
+        const r = container.getBoundingClientRect();
+        const edge = 100, speed = 18;
+        if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
+        if (ev.clientX > r.right - edge) {
+            _scrollIv = setInterval(() => { container.scrollLeft += speed; }, 12);
+        } else if (ev.clientX < r.left + edge) {
+            _scrollIv = setInterval(() => { container.scrollLeft -= speed; }, 12);
+        }
+    }
+
+    function _stop(ev) {
+        if (!_drag) return;
+        const target = _findCol(ev.clientX, ev.clientY);
+        const taskId = _drag.taskId;
+        // Cleanup
+        if (_drag.ghost) _drag.ghost.remove();
+        if (_drag.card) {
+            _drag.card.style.opacity = '';
+            _drag.card.style.pointerEvents = '';
+        }
+        document.querySelectorAll('.cv-col.cv-drop-target').forEach(c => c.classList.remove('cv-drop-target'));
+        document.body.style.cursor = '';
+        if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
+        _drag = null;
+
+        if (target) {
+            const did = target.dataset.deptId === 'null' ? null : Number(target.dataset.deptId);
+            _drop(taskId, did);
+        }
+    }
+
+    async function _drop(taskId, newDeptId) {
+        const task = (catsTreeState.coexecTasks || []).find(t => t.id === taskId);
+        if (!task) return;
+        const cur = (task.dept_funnel_id !== undefined) ? task.dept_funnel_id : null;
+        if (cur === newDeptId) return;
+        const prev = task.dept_funnel_id;
+        task.dept_funnel_id = newDeptId;
+        renderCoexecView();
+        try {
+            const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    dept_funnel_id: newDeptId,
+                    deadline_override: task.deadline_override || null,
+                    priority_override: task.priority_override || null
+                })
+            });
+            if (!r || !r.ok) {
+                task.dept_funnel_id = prev;
+                renderCoexecView();
+                showToast((r && r.error) || 'Ошибка', 'error');
             }
         } catch(e) {
             task.dept_funnel_id = prev;
