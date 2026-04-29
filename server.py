@@ -108,6 +108,36 @@ def _sanitize_text(s):
         return s
     return _HTML_TAG_RE.sub('', s)
 
+# auto-watcher-v4: helper для назначения наблюдателя по умолчанию
+def _ensure_auto_watcher(conn, task_id, creator_id, dept_id):
+    """Глава отдела если есть и не сам создатель, иначе — Дударев."""
+    try:
+        if not task_id or not creator_id:
+            return
+        watcher_id = None
+        if dept_id:
+            row = conn.execute(
+                "SELECT id FROM users WHERE department_id=%s AND role='head' AND id != %s AND COALESCE(is_active, TRUE) = TRUE ORDER BY id LIMIT 1",
+                (dept_id, creator_id)
+            ).fetchone()
+            if row:
+                watcher_id = row["id"]
+        if not watcher_id:
+            row = conn.execute(
+                "SELECT id FROM users WHERE username='dudarev' AND id != %s LIMIT 1",
+                (creator_id,)
+            ).fetchone()
+            if row:
+                watcher_id = row["id"]
+        if watcher_id:
+            conn.execute(
+                "INSERT INTO task_watchers (task_id, user_id) VALUES (%s, %s) ON CONFLICT (task_id, user_id) DO NOTHING",
+                (task_id, watcher_id)
+            )
+    except Exception as _awe:
+        print(f"[auto-watcher-v4] {_awe}")
+
+
 class _SqliteCompatRow:
     """Строка с доступом и по имени колонки (row["col"]), и по индексу (row[0]).
     Имитирует sqlite3.Row, чтобы старый код работал без правок."""
