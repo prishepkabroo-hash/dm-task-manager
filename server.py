@@ -16,6 +16,7 @@ _logging_quiet.getLogger('psycopg.pool').setLevel(_logging_quiet.ERROR)
 from psycopg.rows import dict_row as _dict_row
 import hashlib
 import secrets
+import time
 import os
 import mimetypes
 import urllib.parse
@@ -136,6 +137,35 @@ def _ensure_auto_watcher(conn, task_id, creator_id, dept_id):
             )
     except Exception as _awe:
         print(f"[auto-watcher-v4] {_awe}")
+
+
+# ratelimit-v1: защита /api/login от перебора
+_RL_LOGIN_FAILS = {}  # ip -> [count, last_ts, lock_until_ts]
+_RL_MAX_FAILS = 5
+_RL_LOCK_SEC = 900       # 15 минут блок
+_RL_RESET_SEC = 900      # 15 минут окно сброса счётчика
+
+def _rl_check(ip):
+    """Возвращает (allowed, retry_after_sec)."""
+    rec = _RL_LOGIN_FAILS.get(ip)
+    if not rec: return True, 0
+    now = time.time()
+    if rec[2] > now: return False, int(rec[2] - now)
+    return True, 0
+
+def _rl_fail(ip):
+    now = time.time()
+    rec = _RL_LOGIN_FAILS.get(ip, [0, 0.0, 0.0])
+    if now - rec[1] > _RL_RESET_SEC:
+        rec = [0, 0.0, 0.0]
+    rec[0] += 1
+    rec[1] = now
+    if rec[0] >= _RL_MAX_FAILS:
+        rec[2] = now + _RL_LOCK_SEC
+    _RL_LOGIN_FAILS[ip] = rec
+
+def _rl_ok(ip):
+    _RL_LOGIN_FAILS.pop(ip, None)
 
 
 class _SqliteCompatRow:
@@ -2384,6 +2414,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 return self._json({"error": f"ошибка создания: {e}"}, 500)
 
         if path == "/api/login":
+            # ratelimit-v1: блок при переборе
+            _ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+            _rl_allowed, _rl_retry = _rl_check(_ip)
+            if not _rl_allowed:
+                return self._json({"error": f"Слишком много попыток. Подожди {_rl_retry} сек."}, 429)
             # Rate-limit: максимум 5 неудач за 5 мин с одного IP
             ip = self.client_address[0] if self.client_address else "unknown"
             if not _check_login_rate_limit(ip):
@@ -2403,7 +2438,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"ok": True, "token": token, "user": {"id": user["id"], "full_name": user["full_name"], "role": user["role"]}}, ensure_ascii=False).encode())
                 return
             _record_login_failure(ip)
-            return self._json({"error": "Неверный логин или пароль"}, 401)
+            _rl_fail(_ip); return self._json({"error": "Неверный логин или пароль"}, 401)
 
         if path == "/api/register":
             username = data.get("username", "").strip()
