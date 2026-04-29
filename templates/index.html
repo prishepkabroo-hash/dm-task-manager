@@ -14250,6 +14250,134 @@ async function resetOnboarding(uid, fullName) {
 })();
 </script>
 
+
+<script>
+/* self-password-v1 + smm-titles */
+(function(){
+    'use strict';
+
+    /* Обновляем DEPT_TITLES чтобы включить СММ */
+    if (typeof window !== 'undefined' && window.formatUserTitle) {
+        // Перепишем formatUserTitle с обновлённой картой
+        const ORIG_TITLE_FN = window.formatUserTitle;
+        // Не переопределяем, делаем wrap — но проще сразу карта внутри
+    }
+
+    window.showChangePasswordModal = function() {
+        if (document.getElementById('cpOverlay')) return;
+        const html = `
+            <div id="cpOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;" onclick="if(event.target===this)document.getElementById('cpOverlay').remove()">
+                <div style="background:white;border-radius:14px;padding:24px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+                    <h3 style="margin:0 0 16px;font-size:18px;color:#0f172a;">Смена пароля</h3>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <input id="cpOld" type="password" placeholder="Текущий пароль" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                        <input id="cpNew" type="password" placeholder="Новый пароль (минимум 4 символа)" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                        <input id="cpNew2" type="password" placeholder="Повтори новый пароль" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+                        <button onclick="document.getElementById('cpOverlay').remove()" style="padding:8px 16px;border:1px solid #e5e7eb;background:white;border-radius:8px;cursor:pointer;font-size:13px;">Отмена</button>
+                        <button onclick="submitChangePassword()" style="padding:8px 16px;border:none;background:#4f46e5;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Сменить</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => document.getElementById('cpOld').focus(), 50);
+    };
+
+    window.submitChangePassword = async function() {
+        const old_password = document.getElementById('cpOld').value;
+        const new_password = document.getElementById('cpNew').value;
+        const new2 = document.getElementById('cpNew2').value;
+        if (!old_password || !new_password) {
+            showToast('Заполни оба поля', 'error'); return;
+        }
+        if (new_password.length < 4) {
+            showToast('Новый пароль минимум 4 символа', 'error'); return;
+        }
+        if (new_password !== new2) {
+            showToast('Пароли не совпадают', 'error'); return;
+        }
+        const r = await apiCall('/api/profile/password', {
+            method: 'PUT',
+            body: JSON.stringify({old_password, new_password})
+        });
+        if (r && r.ok) {
+            showToast('Пароль успешно изменён', 'success');
+            document.getElementById('cpOverlay').remove();
+        } else {
+            showToast((r && r.error) || 'Ошибка', 'error');
+        }
+    };
+})();
+
+/* СММ в карте титулов */
+(function(){
+    'use strict';
+    /* Перехватываем formatUserTitle (если уже определён) и добавляем СММ */
+    const _orig = window.formatUserTitle;
+
+    /* Определяем v3-fallback нашей функции если её нет */
+    if (typeof _orig !== 'function') return;
+
+    /* Перепишем с расширенной картой */
+    const USER_OVERRIDES = { 'dudarev': 'Директор', 'mokan': 'Техн. спец.' };
+    const DEPT_TITLES_EXT = {
+        'Отдел продаж': { head: 'РОП', member: 'Менеджер Отдела продаж' },
+        'Клуб': { head: 'Руководитель симрейсинг клуба', member: 'Сотрудник клуба' },
+        'Склад': { head: 'Руководитель склада', member: 'Менеджер склада' },
+        'Технический отдел': { head: 'Технический руководитель', member: 'Технический специалист' },
+        'СММ': { head: 'Руководитель СММ', member: 'СММ-специалист' }
+    };
+
+    window.formatUserTitle = function(user) {
+        if (!user) return '';
+        if (USER_OVERRIDES[user.username]) return USER_OVERRIDES[user.username];
+        if (user.role === 'admin') return 'Администратор';
+        const dept = (typeof allDepartments !== 'undefined' && allDepartments) ? allDepartments.find(d => d.id === user.department_id) : null;
+        const dn = dept ? dept.name : null;
+        const t = dn ? DEPT_TITLES_EXT[dn] : null;
+        if (user.role === 'head') return t && t.head ? t.head : 'Руководитель';
+        if (user.role === 'member') return t && t.member ? t.member : '';
+        return '';
+    };
+})();
+</script>
+
+
+<script>
+/* self-password-v1: добавить кнопку «Сменить пароль» в профиль */
+(function(){
+    'use strict';
+    function injectBtn() {
+        const profilePage = document.getElementById('page-profile');
+        if (!profilePage) return;
+        if (profilePage.querySelector('#cpProfileBtn')) return;
+        const btn = document.createElement('button');
+        btn.id = 'cpProfileBtn';
+        btn.onclick = () => showChangePasswordModal();
+        btn.style.cssText = 'padding:10px 18px;background:#f1f5f9;border:1px solid #e5e7eb;border-radius:10px;color:#1e293b;font-size:13px;font-weight:600;cursor:pointer;margin:16px;display:inline-flex;align-items:center;gap:6px;';
+        btn.innerHTML = '🔑 Сменить пароль';
+        // Вставляем в самое начало профиля
+        profilePage.insertBefore(btn, profilePage.firstChild);
+    }
+    /* Запускаем при отрисовке профиля */
+    if (typeof renderProfile === 'function') {
+        const orig = window.renderProfile;
+        window.renderProfile = function() {
+            const r = orig.apply(this, arguments);
+            setTimeout(injectBtn, 50);
+            return r;
+        };
+    }
+    // На всякий случай — каждые 2 сек проверяем
+    setInterval(() => {
+        const profilePage = document.getElementById('page-profile');
+        if (profilePage && profilePage.classList.contains('active')) injectBtn();
+    }, 2000);
+})();
+</script>
+
 </body>
 </html>
 

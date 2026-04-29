@@ -3136,6 +3136,37 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
+        # self-password-v1: смена своего пароля
+        if path == "/api/profile/password":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            old_password = data.get("old_password") or ""
+            new_password = data.get("new_password") or ""
+            if not old_password or not new_password:
+                return self._json({"error": "Введите старый и новый пароль"}, 400)
+            if len(new_password) < 4:
+                return self._json({"error": "Новый пароль минимум 4 символа"}, 400)
+            conn = get_db()
+            row = conn.execute("SELECT password_hash FROM users WHERE id=%s", (u["id"],)).fetchone()
+            if not row:
+                conn.close(); return self._json({"error": "пользователь не найден"}, 404)
+            # Проверим старый пароль
+            import hashlib, secrets
+            try:
+                salt, h_hex = (row["password_hash"] or "").split(":", 1)
+                h_check = hashlib.pbkdf2_hmac("sha256", old_password.encode(), salt.encode(), 100000).hex()
+                if h_check != h_hex:
+                    conn.close(); return self._json({"error": "Старый пароль неверный"}, 400)
+            except Exception:
+                conn.close(); return self._json({"error": "Ошибка проверки пароля"}, 500)
+            # Сохраняем новый
+            new_salt = secrets.token_hex(16)
+            new_h = hashlib.pbkdf2_hmac("sha256", new_password.encode(), new_salt.encode(), 100000)
+            new_ph = new_salt + ":" + new_h.hex()
+            conn.execute("UPDATE users SET password_hash=%s WHERE id=%s", (new_ph, u["id"]))
+            conn.commit(); conn.close()
+            return self._json({"ok": True})
+
         if path == "/api/profile":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
