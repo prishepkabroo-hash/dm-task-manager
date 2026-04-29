@@ -5043,6 +5043,11 @@ body, .login-page, .landing {
 }
 .lp-footer-v1 { color: #6b7590 !important; }
 </style>
+<style>
+.mention-dropdown-v2::-webkit-scrollbar { width: 8px; }
+.mention-dropdown-v2::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.mention-dropdown-v2::-webkit-scrollbar-track { background: #f1f5f9; }
+</style>
 </head>
 <body>
     <!-- SPLASH LOADING SCREEN -->
@@ -17383,30 +17388,26 @@ window._cvDrop = async function(e, col, deptId) {
             document.body.appendChild(_dd);
         }
         _hideAllExisting();
-        /* mention-position-v1: умное позиционирование */
+        /* mention-position-v2: правильный выбор сторон */
         const rect = input.getBoundingClientRect();
+        const ITEM_H = 52;
+        const desiredH = Math.min(items.length * ITEM_H + 12, 400);
+        const spaceBelow = window.innerHeight - rect.bottom - 16;
+        const spaceAbove = rect.top - 16;
+        // Открываем вверх если внизу мало И сверху больше
+        const openUp = (spaceBelow < desiredH) && (spaceAbove > spaceBelow);
         _dd.style.left = rect.left + 'px';
-        // Сначала рендерим невидимо чтобы измерить высоту
-        _dd.style.visibility = 'hidden';
-        _dd.style.display = 'block';
-        _dd.style.top = '0px';
-        // Подождём reflow и решим: вниз или вверх
-        const ddH = _dd.offsetHeight || 300;
-        const spaceBelow = window.innerHeight - rect.bottom - 8;
-        const spaceAbove = rect.top - 8;
-        let top;
-        if (spaceBelow >= ddH || spaceBelow >= spaceAbove) {
-            top = rect.bottom + window.scrollY + 4;
-            _dd.style.maxHeight = Math.min(360, spaceBelow - 8) + 'px';
+        if (openUp) {
+            const useH = Math.min(desiredH, spaceAbove);
+            _dd.style.top = (rect.top + window.scrollY - useH - 4) + 'px';
+            _dd.style.maxHeight = useH + 'px';
         } else {
-            top = rect.top + window.scrollY - Math.min(ddH, spaceAbove - 8) - 4;
-            _dd.style.maxHeight = Math.min(360, spaceAbove - 8) + 'px';
+            _dd.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+            _dd.style.maxHeight = Math.min(desiredH, Math.max(spaceBelow, 200)) + 'px';
         }
-        _dd.style.top = top + 'px';
-        _dd.style.visibility = 'visible';
         _dd.style.zIndex = '999999';
-        // Диагностика
-        try { console.log('[mention-v1] показано юзеров:', items.length, '/', getAllUsers().length); } catch(e){}
+        _dd.style.display = 'block';
+        try { console.log('[mention-v2] показано:', items.length, '/', getAllUsers().length, '(открыто', openUp ? 'вверх' : 'вниз', ')'); } catch(e){}
         _dd.innerHTML = items.map((u, i) => {
             const dept = (typeof allDepartments !== 'undefined' && Array.isArray(allDepartments))
                 ? (allDepartments.find(d => d.id === u.department_id) || {}).name : null;
