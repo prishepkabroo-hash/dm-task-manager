@@ -16450,17 +16450,16 @@ window._cvDrop = async function(e, col, deptId) {
     }
 
     function _scroll(ev) {
+        /* coexec-uniform-v1: константная скорость во всех режимах */
         const c = document.querySelector('.cv-cols');
         if (!c) { _scrollVx = 0; return; }
         const r = c.getBoundingClientRect();
-        const edge = 200;
-        const maxV = 200;  // ТУРБО — 200 px/frame
+        const edge = 150;
+        const SPEED = 250;  // px/frame — константно для всех режимов
         if (ev.clientX > r.right - edge) {
-            const k = Math.min(1, (ev.clientX - (r.right - edge)) / edge);
-            _scrollVx = maxV * (k * 0.7 + 0.3);
+            _scrollVx = SPEED;
         } else if (ev.clientX < r.left + edge) {
-            const k = Math.min(1, ((r.left + edge) - ev.clientX) / edge);
-            _scrollVx = -maxV * (k * 0.7 + 0.3);
+            _scrollVx = -SPEED;
         } else {
             _scrollVx = 0;
         }
