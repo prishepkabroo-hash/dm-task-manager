@@ -9738,7 +9738,7 @@ async function showTaskDetail(taskId) {
         <div style="padding:16px 0 0;margin-top:14px;border-top:1px solid #f1f5f9;">
             <div id="mainAttachPreview" style="display:none;margin-bottom:8px;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #eef2f7;font-size:12px;"></div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                <input type="text" id="detailQuickComment" placeholder="Написать комментарий..." style="flex:1;min-width:160px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;transition:all 0.15s;" onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" onkeydown="if(event.key==='Enter')sendComment(${taskId},'main')">
+                <input type="text" id="detailQuickComment" autocomplete="off" spellcheck="false" placeholder="Написать комментарий..." style="flex:1;min-width:160px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;transition:all 0.15s;" onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" onkeydown="if(event.key==='Enter')sendComment(${taskId},'main')">
                 <input type="file" id="mainFileInput" style="display:none;" onchange="handleCommentFile('main')" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">
                 <button title="Прикрепить файл" onclick="document.getElementById('mainFileInput').click()" style="width:40px;height:40px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseenter="this.style.background='#eff6ff';this.style.borderColor='#bfdbfe'" onmouseleave="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">📎</button>
                 <button id="mainVoiceBtn" title="Голосовое сообщение" onclick="toggleCommentVoice('main',${taskId})" style="width:40px;height:40px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseenter="this.style.background='#eff6ff';this.style.borderColor='#bfdbfe'" onmouseleave="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">🎤</button>
@@ -10939,7 +10939,7 @@ async function loadDetailComments(taskId) {
             '<div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Добавить комментарий</div>' +
             '<div id="tabAttachPreview" style="display:none;margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;"></div>' +
             '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
-                '<input type="text" id="tabCommentInput" placeholder="Написать комментарий..." style="flex:1;min-width:140px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;" onkeydown="if(event.key===\'Enter\')sendComment(' + taskId + ',\'tab\')">' +
+                '<input type="text" id="tabCommentInput" autocomplete="off" spellcheck="false" placeholder="Написать комментарий..." style="flex:1;min-width:140px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;" onkeydown="if(event.key===\'Enter\')sendComment(' + taskId + ',\'tab\')">' +
                 '<input type="file" id="tabFileInput" style="display:none;" onchange="handleCommentFile(\'tab\')" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">' +
                 '<button title="Прикрепить файл" onclick="document.getElementById(\'tabFileInput\').click()" style="width:36px;height:36px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;">📎</button>' +
                 '<button id="tabVoiceBtn" title="Голосовое сообщение" onclick="toggleCommentVoice(\'tab\',' + taskId + ')" style="width:36px;height:36px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;">🎤</button>' +
@@ -17326,7 +17326,17 @@ window._cvDrop = async function(e, col, deptId) {
     };
 
     function getAllUsers() {
-        return (typeof allUsers !== 'undefined' && Array.isArray(allUsers)) ? allUsers : [];
+        /* mention-polish-v1: убираем тестовых юзеров */
+        const list = (typeof allUsers !== 'undefined' && Array.isArray(allUsers)) ? allUsers : [];
+        return list.filter(u => {
+            const un = (u.username || '').toLowerCase();
+            const fn = (u.full_name || '').toLowerCase();
+            if (un.startsWith('_')) return false;
+            if (fn === 's' || fn === 'test' || fn === 'qa') return false;
+            if (un === 's' || un === 'test' || un === 'qa') return false;
+            if (u.is_active === false || u.is_active === 0) return false;
+            return true;
+        });
     }
 
     function _matchUsers(query) {
@@ -17476,3 +17486,5 @@ window._cvDrop = async function(e, col, deptId) {
 </html>
 
 <!-- whats-new-v2-removed: cleanup applied -->
+
+<!-- mention-polish-v1 -->
