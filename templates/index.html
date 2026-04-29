@@ -17381,8 +17381,12 @@ window._cvDrop = async function(e, col, deptId) {
     function _show(input, atPos, query) {
         const items = _matchUsers(query);
         if (!items.length) { _hide(); return; }
+        /* mention-singleton-v1: убиваем всё старое перед созданием */
+        document.querySelectorAll('.mention-dropdown-v2, .mention-dropdown').forEach(el => el.remove());
+        _dd = null;
         if (!_dd) {
             _dd = document.createElement('div');
+            _dd.id = 'mention-dropdown-singleton';
             _dd.className = 'mention-dropdown-v2';
             _dd.style.cssText = 'position:absolute;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:240px;max-width:320px;max-height:300px;overflow-y:auto;z-index:99999;padding:6px;font-size:14px';
             document.body.appendChild(_dd);
