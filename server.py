@@ -2389,6 +2389,10 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             if not username or not full_name or not password:
                 conn.close()
                 return self._json({"error": "username, full_name, password обязательны"}, 400)
+            # password-policy-v1
+            if len(password) < 6:
+                conn.close()
+                return self._json({"error": "пароль должен быть минимум 6 символов"}, 400)
             if new_role not in ("admin", "head", "member"):
                 conn.close()
                 return self._json({"error": "роль некорректна"}, 400)
@@ -3341,7 +3345,11 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             except Exception:
                 conn.close(); return self._json({"error": "Ошибка проверки пароля"}, 500)
             # Сохраняем новый
-            new_salt = secrets.token_hex(16)
+            new_            # password-policy-v1
+            if not new_password or len(new_password) < 6:
+                conn.close()
+                return self._json({"error": "новый пароль должен быть минимум 6 символов"}, 400)
+            salt = secrets.token_hex(16)
             new_h = hashlib.pbkdf2_hmac("sha256", new_password.encode(), new_salt.encode(), 100000)
             new_ph = new_salt + ":" + new_h.hex()
             conn.execute("UPDATE users SET password_hash=%s WHERE id=%s", (new_ph, u["id"]))
