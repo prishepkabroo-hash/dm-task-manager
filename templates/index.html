@@ -4685,6 +4685,154 @@
     flex-shrink: 0;
 }
 
+
+/* coexec-parity-v1 */
+
+/* Контейнер с авто-скроллом и фильтрами */
+.cv-toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0 0 12px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.cv-search {
+    flex: 1; min-width: 180px; max-width: 320px;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.15s;
+}
+.cv-search:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+.cv-filter-select {
+    padding: 7px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+    background: white;
+    outline: none;
+    cursor: pointer;
+}
+.cv-filter-reset {
+    padding: 7px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Колонки большего размера, с цветным акцентом сверху */
+.cv-cols {
+    align-items: stretch;
+    min-height: 320px;
+    /* плавный скролл при drag */
+    scroll-behavior: smooth;
+}
+.cv-col {
+    flex: 0 0 300px;
+    background: white;
+    border: 1px solid #f1f5f9;
+    border-top: 4px solid #94a3b8;
+    border-radius: 10px;
+    padding: 14px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.cv-col-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 4px 8px;
+    border-bottom: 1px solid #f8fafc;
+    font-size: 13px; font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #1e293b;
+}
+.cv-col-head .cv-col-dot { width: 10px; height: 10px; }
+.cv-col-cards {
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1;
+}
+
+/* Карточка задачи в стиле обычного канбана */
+.cv-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-left: 3px solid #94a3b8;
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s ease;
+}
+.cv-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15,23,42,0.08);
+    border-color: #6366f1;
+}
+.cv-card[data-prio="high"] { border-left-color: #ef4444; }
+.cv-card[data-prio="medium"] { border-left-color: #f59e0b; }
+.cv-card[data-prio="low"] { border-left-color: #10b981; }
+.cv-card-delete {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 22px; height: 22px;
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 2;
+}
+.cv-card:hover .cv-card-delete { display: inline-flex; }
+.cv-card-delete:hover { background: #b91c1c; color: white; border-color: #b91c1c; }
+.cv-card-title {
+    font-weight: 600; font-size: 14px; color: #0f172a;
+    margin-bottom: 8px; line-height: 1.35; word-break: break-word;
+    padding-right: 28px;
+}
+.cv-card-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 4px;
+}
+.cv-card-status-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    flex-shrink: 0;
+}
+.cv-card-status-dot.done { background: #22c55e; border-color: #22c55e; }
+.cv-card-overdue { color: #dc2626; font-weight: 700; }
+.cv-card-assignee-avatar {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    color: white;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    flex-shrink: 0;
+}
+.cv-empty {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+    padding: 24px 12px;
+    border: 1px dashed #e2e8f0;
+    border-radius: 8px;
+    margin-top: 4px;
+}
+
 </style>
 </head>
 <body>
@@ -14993,6 +15141,204 @@ window._cvDrop = async function(e, col, deptId) {
             return r;
         };
     }
+})();
+</script>
+
+
+<script>
+/* coexec-parity-v1 */
+(function(){
+    'use strict';
+
+    /* state фильтров */
+    if (typeof catsTreeState !== 'undefined') {
+        if (!catsTreeState.cvFilter) catsTreeState.cvFilter = { search: '', priority: '' };
+    }
+
+    /* Авто-скролл контейнера во время drag */
+    let _cvScrollInterval = null;
+    function _cvAutoScroll(e) {
+        const container = document.querySelector('.cv-cols');
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const edge = 60;
+        if (_cvScrollInterval) { clearInterval(_cvScrollInterval); _cvScrollInterval = null; }
+        if (e.clientX > rect.right - edge) {
+            _cvScrollInterval = setInterval(() => container.scrollLeft += 12, 16);
+        } else if (e.clientX < rect.left + edge) {
+            _cvScrollInterval = setInterval(() => container.scrollLeft -= 12, 16);
+        }
+    }
+    function _cvStopScroll() {
+        if (_cvScrollInterval) { clearInterval(_cvScrollInterval); _cvScrollInterval = null; }
+    }
+
+    /* Перепишем _cvDragStart с включением авто-скролла */
+    const _origDragStart = window._cvDragStart;
+    window._cvDragStart = function(e, taskId) {
+        if (typeof _origDragStart === 'function') _origDragStart(e, taskId);
+        document.addEventListener('dragover', _cvAutoScroll);
+    };
+    const _origDragEnd = window._cvDragEnd;
+    window._cvDragEnd = function(e) {
+        if (typeof _origDragEnd === 'function') _origDragEnd(e);
+        document.removeEventListener('dragover', _cvAutoScroll);
+        _cvStopScroll();
+    };
+
+    /* Удалить себя из coexec задачи */
+    window._cvRemoveCoexec = async function(e, taskId) {
+        e.stopPropagation();
+        if (!confirm('Убрать себя из соисполнителей этой задачи?')) return;
+        if (!currentUser) return;
+        const r = await apiCall('/api/tasks/' + taskId + '/coexecutors', {
+            method: 'POST',
+            body: JSON.stringify({remove: [currentUser.id]})
+        });
+        if (r && r.ok) {
+            showToast('Убран из соисполнителей', 'success');
+            await loadCoexecTasks();
+            renderCoexecView();
+        } else {
+            showToast(r && r.error || 'Ошибка', 'error');
+        }
+    };
+
+    /* Перепишем _cvCard на расширенный вид + кнопка delete */
+    window._cvCard = function(t) {
+        const eff_deadline = t.deadline_override || t.deadline;
+        const eff_priority = t.priority_override || t.priority || 'low';
+        const dl = _cvFmtDeadline(eff_deadline);
+        const isOverdue = dl && dl.overdue;
+        const prioMap = { low: 'Низкий', medium: 'Средний', high: 'Высокий' };
+        const isDone = t.status === 'done';
+        const assignee = t.assignee_name ? t.assignee_name.charAt(0).toUpperCase() : '?';
+        const assigneeColors = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#6366f1','#ef4444'];
+        const assigneeColor = assigneeColors[(t.assigned_to || 0) % assigneeColors.length];
+        return `
+            <div class="cv-card"
+                 data-prio="${eff_priority}"
+                 draggable="true"
+                 data-task-id="${t.id}"
+                 ondragstart="_cvDragStart(event, ${t.id})"
+                 ondragend="_cvDragEnd(event)"
+                 onclick="showTaskDetail(${t.id})">
+                <button class="cv-card-delete" onclick="_cvRemoveCoexec(event, ${t.id})" title="Убрать себя из соисполнителей">×</button>
+                <div class="cv-card-title">${escHtml(t.title || '')}</div>
+                <div class="cv-card-row">
+                    <span class="cv-card-status-dot ${isDone ? 'done' : ''}"></span>
+                    ${dl ? `<span class="cv-card-chip cv-card-deadline ${isOverdue ? 'overdue' : ''}">📅 ${dl.text}</span>` : ''}
+                    ${eff_priority ? `<span class="cv-card-chip cv-card-prio-${eff_priority}">⚑ ${prioMap[eff_priority] || ''}</span>` : ''}
+                </div>
+                <div class="cv-card-row">
+                    ${t.assignee_name ? `<span class="cv-card-assignee-avatar" style="background:${assigneeColor}">${assignee}</span><span style="font-size:11px;color:#64748b;">${escHtml(t.assignee_name.split(' ')[0])}</span>` : '<span style="font-size:11px;color:#94a3b8;">не назначен</span>'}
+                    ${t.creator_name ? `<span style="margin-left:auto;font-size:11px;color:#94a3b8;">от ${escHtml(t.creator_name.split(' ')[0])}</span>` : ''}
+                </div>
+            </div>
+        `;
+    };
+
+    /* Перепишем _cvDeptColumn с цветным верхним акцентом и фильтрацией */
+    window._cvDeptColumn = function(deptId, deptName, deptColor, tasks) {
+        const filter = (typeof catsTreeState !== 'undefined' && catsTreeState.cvFilter) ? catsTreeState.cvFilter : {};
+        const filtered = tasks.filter(t => {
+            const eff = (t.dept_funnel_id !== null && t.dept_funnel_id !== undefined) ? t.dept_funnel_id : null;
+            if (eff !== deptId) return false;
+            if (filter.search) {
+                const q = filter.search.toLowerCase();
+                if (!(t.title || '').toLowerCase().includes(q)) return false;
+            }
+            if (filter.priority) {
+                const eff_p = t.priority_override || t.priority;
+                if (eff_p !== filter.priority) return false;
+            }
+            return true;
+        });
+        const dataAttr = deptId === null ? 'null' : deptId;
+        return `
+            <div class="cv-col"
+                 data-dept-id="${dataAttr}"
+                 style="border-top-color: ${deptColor};"
+                 ondragover="_cvDragOver(event, this)"
+                 ondragleave="_cvDragLeave(event, this)"
+                 ondrop="_cvDrop(event, this, ${dataAttr})">
+                <div class="cv-col-head">
+                    <span class="cv-col-dot" style="background:${deptColor};"></span>
+                    <span>${escHtml(deptName)}</span>
+                    <span class="cv-col-count">${filtered.length}</span>
+                </div>
+                <div class="cv-col-cards">
+                    ${filtered.length ? filtered.map(_cvCard).join('') : '<div class="cv-empty">Пусто</div>'}
+                </div>
+            </div>
+        `;
+    };
+
+    /* Toolbar с фильтрами */
+    window._cvToolbar = function() {
+        const filter = (typeof catsTreeState !== 'undefined' && catsTreeState.cvFilter) ? catsTreeState.cvFilter : { search: '', priority: '' };
+        const hasActive = filter.search || filter.priority;
+        return `
+            <div class="cv-toolbar">
+                <input type="text" class="cv-search" placeholder="🔍 Поиск по названию..." value="${escHtml(filter.search || '')}" oninput="_cvSetFilter('search', this.value)">
+                <select class="cv-filter-select" onchange="_cvSetFilter('priority', this.value)">
+                    <option value="">Любой приоритет</option>
+                    <option value="high" ${filter.priority === 'high' ? 'selected' : ''}>Высокий</option>
+                    <option value="medium" ${filter.priority === 'medium' ? 'selected' : ''}>Средний</option>
+                    <option value="low" ${filter.priority === 'low' ? 'selected' : ''}>Низкий</option>
+                </select>
+                ${hasActive ? '<button class="cv-filter-reset" onclick="_cvResetFilters()">✕ Сброс</button>' : ''}
+            </div>
+        `;
+    };
+
+    window._cvSetFilter = function(key, value) {
+        if (!catsTreeState.cvFilter) catsTreeState.cvFilter = {};
+        catsTreeState.cvFilter[key] = value;
+        renderCoexecView();
+        // Re-focus search input после re-render
+        if (key === 'search') {
+            setTimeout(() => {
+                const inp = document.querySelector('.cv-search');
+                if (inp) { inp.focus(); inp.setSelectionRange(value.length, value.length); }
+            }, 10);
+        }
+    };
+
+    window._cvResetFilters = function() {
+        catsTreeState.cvFilter = { search: '', priority: '' };
+        renderCoexecView();
+    };
+
+    /* Перепишем renderCoexecView с тулбаром */
+    const _origRenderCoexecView = window.renderCoexecView;
+    window.renderCoexecView = function() {
+        const header = document.getElementById('catsHeader');
+        const list = document.getElementById('catsList');
+        if (!header || !list) return;
+
+        const tasks = catsTreeState.coexecTasks || [];
+
+        header.innerHTML = `
+            <div class="cv-header">
+                <div class="cv-header-icon">🤝</div>
+                <div class="cv-header-text">
+                    <h2>Совместные задачи</h2>
+                    <div class="cv-sub">${tasks.length} задач, где ты соисполнитель. Перетаскивай между колонками.</div>
+                </div>
+            </div>
+            ${_cvToolbar()}
+        `;
+
+        const depts = allDepartments || [];
+        let cols = '';
+        cols += _cvDeptColumn(null, '📋 Новая задача', '#94a3b8', tasks);
+        depts.forEach(d => {
+            cols += _cvDeptColumn(d.id, d.name, d.color || '#3b82f6', tasks);
+        });
+
+        list.innerHTML = `<div class="cv-wrap"><div class="cv-cols">${cols}</div></div>`;
+    };
 })();
 </script>
 
