@@ -3019,6 +3019,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                 "INSERT INTO categories (name, color, icon, sort_order, department_id, parent_id, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                 (name, color, icon, max_order + 1, dept_id, parent_id, u["id"])
             ).fetchone()["id"]
+            # _aw5_call_inserted: auto-watcher v5
+            try: _ensure_auto_watcher(conn, task_id, u["id"], data.get("department_id"))
+            except Exception: pass
             conn.commit()
             row = conn.execute("SELECT * FROM categories WHERE id=%s", (new_id,)).fetchone()
             conn.close()
