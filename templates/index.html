@@ -15942,6 +15942,248 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<script>
+/* coexec-turbo-v1 — мгновенный drag + турбо-скролл через rAF */
+(function(){
+    'use strict';
+
+    let _drag = null;       // { taskId, ghost, offsetX, offsetY, x, y }
+    let _scrollRAF = null;
+    let _scrollVx = 0;      // скорость скролла по X
+
+    /* Хук в renderCoexecView */
+    const _origRender = window.renderCoexecView;
+    if (typeof _origRender === 'function') {
+        window.renderCoexecView = function() {
+            const r = _origRender.apply(this, arguments);
+            requestAnimationFrame(_attach);
+            // Восстановим режим размера
+            const cols = document.querySelector('.cv-cols');
+            if (cols && catsTreeState.cvViewMode) {
+                cols.classList.remove('cv-mode-compact','cv-mode-normal','cv-mode-detailed');
+                cols.classList.add('cv-mode-' + catsTreeState.cvViewMode);
+            }
+            return r;
+        };
+    }
+
+    /* View mode toggle */
+    if (typeof catsTreeState !== 'undefined' && !catsTreeState.cvViewMode) {
+        try { catsTreeState.cvViewMode = localStorage.getItem('cvViewMode') || 'normal'; }
+        catch(e) { catsTreeState.cvViewMode = 'normal'; }
+    }
+    window._cvSetViewMode = function(mode) {
+        catsTreeState.cvViewMode = mode;
+        try { localStorage.setItem('cvViewMode', mode); } catch(e) {}
+        renderCoexecView();
+    };
+
+    /* Toolbar override (если есть) */
+    const _origToolbar = window._cvToolbar;
+    window._cvToolbar = function() {
+        const orig = _origToolbar ? _origToolbar() : '';
+        const mode = catsTreeState.cvViewMode || 'normal';
+        const toggle = `
+            <div class="cv-view-toggle">
+                <button class="cv-view-btn ${mode === 'compact' ? 'active' : ''}" onclick="_cvSetViewMode('compact')" title="Компактный">▬</button>
+                <button class="cv-view-btn ${mode === 'normal' ? 'active' : ''}" onclick="_cvSetViewMode('normal')" title="Средний">▤</button>
+                <button class="cv-view-btn ${mode === 'detailed' ? 'active' : ''}" onclick="_cvSetViewMode('detailed')" title="Детальный">▦</button>
+            </div>
+        `;
+        if (orig.includes('cv-toolbar')) {
+            return orig.replace('</div>', toggle + '</div>');
+        }
+        return `<div class="cv-toolbar">${toggle}</div>`;
+    };
+
+    function _attach() {
+        document.querySelectorAll('.cv-card').forEach(card => {
+            card.removeAttribute('draggable');
+            card.removeAttribute('ondragstart');
+            card.removeAttribute('ondragend');
+            // Убираем старые обработчики
+            const newCard = card.cloneNode(true);
+            card.parentNode.replaceChild(newCard, card);
+        });
+        document.querySelectorAll('.cv-card').forEach(card => {
+            card.addEventListener('pointerdown', _down);
+        });
+    }
+
+    function _down(e) {
+        if (e.button !== 0) return;
+        if (e.target.closest('.cv-card-delete')) return;
+
+        const card = e.currentTarget;
+        const taskId = parseInt(card.dataset.taskId);
+        if (!taskId) return;
+
+        const startX = e.clientX, startY = e.clientY;
+        let started = false;
+
+        function move(ev) {
+            if (!started) {
+                if ((ev.clientX-startX)**2 + (ev.clientY-startY)**2 > 36) {
+                    _start(card, taskId, ev);
+                    started = true;
+                }
+            }
+            if (started) {
+                _drag.x = ev.clientX;
+                _drag.y = ev.clientY;
+                _frameUpdate();
+                _scrollUpdate(ev);
+            }
+        }
+        function up(ev) {
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+            document.removeEventListener('pointercancel', up);
+            if (started) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                _stop(ev);
+                const sup = (e2) => { e2.stopPropagation(); e2.preventDefault(); document.removeEventListener('click', sup, true); };
+                document.addEventListener('click', sup, true);
+                setTimeout(() => document.removeEventListener('click', sup, true), 100);
+            }
+        }
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('pointercancel', up);
+    }
+
+    function _start(card, taskId, ev) {
+        const r = card.getBoundingClientRect();
+        const ghost = card.cloneNode(true);
+        ghost.classList.add('cv-drag-ghost');
+        ghost.style.width = r.width + 'px';
+        document.body.appendChild(ghost);
+        card.style.opacity = '0.3';
+        card.style.pointerEvents = 'none';
+        document.body.style.cursor = 'grabbing';
+
+        _drag = {
+            taskId,
+            card,
+            ghost,
+            offsetX: ev.clientX - r.left,
+            offsetY: ev.clientY - r.top,
+            x: ev.clientX,
+            y: ev.clientY
+        };
+    }
+
+    /* Прямое обновление в pointermove (без rAF — для мгновенной реакции) */
+    function _frameUpdate() {
+        if (!_drag) return;
+        const x = _drag.x - _drag.offsetX;
+        const y = _drag.y - _drag.offsetY;
+        _drag.ghost.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(-2deg)`;
+        // Highlight
+        const target = _findCol(_drag.x, _drag.y);
+        document.querySelectorAll('.cv-col').forEach(c => {
+            if (c === target) c.classList.add('cv-drop-target');
+            else c.classList.remove('cv-drop-target');
+        });
+    }
+
+    function _findCol(x, y) {
+        const cols = document.querySelectorAll('.cv-col');
+        for (const c of cols) {
+            const r = c.getBoundingClientRect();
+            if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return c;
+        }
+        return null;
+    }
+
+    /* ТУРБО-скролл через rAF */
+    function _scrollUpdate(ev) {
+        const container = document.querySelector('.cv-cols');
+        if (!container) { _scrollVx = 0; return; }
+        const r = container.getBoundingClientRect();
+        const edge = 200;  // широкая зона
+        const maxSpeed = 80;  // максимум за кадр
+        if (ev.clientX > r.right - edge) {
+            // Чем ближе к краю, тем быстрее
+            const closeness = Math.min(1, (ev.clientX - (r.right - edge)) / edge);
+            _scrollVx = maxSpeed * (closeness * 0.5 + 0.5);
+        } else if (ev.clientX < r.left + edge) {
+            const closeness = Math.min(1, ((r.left + edge) - ev.clientX) / edge);
+            _scrollVx = -maxSpeed * (closeness * 0.5 + 0.5);
+        } else {
+            _scrollVx = 0;
+        }
+        _ensureScrollLoop();
+    }
+
+    function _ensureScrollLoop() {
+        if (_scrollRAF) return;
+        const tick = () => {
+            const container = document.querySelector('.cv-cols');
+            if (!container || !_drag || _scrollVx === 0) {
+                _scrollRAF = null;
+                return;
+            }
+            container.scrollLeft += _scrollVx;
+            _scrollRAF = requestAnimationFrame(tick);
+        };
+        _scrollRAF = requestAnimationFrame(tick);
+    }
+
+    function _stop(ev) {
+        if (!_drag) return;
+        const target = _findCol(ev.clientX, ev.clientY);
+        const taskId = _drag.taskId;
+        if (_drag.ghost) _drag.ghost.remove();
+        if (_drag.card) {
+            _drag.card.style.opacity = '';
+            _drag.card.style.pointerEvents = '';
+        }
+        document.querySelectorAll('.cv-col.cv-drop-target').forEach(c => c.classList.remove('cv-drop-target'));
+        document.body.style.cursor = '';
+        if (_scrollRAF) { cancelAnimationFrame(_scrollRAF); _scrollRAF = null; }
+        _scrollVx = 0;
+        _drag = null;
+
+        if (target) {
+            const did = target.dataset.deptId === 'null' ? null : Number(target.dataset.deptId);
+            _drop(taskId, did);
+        }
+    }
+
+    async function _drop(taskId, newDeptId) {
+        const task = (catsTreeState.coexecTasks || []).find(t => t.id === taskId);
+        if (!task) return;
+        const cur = (task.dept_funnel_id !== undefined) ? task.dept_funnel_id : null;
+        if (cur === newDeptId) return;
+        const prev = task.dept_funnel_id;
+        task.dept_funnel_id = newDeptId;
+        renderCoexecView();
+        try {
+            const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    dept_funnel_id: newDeptId,
+                    deadline_override: task.deadline_override || null,
+                    priority_override: task.priority_override || null
+                })
+            });
+            if (!r || !r.ok) {
+                task.dept_funnel_id = prev;
+                renderCoexecView();
+                showToast((r && r.error) || 'Ошибка', 'error');
+            }
+        } catch(e) {
+            task.dept_funnel_id = prev;
+            renderCoexecView();
+            showToast('Сетевая ошибка', 'error');
+        }
+    }
+})();
+</script>
+
 </body>
 </html>
 
