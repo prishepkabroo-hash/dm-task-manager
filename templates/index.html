@@ -16457,13 +16457,13 @@ window._cvDrop = async function(e, col, deptId) {
     }
 
     function _scroll(ev) {
-        /* coexec-balance-v1: узкая edge-зона 50px, умеренная скорость 700/frame */
+        /* coexec-slow-v1: edge 20px, speed 100/frame */
         const c = document.querySelector('.cv-cols');
         if (!c) { _scrollVx = 0; return; }
         c.style.scrollBehavior = 'auto';
         const r = c.getBoundingClientRect();
-        const edge = 50;       // только последние 50px у края
-        const SPEED = 700;     // ~42 000 px/sec — быстро но контролируемо
+        const edge = 20;       // только самая граница
+        const SPEED = 100;     // ~6000 px/sec — успеешь среагировать
         if (ev.clientX > r.right - edge) {
             _scrollVx = SPEED;
         } else if (ev.clientX < r.left + edge) {
