@@ -17053,6 +17053,119 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<script>
+/* kill-old-tutorial-v1 — убиваем старые тутор-модалки */
+(function(){
+    'use strict';
+
+    // Признаки старого тутора в DOM
+    const OLD_TEXT_MARKERS = [
+        'Что вы узнаете',
+        'Начать обучение →',
+        'Отделы и воронки',
+        'Дашборд — статистика и задачи',
+        'Воронки — категории по отделам',
+        'Календарь — дедлайны наглядно',
+        'Геймификация — км и достижения'
+    ];
+    const OLD_ID_PATTERNS = [
+        /onboard/i, /^tutorial/i, /^tutChoice/, /^welcomeModal/i, /^tourCard/i, /walkthrough/i
+    ];
+    const OLD_CLASS_PATTERNS = [
+        /onboard/i, /^tour-/i, /walkthrough/i, /tutorial-card/i, /welcome-overlay/i, /quick-start/i, /onboarding-overlay/i
+    ];
+
+    function isV5(el) {
+        if (!el || !el.id) return false;
+        return el.id.startsWith('tutv5');
+    }
+
+    function shouldKill(el) {
+        if (!el || !el.id && !el.className) return false;
+        if (isV5(el)) return false;
+
+        // По id
+        if (el.id) {
+            for (const p of OLD_ID_PATTERNS) if (p.test(el.id)) return true;
+        }
+        // По class
+        const cls = (typeof el.className === 'string') ? el.className : (el.className && el.className.baseVal) || '';
+        if (cls) {
+            for (const p of OLD_CLASS_PATTERNS) if (p.test(cls)) return true;
+        }
+        // По тексту — только если это видимый fixed/absolute контейнер
+        try {
+            const style = window.getComputedStyle(el);
+            if (style.position !== 'fixed' && style.position !== 'absolute') return false;
+            if (style.display === 'none') return false;
+            const txt = el.innerText || '';
+            if (txt.length > 600) return false;
+            for (const m of OLD_TEXT_MARKERS) {
+                if (txt.includes(m)) return true;
+            }
+        } catch(e){}
+        return false;
+    }
+
+    function killAll() {
+        // Сканим только верхний уровень body — модалки обычно там
+        const all = document.querySelectorAll('body > div, body > section, body > aside');
+        for (const el of all) {
+            if (isV5(el)) continue;
+            if (shouldKill(el)) {
+                console.log('[kill-old-tutorial] removed:', el.id || el.className);
+                el.remove();
+            }
+        }
+    }
+
+    // Сразу после загрузки
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', killAll);
+    } else {
+        killAll();
+    }
+    // И через паузу — на случай отложенных модалок
+    setTimeout(killAll, 200);
+    setTimeout(killAll, 800);
+    setTimeout(killAll, 2000);
+
+    // MutationObserver — следит за появлением новых
+    try {
+        const obs = new MutationObserver(function(muts){
+            for (const m of muts) {
+                for (const node of m.addedNodes) {
+                    if (node.nodeType !== 1) continue;
+                    if (isV5(node)) continue;
+                    if (shouldKill(node)) {
+                        console.log('[kill-old-tutorial] removed (mutation):', node.id || node.className);
+                        node.remove();
+                    }
+                }
+            }
+        });
+        obs.observe(document.body, { childList: true, subtree: false });
+    } catch(e){}
+
+    // Заглушаем потенциальные старые функции (no-op)
+    const NOOP_NAMES = [
+        'showOnboarding', 'showOnboardingModal', 'startOnboarding',
+        'showWelcome', 'showWelcomeModal',
+        'startQuickTour', 'showQuickTour',
+        'showTutorial', 'showTutorialModal',
+        'showOnboardingForRole', 'autoOnboarding'
+    ];
+    for (const name of NOOP_NAMES) {
+        try {
+            if (typeof window[name] === 'function') {
+                window[name] = function(){ /* killed by kill-old-tutorial-v1 */ };
+            }
+        } catch(e){}
+    }
+})();
+</script>
+
 </body>
 </html>
 
