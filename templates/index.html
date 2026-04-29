@@ -6051,7 +6051,7 @@ async function loadApp() {
 
     // User info in sidebar footer
     const userInfo = document.getElementById('userInfo');
-    const roleName = isAdmin ? 'Администратор' : isHead ? 'Руководитель отдела' : 'Сотрудник';
+    const roleName = formatUserTitle(currentUser); /* user-titles-v1 */
     const roleBadge = isAdmin ? '<span style="background: linear-gradient(135deg, #3b82f6, #2563eb); color:#fff; font-size:10px; padding:2px 8px; border-radius:4px; font-weight:700; margin-left:8px;">ADMIN</span>' :
                       isHead ? '<span style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color:#fff; font-size:10px; padding:2px 8px; border-radius:4px; font-weight:700; margin-left:8px;">ГЛАВА</span>' : '';
     userInfo.innerHTML = `
@@ -10793,7 +10793,7 @@ async function renderProfile() {
         avatarDisplay.innerHTML = (currentUser.full_name || '?')[0].toUpperCase();
     }
     document.getElementById('profileName').textContent = currentUser.full_name || currentUser.username;
-    const roleName = currentUser.role === 'admin' ? 'Администратор' : currentUser.role === 'head' ? 'Руководитель отдела' : 'Сотрудник';
+    const roleName = formatUserTitle(currentUser); /* user-titles-v1 */
     document.getElementById('profileRole').textContent = roleName;
     document.getElementById('profileFullName').value = currentUser.full_name || '';
     document.getElementById('profileUsername').textContent = '@' + currentUser.username;
@@ -10839,7 +10839,7 @@ async function saveProfile() {
         // Update sidebar
         const userInfo = document.getElementById('userInfo');
         if (userInfo) {
-            const roleName = currentUser.role === 'admin' ? 'Администратор' : currentUser.role === 'head' ? 'Руководитель отдела' : 'Сотрудник';
+            const roleName = formatUserTitle(currentUser); /* user-titles-v1 */
             userInfo.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">${escHtml(currentUser.full_name)}</div><div style="font-size:12px;color:#999;">${currentUser.department ? currentUser.department.name : roleName}</div>`;
         }
     } else {
@@ -10856,7 +10856,7 @@ async function renderAdmin() {
         const addBtn = `<button onclick="showAddUserModal()" style="margin-bottom:12px;padding:10px 16px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">+ Добавить пользователя</button>`;
         usersList.innerHTML = addBtn + users.map(user => {
             const roleColor = user.role === 'admin' ? 'var(--blue)' : user.role === 'head' ? 'var(--purple)' : 'var(--text-light)';
-            const roleName = user.role === 'admin' ? 'Администратор' : user.role === 'head' ? 'Руководитель отдела' : 'Сотрудник';
+            const roleName = formatUserTitle(user); /* user-titles-v1 */
             return `
             <div style="padding:14px 16px; border:1px solid var(--border-color); border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; transition: box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
                 <div style="display:flex; align-items:center; gap:12px;">
@@ -14213,6 +14213,63 @@ async function resetOnboarding(uid, fullName) {
             }
             if (typeof showToast === 'function') showToast('Обучение завершено!', 'success');
         });
+    };
+})();
+</script>
+
+
+<script>
+/* user-titles-v1 — кастомные титулы юзеров */
+(function(){
+    'use strict';
+
+    function _deptGen(name) {
+        if (!name) return '';
+        const map = {
+            'Отдел продаж': 'Отдела продаж',
+            'Склад': 'Склада',
+            'Клуб': 'Клуба',
+            'Технический отдел': 'Технического отдела',
+            'Финансовый отдел': 'Финансового отдела',
+            'Маркетинг': 'Маркетинга',
+            'Бухгалтерия': 'Бухгалтерии',
+            'Производство': 'Производства'
+        };
+        if (map[name]) return map[name];
+        const words = name.split(' ');
+        const last = words[words.length - 1];
+        if (/[бвгджзйклмнпрстфхцчшщ]$/i.test(last)) {
+            words[words.length - 1] = last + 'а';
+            return words.join(' ');
+        }
+        if (last.endsWith('ь')) words[words.length - 1] = last.slice(0, -1) + 'я';
+        else if (last.endsWith('а')) words[words.length - 1] = last.slice(0, -1) + 'ы';
+        else if (last.endsWith('я')) words[words.length - 1] = last.slice(0, -1) + 'и';
+        else return name;
+        return words.join(' ');
+    }
+
+    /**
+     * Возвращает человеческий титул юзера.
+     * @param {object} user - {role, username, department_id, ...}
+     * @param {string} [deptName] - Опционально, иначе берём из allDepartments
+     */
+    window.formatUserTitle = function(user, deptName) {
+        if (!user) return '';
+        if (user.username === 'dudarev') return 'Ген. дир.';
+        if (user.role === 'admin') return 'Администратор';
+        if (!deptName && user.department_id) {
+            const d = (typeof allDepartments !== 'undefined' && allDepartments) ? allDepartments.find(dd => dd.id === user.department_id) : null;
+            if (d) deptName = d.name;
+        }
+        if (user.role === 'head') {
+            if (deptName === 'Отдел продаж') return 'РОП';
+            return deptName ? ('Руководитель ' + _deptGen(deptName)) : 'Руководитель';
+        }
+        if (user.role === 'member') {
+            return deptName ? ('Менеджер ' + _deptGen(deptName)) : 'Менеджер';
+        }
+        return 'Сотрудник';
     };
 })();
 </script>
