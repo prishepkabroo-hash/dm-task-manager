@@ -6050,13 +6050,14 @@ async function loadApp() {
     document.getElementById('feedbackNavItem').style.display = hasPermission('view_feedback') ? 'flex' : 'none';
 
     // User info in sidebar footer
+    /* sidebar-badge-v2 */
     const userInfo = document.getElementById('userInfo');
-    const roleName = formatUserTitle(currentUser); /* user-titles-v3 */
-    const roleBadge = isAdmin ? '<span style="background: linear-gradient(135deg, #3b82f6, #2563eb); color:#fff; font-size:10px; padding:2px 8px; border-radius:4px; font-weight:700; margin-left:8px;">ADMIN</span>' :
-                      isHead ? '<span style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color:#fff; font-size:10px; padding:2px 8px; border-radius:4px; font-weight:700; margin-left:8px;">ГЛАВА</span>' : '';
+    const _titleText = (typeof formatUserTitle === 'function') ? formatUserTitle(currentUser) : '';
+    const _deptText = currentUser.department ? currentUser.department.name : '';
+    const _subtitleParts = [_titleText, _deptText].filter(Boolean);
     userInfo.innerHTML = `
-        <div style="font-weight:600; margin-bottom:4px;">${currentUser.full_name || currentUser.username}${roleBadge}</div>
-        <div style="font-size:12px; color:#999;">${currentUser.department ? currentUser.department.name : roleName}</div>
+        <div style="font-weight:600; margin-bottom:4px;">${currentUser.full_name || currentUser.username}</div>
+        ${_subtitleParts.length ? `<div style="font-size:12px; color:#999;">${_subtitleParts.join(' · ')}</div>` : ''}
     `;
 
     navigate('kanban');
