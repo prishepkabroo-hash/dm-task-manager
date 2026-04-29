@@ -1607,6 +1607,16 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             except Exception as _e:
                 return self._json({"status": "error", "detail": str(_e)}, 500)
 
+        # yandex-verify-v1: подтверждение для webmaster.yandex.ru
+        if path == "/yandex_0e03f0a7cb0a6df6.html":
+            content = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body>Verification: 0e03f0a7cb0a6df6</body></html>'
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=UTF-8")
+            self.send_header("Content-Length", str(len(content.encode("utf-8"))))
+            self.end_headers()
+            self.wfile.write(content.encode("utf-8"))
+            return
+
         if path == "/api/me":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
