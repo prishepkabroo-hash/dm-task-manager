@@ -4639,6 +4639,20 @@
     padding: 24px 12px;
 }
 
+
+/* coexec-dnd-v1 */
+.cv-card[draggable="true"] { cursor: grab; }
+.cv-card[draggable="true"]:active { cursor: grabbing; }
+.cv-card.cv-dragging {
+    opacity: 0.5;
+    transform: scale(0.96);
+}
+.cv-col.cv-drop-hover {
+    background: #eef2ff;
+    outline: 2px dashed #6366f1;
+    outline-offset: -4px;
+}
+
 </style>
 </head>
 <body>
@@ -14651,6 +14665,123 @@ if (typeof _origRenderKanban === 'function') {
         return r;
     };
 }
+</script>
+
+
+<script>
+/* coexec-dnd-v1 */
+let _cvDragTaskId = null;
+
+/* Перепишем _cvCard с draggable=true и drag-обработчиками */
+const _origCvCard = window._cvCard;
+window._cvCard = function(t) {
+    const eff_deadline = t.deadline_override || t.deadline;
+    const eff_priority = t.priority_override || t.priority;
+    const dl = _cvFmtDeadline(eff_deadline);
+    const prioMap = { low: 'Низкий', medium: 'Средний', high: 'Высокий' };
+    const creatorInitial = (t.creator_name || '?').charAt(0).toUpperCase();
+    return `
+        <div class="cv-card"
+             draggable="true"
+             data-task-id="${t.id}"
+             ondragstart="_cvDragStart(event, ${t.id})"
+             ondragend="_cvDragEnd(event)"
+             onclick="showTaskDetail(${t.id})">
+            <div class="cv-card-title">${escHtml(t.title || '')}</div>
+            <div class="cv-card-meta">
+                ${dl ? `<span class="cv-card-chip cv-card-deadline ${dl.overdue ? 'overdue' : ''}">📅 ${dl.text}</span>` : ''}
+                ${eff_priority ? `<span class="cv-card-chip cv-card-prio-${eff_priority}">⚑ ${prioMap[eff_priority] || ''}</span>` : ''}
+                ${t.creator_name ? `<span class="cv-card-creator"><span class="cv-card-creator-avatar">${creatorInitial}</span>${escHtml((t.creator_name || '').split(' ')[0])}</span>` : ''}
+            </div>
+        </div>
+    `;
+};
+
+/* Перепишем _cvDeptColumn с drop-обработчиками */
+const _origCvDeptColumn = window._cvDeptColumn;
+window._cvDeptColumn = function(deptId, deptName, deptColor, tasks) {
+    const filtered = tasks.filter(t => {
+        const eff = (t.dept_funnel_id !== null && t.dept_funnel_id !== undefined) ? t.dept_funnel_id : null;
+        return eff === deptId;
+    });
+    const dataAttr = deptId === null ? 'null' : deptId;
+    return `
+        <div class="cv-col"
+             data-dept-id="${dataAttr}"
+             ondragover="_cvDragOver(event, this)"
+             ondragleave="_cvDragLeave(event, this)"
+             ondrop="_cvDrop(event, this, ${dataAttr})">
+            <div class="cv-col-head">
+                <span class="cv-col-dot" style="background:${deptColor};"></span>
+                <span>${escHtml(deptName)}</span>
+                <span class="cv-col-count">${filtered.length}</span>
+            </div>
+            ${filtered.length ? filtered.map(_cvCard).join('') : '<div class="cv-empty">Пусто</div>'}
+        </div>
+    `;
+};
+
+window._cvDragStart = function(e, taskId) {
+    _cvDragTaskId = taskId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(taskId));
+    e.target.classList.add('cv-dragging');
+};
+
+window._cvDragEnd = function(e) {
+    e.target.classList.remove('cv-dragging');
+    document.querySelectorAll('.cv-col.cv-drop-hover').forEach(c => c.classList.remove('cv-drop-hover'));
+    _cvDragTaskId = null;
+};
+
+window._cvDragOver = function(e, col) {
+    if (!_cvDragTaskId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    col.classList.add('cv-drop-hover');
+};
+
+window._cvDragLeave = function(e, col) {
+    col.classList.remove('cv-drop-hover');
+};
+
+window._cvDrop = async function(e, col, deptId) {
+    e.preventDefault();
+    col.classList.remove('cv-drop-hover');
+    if (!_cvDragTaskId) return;
+    const taskId = _cvDragTaskId;
+    _cvDragTaskId = null;
+
+    // Локально обновляем сразу (оптимистичный UI)
+    const task = (catsTreeState.coexecTasks || []).find(t => t.id === taskId);
+    if (!task) return;
+    const newDeptId = (deptId === null || deptId === 'null') ? null : Number(deptId);
+    if (task.dept_funnel_id === newDeptId) return;  // ничего не изменилось
+    task.dept_funnel_id = newDeptId;
+    renderCoexecView();
+
+    // Отправляем на сервер
+    try {
+        const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
+            method: 'PUT',
+            body: JSON.stringify({
+                dept_funnel_id: newDeptId,
+                deadline_override: task.deadline_override || null,
+                priority_override: task.priority_override || null
+            })
+        });
+        if (!r || !r.ok) {
+            showToast(r && r.error || 'Ошибка переноса', 'error');
+            // откатываем
+            task.dept_funnel_id = null;
+            renderCoexecView();
+        }
+    } catch (err) {
+        showToast('Сетевая ошибка', 'error');
+        task.dept_funnel_id = null;
+        renderCoexecView();
+    }
+};
 </script>
 
 </body>
