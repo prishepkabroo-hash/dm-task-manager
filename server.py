@@ -1734,7 +1734,27 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self._json([dict(r) for r in rows])
 
-        # coexec-view-v1: список моих coexec-задач с overrides
+# coexec-view-v1: получить мой override для конкретной задачи
+        if path.startswith("/api/tasks/") and path.endswith("/my-coexec-view"):
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                task_id = int(path.split("/")[3])
+            except:
+                return self._json({"error": "bad task id"}, 400)
+            conn = get_db()
+            try:
+                row = conn.execute(
+                    "SELECT dept_funnel_id, deadline_override, priority_override FROM task_coexec_view WHERE task_id=%s AND user_id=%s",
+                    (task_id, u["id"])
+                ).fetchone()
+                if row:
+                    return self._json(dict(row))
+                return self._json({"dept_funnel_id": None, "deadline_override": None, "priority_override": None})
+            finally:
+                conn.close()
+
+                # coexec-view-v1: список моих coexec-задач с overrides
         if path == "/api/tasks/coexec-view":
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)

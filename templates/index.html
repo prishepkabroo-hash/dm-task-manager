@@ -14784,6 +14784,116 @@ window._cvDrop = async function(e, col, deptId) {
 };
 </script>
 
+
+<script>
+/* coexec-deadline-v1 — персональный дедлайн для соисполнителя */
+(function(){
+    'use strict';
+
+    function _isCurrentUserCoexec(task) {
+        if (!task || !currentUser) return false;
+        if (task.assigned_to === currentUser.id) return false;  // assignee не coexec
+        if (task.created_by === currentUser.id) return false;   // создатель не coexec
+        const coexecs = task.coexecutors || [];
+        return coexecs.some(c => (c.id || c) === currentUser.id);
+    }
+
+    async function _fetchMyOverride(taskId) {
+        try {
+            const r = await apiCall('/api/tasks/' + taskId + '/my-coexec-view');
+            return r || {};
+        } catch (e) { return {}; }
+    }
+
+    function _fmtDeadlineShort(iso) {
+        if (!iso) return '— нет —';
+        try {
+            const d = new Date(iso);
+            return d.getDate() + '.' + (d.getMonth()+1).toString().padStart(2,'0') + '.' + d.getFullYear() + ' ' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+        } catch (e) { return iso; }
+    }
+
+    /**
+     * После рендера карточки задачи добавляет блок «Мой дедлайн» для coexec.
+     */
+    async function _injectMyDeadline(task) {
+        if (!_isCurrentUserCoexec(task)) return;
+        const tdMain = document.getElementById('td-main');
+        if (!tdMain) return;
+
+        // Удалим старый блок если есть
+        const old = document.getElementById('my-coexec-deadline-block');
+        if (old) old.remove();
+
+        // Получим текущий override
+        const override = await _fetchMyOverride(task.id);
+        const myDl = override.deadline_override;
+        const masterDl = task.deadline;
+
+        const block = document.createElement('div');
+        block.id = 'my-coexec-deadline-block';
+        block.style.cssText = 'background: linear-gradient(to right, #fef3c7 0%, #fff 70%); border: 1px solid #fbbf24; border-radius: 12px; padding: 12px 14px; margin: 12px 0; display: flex; flex-direction: column; gap: 8px;';
+        block.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;">
+                <span style="font-size:14px;">🤝</span>
+                Это твоя совместная задача
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div style="font-size:13px;color:#475569;">
+                    Общий дедлайн (от создателя): <strong>${_fmtDeadlineShort(masterDl)}</strong>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="font-size:13px;color:#0f172a;font-weight:600;">🗓 Мой персональный дедлайн:</div>
+                <input type="datetime-local" id="myCoexecDeadlineInput" value="${myDl ? new Date(myDl).toISOString().slice(0,16) : (masterDl ? new Date(masterDl).toISOString().slice(0,16) : '')}" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none;">
+                <button onclick="_saveMyCoexecDeadline(${task.id})" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Сохранить</button>
+                ${myDl ? `<button onclick="_clearMyCoexecDeadline(${task.id})" style="padding:6px 12px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:8px;cursor:pointer;font-size:12px;">Сбросить</button>` : ''}
+            </div>
+            <div style="font-size:11px;color:#64748b;">У создателя задача останется с общим дедлайном. Календарь покажет тебе твой персональный.</div>
+        `;
+        tdMain.insertBefore(block, tdMain.firstChild);
+    }
+
+    window._saveMyCoexecDeadline = async function(taskId) {
+        const inp = document.getElementById('myCoexecDeadlineInput');
+        if (!inp) return;
+        const val = inp.value;  // YYYY-MM-DDTHH:MM
+        const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
+            method: 'PUT',
+            body: JSON.stringify({deadline_override: val ? val + ':00' : null})
+        });
+        if (r && r.ok) {
+            showToast('Персональный дедлайн сохранён', 'success');
+        } else {
+            showToast(r && r.error || 'Ошибка', 'error');
+        }
+    };
+
+    window._clearMyCoexecDeadline = async function(taskId) {
+        const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
+            method: 'PUT',
+            body: JSON.stringify({deadline_override: null})
+        });
+        if (r && r.ok) {
+            showToast('Персональный дедлайн сброшен', 'success');
+            showTaskDetail(taskId);  // перерисовать
+        }
+    };
+
+    /* Перехватываем showTaskDetail чтобы после рендера добавить блок */
+    const _origShowTaskDetail = window.showTaskDetail;
+    if (typeof _origShowTaskDetail === 'function') {
+        window.showTaskDetail = async function(taskId) {
+            const r = await _origShowTaskDetail.apply(this, arguments);
+            // Найдём task в allTasks
+            const task = (typeof allTasks !== 'undefined') ? allTasks.find(t => t.id === taskId) : null;
+            if (task) setTimeout(() => _injectMyDeadline(task), 100);
+            return r;
+        };
+    }
+})();
+</script>
+
 </body>
 </html>
 
