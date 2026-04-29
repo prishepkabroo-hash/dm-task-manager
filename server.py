@@ -3337,6 +3337,48 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn.commit(); conn.close()
             return self._json({"ok": True})
 
+        # admin-create-user-fix-v1: создание пользователя админом
+        if path == "/api/admin/users":
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            conn = get_db()
+            row = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
+            if not row or row["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden: admin only"}, 403)
+            username = (data.get("username") or "").strip()
+            full_name = (data.get("full_name") or "").strip()
+            password = data.get("password") or ""
+            new_role = data.get("role") or "member"
+            dept_id = data.get("department_id")
+            if not username or not full_name or not password:
+                conn.close()
+                return self._json({"error": "username, full_name, password обязательны"}, 400)
+            if new_role not in ("admin", "head", "member"):
+                conn.close()
+                return self._json({"error": "роль некорректна"}, 400)
+            try: dept_id = int(dept_id) if dept_id else None
+            except: dept_id = None
+            exists = conn.execute("SELECT id FROM users WHERE username=%s", (username,)).fetchone()
+            if exists:
+                conn.close()
+                return self._json({"error": f"пользователь {username} уже существует"}, 400)
+            import hashlib, secrets
+            salt = secrets.token_hex(16)
+            h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000)
+            ph = salt + ":" + h.hex()
+            try:
+                new_id = conn.execute(
+                    "INSERT INTO users (username, full_name, password_hash, role, department_id, avatar_color, onboarding_done, admin_onboarding_done) VALUES (%s,%s,%s,%s,%s,'#7c3aed',0,0) RETURNING id",
+                    (username, full_name, ph, new_role, dept_id)
+                ).fetchone()["id"]
+                conn.execute("INSERT INTO user_stats (user_id) VALUES (%s) ON CONFLICT (user_id) DO NOTHING", (new_id,))
+                conn.commit(); conn.close()
+                return self._json({"ok": True, "id": new_id})
+            except Exception as e:
+                conn.close()
+                return self._json({"error": f"ошибка создания: {e}"}, 500)
+
         if path.startswith("/api/users/") and "/role" in path:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
