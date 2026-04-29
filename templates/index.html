@@ -17504,6 +17504,42 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<style>
+/* kill-old-mention-v1 — старый дропдаун никогда не показывается */
+.mention-dropdown { display: none !important; visibility: hidden !important; opacity: 0 !important; }
+</style>
+<script>
+/* kill-old-mention-v1 — JS-убийца старого дропдауна */
+(function(){
+    'use strict';
+    function kill() {
+        document.querySelectorAll('.mention-dropdown').forEach(el => {
+            if (!el.className.includes('mention-dropdown-v2')) {
+                el.remove();
+            }
+        });
+    }
+    kill();
+    setInterval(kill, 100);
+    // MutationObserver — убиваем как только появляется
+    try {
+        const obs = new MutationObserver(function(muts){
+            for (const m of muts) {
+                for (const node of m.addedNodes) {
+                    if (node.nodeType !== 1) continue;
+                    if (node.className && typeof node.className === 'string' &&
+                        node.className === 'mention-dropdown') {
+                        node.remove();
+                    }
+                }
+            }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+    } catch(e){}
+})();
+</script>
+
 </body>
 </html>
 
