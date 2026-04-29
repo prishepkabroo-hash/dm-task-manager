@@ -4953,6 +4953,70 @@
 .cv-cols.cv-mode-compact .cv-col { flex: 0 0 240px; }
 .cv-cols.cv-mode-detailed .cv-col { flex: 0 0 340px; }
 
+
+/* coexec-clean-v1 */
+.cv-cards-area { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+
+/* COMPACT — почти список */
+.cv-cols.cv-mode-compact .cv-col { flex: 0 0 200px; padding: 10px 8px; }
+.cv-cols.cv-mode-compact .cv-card {
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-left-width: 2px;
+}
+.cv-cols.cv-mode-compact .cv-card-title {
+    font-size: 12px;
+    margin: 0;
+    padding-right: 22px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cv-cols.cv-mode-compact .cv-card-row { display: none; }
+.cv-cols.cv-mode-compact .cv-card-desc { display: none !important; }
+.cv-cols.cv-mode-compact .cv-card-delete { width: 18px; height: 18px; font-size: 11px; }
+
+/* NORMAL — стандарт */
+.cv-cols.cv-mode-normal .cv-col { flex: 0 0 300px; padding: 14px; }
+
+/* DETAILED — большой */
+.cv-cols.cv-mode-detailed .cv-col { flex: 0 0 360px; padding: 16px; }
+.cv-cols.cv-mode-detailed .cv-card { padding: 14px 16px; }
+.cv-cols.cv-mode-detailed .cv-card-title { font-size: 15px; margin-bottom: 10px; }
+.cv-cols.cv-mode-detailed .cv-card-desc {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    font-size: 12px; color: #64748b;
+    margin: -4px 0 8px;
+    line-height: 1.45;
+    overflow: hidden;
+}
+
+/* View toggle */
+.cv-view-toggle {
+    display: inline-flex;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 2px;
+    gap: 1px;
+    margin-left: auto;
+}
+.cv-view-btn {
+    padding: 5px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #64748b;
+    cursor: pointer;
+}
+.cv-view-btn.active {
+    background: white;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
 </style>
 </head>
 <body>
@@ -15895,51 +15959,7 @@ window._cvDrop = async function(e, col, deptId) {
     }
 })();
 
-/* Усилим авто-скролл */
-(function(){
-    'use strict';
-    /* Перехватим всё что внутри fastdrag — переопределим только функцию _autoScroll */
-    /* К сожалению она private. Поэтому добавим глобальный обработчик pointermove во время drag. */
 
-    let _scrollIv = null;
-    let _isDragging = false;
-
-    document.addEventListener('pointerdown', function(e) {
-        if (e.target.closest('.cv-card')) {
-            _isDragging = false; // станет true после смещения
-            const start = { x: e.clientX, y: e.clientY };
-            function move(ev) {
-                if (!_isDragging) {
-                    if ((ev.clientX-start.x)**2 + (ev.clientY-start.y)**2 > 36) _isDragging = true;
-                }
-                if (_isDragging) {
-                    _scroll(ev);
-                }
-            }
-            function up() {
-                document.removeEventListener('pointermove', move);
-                document.removeEventListener('pointerup', up);
-                if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
-                _isDragging = false;
-            }
-            document.addEventListener('pointermove', move);
-            document.addEventListener('pointerup', up);
-        }
-    }, true);
-
-    function _scroll(ev) {
-        const container = document.querySelector('.cv-cols');
-        if (!container) return;
-        const r = container.getBoundingClientRect();
-        const edge = 140, speed = 40;
-        if (_scrollIv) { clearInterval(_scrollIv); _scrollIv = null; }
-        if (ev.clientX > r.right - edge) {
-            _scrollIv = setInterval(() => container.scrollLeft += speed, 8);
-        } else if (ev.clientX < r.left + edge) {
-            _scrollIv = setInterval(() => container.scrollLeft -= speed, 8);
-        }
-    }
-})();
 </script>
 
 
@@ -16181,6 +16201,351 @@ window._cvDrop = async function(e, col, deptId) {
             showToast('Сетевая ошибка', 'error');
         }
     }
+})();
+</script>
+
+
+<script>
+/* coexec-clean-v1 */
+(function(){
+    'use strict';
+
+    /* ================================ STATE ================================ */
+    if (typeof catsTreeState !== 'undefined') {
+        if (!catsTreeState.cvFilter) catsTreeState.cvFilter = { search: '', priority: '' };
+        if (!catsTreeState.cvViewMode) {
+            try { catsTreeState.cvViewMode = localStorage.getItem('cvViewMode') || 'normal'; }
+            catch(e) { catsTreeState.cvViewMode = 'normal'; }
+        }
+    }
+
+    /* ================================ HELPERS ================================ */
+    function _fmtDl(iso) {
+        if (!iso) return null;
+        try {
+            const d = new Date(iso);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const dd = new Date(d); dd.setHours(0,0,0,0);
+            const diff = (dd - today) / 86400000;
+            return { text: d.getDate() + '.' + (d.getMonth()+1).toString().padStart(2,'0'), overdue: diff < 0 };
+        } catch (e) { return null; }
+    }
+
+    /* ================================ RENDER ================================ */
+    function _card(t) {
+        const dl_eff = t.deadline_override || t.deadline;
+        const pr_eff = t.priority_override || t.priority || 'low';
+        const dl = _fmtDl(dl_eff);
+        const prMap = { low: 'Низкий', medium: 'Средний', high: 'Высокий' };
+        const isDone = t.status === 'done';
+        const aColors = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#6366f1','#ef4444'];
+        const aColor = aColors[(t.assigned_to || 0) % aColors.length];
+        const aInit = t.assignee_name ? t.assignee_name.charAt(0).toUpperCase() : '?';
+
+        return `
+            <div class="cv-card" data-prio="${pr_eff}" data-task-id="${t.id}">
+                <button class="cv-card-delete" onclick="event.stopPropagation();_cvRm(${t.id})">×</button>
+                <div class="cv-card-title">${escHtml(t.title || '')}</div>
+                ${t.description ? `<div class="cv-card-desc">${escHtml(t.description)}</div>` : ''}
+                <div class="cv-card-row">
+                    <span class="cv-card-status-dot ${isDone ? 'done' : ''}"></span>
+                    ${dl ? `<span class="cv-card-chip cv-card-deadline ${dl.overdue ? 'overdue' : ''}">📅 ${dl.text}</span>` : ''}
+                    <span class="cv-card-chip cv-card-prio-${pr_eff}">⚑ ${prMap[pr_eff]}</span>
+                </div>
+                <div class="cv-card-row">
+                    ${t.assignee_name ? `<span class="cv-card-assignee-avatar" style="background:${aColor}">${aInit}</span><span style="font-size:11px;color:#64748b;">${escHtml(t.assignee_name.split(' ')[0])}</span>` : '<span style="font-size:11px;color:#94a3b8;">не назначен</span>'}
+                    ${t.creator_name ? `<span style="margin-left:auto;font-size:11px;color:#94a3b8;">от ${escHtml(t.creator_name.split(' ')[0])}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    function _col(deptId, deptName, deptColor, tasks) {
+        const filter = (catsTreeState.cvFilter || {});
+        const filtered = tasks.filter(t => {
+            const eff = (t.dept_funnel_id !== null && t.dept_funnel_id !== undefined) ? t.dept_funnel_id : null;
+            if (eff !== deptId) return false;
+            if (filter.search) {
+                const q = filter.search.toLowerCase();
+                if (!(t.title || '').toLowerCase().includes(q)) return false;
+            }
+            if (filter.priority) {
+                const eff_p = t.priority_override || t.priority;
+                if (eff_p !== filter.priority) return false;
+            }
+            return true;
+        });
+        const dataAttr = deptId === null ? 'null' : deptId;
+        return `
+            <div class="cv-col" data-dept-id="${dataAttr}" style="border-top-color: ${deptColor};">
+                <div class="cv-col-head">
+                    <span class="cv-col-dot" style="background:${deptColor};"></span>
+                    <span>${escHtml(deptName)}</span>
+                    <span class="cv-col-count">${filtered.length}</span>
+                </div>
+                <div class="cv-cards-area">
+                    ${filtered.length ? filtered.map(_card).join('') : '<div class="cv-empty">Пусто</div>'}
+                </div>
+            </div>
+        `;
+    }
+
+    function _toolbar() {
+        const f = catsTreeState.cvFilter || {};
+        const m = catsTreeState.cvViewMode || 'normal';
+        const hasActive = f.search || f.priority;
+        return `
+            <div class="cv-toolbar">
+                <input type="text" class="cv-search" placeholder="🔍 Поиск..." value="${escHtml(f.search || '')}" oninput="_cvFilter('search', this.value)">
+                <select class="cv-filter-select" onchange="_cvFilter('priority', this.value)">
+                    <option value="">Любой приоритет</option>
+                    <option value="high" ${f.priority === 'high' ? 'selected' : ''}>Высокий</option>
+                    <option value="medium" ${f.priority === 'medium' ? 'selected' : ''}>Средний</option>
+                    <option value="low" ${f.priority === 'low' ? 'selected' : ''}>Низкий</option>
+                </select>
+                ${hasActive ? '<button class="cv-filter-reset" onclick="_cvReset()">✕</button>' : ''}
+                <div class="cv-view-toggle">
+                    <button class="cv-view-btn ${m === 'compact' ? 'active' : ''}" onclick="_cvMode('compact')" title="Компактный">▬</button>
+                    <button class="cv-view-btn ${m === 'normal' ? 'active' : ''}" onclick="_cvMode('normal')" title="Средний">▤</button>
+                    <button class="cv-view-btn ${m === 'detailed' ? 'active' : ''}" onclick="_cvMode('detailed')" title="Детальный">▦</button>
+                </div>
+            </div>
+        `;
+    }
+
+    window.renderCoexecView = function() {
+        const header = document.getElementById('catsHeader');
+        const list = document.getElementById('catsList');
+        if (!header || !list) return;
+        const tasks = catsTreeState.coexecTasks || [];
+        header.innerHTML = `
+            <div class="cv-header">
+                <div class="cv-header-icon">🤝</div>
+                <div class="cv-header-text">
+                    <h2>Совместные задачи</h2>
+                    <div class="cv-sub">${tasks.length} задач, где ты соисполнитель.</div>
+                </div>
+            </div>
+            ${_toolbar()}
+        `;
+        const depts = allDepartments || [];
+        let cols = _col(null, '📋 Новая задача', '#94a3b8', tasks);
+        depts.forEach(d => { cols += _col(d.id, d.name, d.color || '#3b82f6', tasks); });
+        const mode = catsTreeState.cvViewMode || 'normal';
+        list.innerHTML = `<div class="cv-wrap"><div class="cv-cols cv-mode-${mode}">${cols}</div></div>`;
+        requestAnimationFrame(_attachDrag);
+    };
+
+    /* ================================ FILTERS ================================ */
+    window._cvFilter = function(key, value) {
+        catsTreeState.cvFilter[key] = value;
+        renderCoexecView();
+        if (key === 'search') {
+            setTimeout(() => {
+                const i = document.querySelector('.cv-search');
+                if (i) { i.focus(); i.setSelectionRange(value.length, value.length); }
+            }, 10);
+        }
+    };
+    window._cvReset = function() {
+        catsTreeState.cvFilter = { search: '', priority: '' };
+        renderCoexecView();
+    };
+    window._cvMode = function(mode) {
+        catsTreeState.cvViewMode = mode;
+        try { localStorage.setItem('cvViewMode', mode); } catch(e) {}
+        renderCoexecView();
+    };
+
+    /* ================================ DRAG ================================ */
+    let _drag = null;
+    let _scrollRAF = null;
+    let _scrollVx = 0;
+
+    function _attachDrag() {
+        document.querySelectorAll('.cv-card').forEach(card => {
+            card.addEventListener('pointerdown', _onDown);
+            card.addEventListener('click', _onClick);
+        });
+    }
+
+    function _onClick(e) {
+        if (_drag) return;
+        const id = parseInt(e.currentTarget.dataset.taskId);
+        if (id) showTaskDetail(id);
+    }
+
+    function _onDown(e) {
+        if (e.button !== 0) return;
+        if (e.target.closest('.cv-card-delete')) return;
+        const card = e.currentTarget;
+        const taskId = parseInt(card.dataset.taskId);
+        if (!taskId) return;
+        const sx = e.clientX, sy = e.clientY;
+        let started = false;
+
+        function move(ev) {
+            if (!started) {
+                if ((ev.clientX-sx)**2 + (ev.clientY-sy)**2 > 36) {
+                    _start(card, taskId, ev);
+                    started = true;
+                }
+            }
+            if (started) {
+                _drag.x = ev.clientX;
+                _drag.y = ev.clientY;
+                _draw();
+                _scroll(ev);
+            }
+        }
+        function up(ev) {
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+            document.removeEventListener('pointercancel', up);
+            if (started) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                _stop(ev);
+                const sup = (e2) => { e2.stopPropagation(); e2.preventDefault(); document.removeEventListener('click', sup, true); };
+                document.addEventListener('click', sup, true);
+                setTimeout(() => document.removeEventListener('click', sup, true), 100);
+            }
+        }
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('pointercancel', up);
+    }
+
+    function _start(card, taskId, ev) {
+        const r = card.getBoundingClientRect();
+        const ghost = card.cloneNode(true);
+        ghost.classList.add('cv-drag-ghost');
+        ghost.style.width = r.width + 'px';
+        document.body.appendChild(ghost);
+        card.style.opacity = '0.3';
+        card.style.pointerEvents = 'none';
+        document.body.style.cursor = 'grabbing';
+        _drag = { taskId, card, ghost, ox: ev.clientX - r.left, oy: ev.clientY - r.top, x: ev.clientX, y: ev.clientY };
+    }
+
+    function _draw() {
+        if (!_drag) return;
+        const x = _drag.x - _drag.ox;
+        const y = _drag.y - _drag.oy;
+        _drag.ghost.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(-2deg)`;
+        const target = _findCol(_drag.x, _drag.y);
+        document.querySelectorAll('.cv-col').forEach(c => {
+            if (c === target) c.classList.add('cv-drop-target');
+            else c.classList.remove('cv-drop-target');
+        });
+    }
+
+    function _findCol(x, y) {
+        const cols = document.querySelectorAll('.cv-col');
+        for (const c of cols) {
+            const r = c.getBoundingClientRect();
+            if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return c;
+        }
+        return null;
+    }
+
+    function _scroll(ev) {
+        const c = document.querySelector('.cv-cols');
+        if (!c) { _scrollVx = 0; return; }
+        const r = c.getBoundingClientRect();
+        const edge = 200;
+        const maxV = 200;  // ТУРБО — 200 px/frame
+        if (ev.clientX > r.right - edge) {
+            const k = Math.min(1, (ev.clientX - (r.right - edge)) / edge);
+            _scrollVx = maxV * (k * 0.7 + 0.3);
+        } else if (ev.clientX < r.left + edge) {
+            const k = Math.min(1, ((r.left + edge) - ev.clientX) / edge);
+            _scrollVx = -maxV * (k * 0.7 + 0.3);
+        } else {
+            _scrollVx = 0;
+        }
+        _loop();
+    }
+
+    function _loop() {
+        if (_scrollRAF) return;
+        const tick = () => {
+            const c = document.querySelector('.cv-cols');
+            if (!c || !_drag || _scrollVx === 0) {
+                _scrollRAF = null;
+                return;
+            }
+            c.scrollLeft += _scrollVx;
+            _scrollRAF = requestAnimationFrame(tick);
+        };
+        _scrollRAF = requestAnimationFrame(tick);
+    }
+
+    function _stop(ev) {
+        if (!_drag) return;
+        const target = _findCol(ev.clientX, ev.clientY);
+        const taskId = _drag.taskId;
+        if (_drag.ghost) _drag.ghost.remove();
+        if (_drag.card) {
+            _drag.card.style.opacity = '';
+            _drag.card.style.pointerEvents = '';
+        }
+        document.querySelectorAll('.cv-col.cv-drop-target').forEach(c => c.classList.remove('cv-drop-target'));
+        document.body.style.cursor = '';
+        if (_scrollRAF) { cancelAnimationFrame(_scrollRAF); _scrollRAF = null; }
+        _scrollVx = 0;
+        _drag = null;
+        if (target) {
+            const did = target.dataset.deptId === 'null' ? null : Number(target.dataset.deptId);
+            _drop(taskId, did);
+        }
+    }
+
+    async function _drop(taskId, newDeptId) {
+        const task = (catsTreeState.coexecTasks || []).find(t => t.id === taskId);
+        if (!task) return;
+        const cur = (task.dept_funnel_id !== undefined) ? task.dept_funnel_id : null;
+        if (cur === newDeptId) return;
+        const prev = task.dept_funnel_id;
+        task.dept_funnel_id = newDeptId;
+        renderCoexecView();
+        try {
+            const r = await apiCall('/api/tasks/' + taskId + '/coexec-view', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    dept_funnel_id: newDeptId,
+                    deadline_override: task.deadline_override || null,
+                    priority_override: task.priority_override || null
+                })
+            });
+            if (!r || !r.ok) {
+                task.dept_funnel_id = prev;
+                renderCoexecView();
+                showToast((r && r.error) || 'Ошибка', 'error');
+            }
+        } catch(e) {
+            task.dept_funnel_id = prev;
+            renderCoexecView();
+            showToast('Сетевая ошибка', 'error');
+        }
+    }
+
+    /* ================================ ACTIONS ================================ */
+    window._cvRm = async function(taskId) {
+        if (!confirm('Убрать себя из соисполнителей?')) return;
+        if (!currentUser) return;
+        const r = await apiCall('/api/tasks/' + taskId + '/coexecutors', {
+            method: 'POST',
+            body: JSON.stringify({remove: [currentUser.id]})
+        });
+        if (r && r.ok) {
+            showToast('Убран из соисполнителей', 'success');
+            await loadCoexecTasks();
+            renderCoexecView();
+        } else {
+            showToast(r && r.error || 'Ошибка', 'error');
+        }
+    };
 })();
 </script>
 
