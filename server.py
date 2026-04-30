@@ -3912,6 +3912,33 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
 
         # Удалить комментарий — автор или админ
+        # soft-delete-v4: деактивация юзера админом (is_active=FALSE + блок пароля)
+        if path.startswith("/api/admin/users/") and path.count("/") == 4:
+            u = self._user()
+            if not u: return self._json({"error": "unauthorized"}, 401)
+            try:
+                target_id = int(path.rsplit("/", 1)[-1])
+            except: return self._json({"error": "bad id"}, 400)
+            conn = get_db()
+            row = conn.execute("SELECT role FROM users WHERE id=%s", (u["id"],)).fetchone()
+            if not row or row["role"] != "admin":
+                conn.close()
+                return self._json({"error": "Forbidden"}, 403)
+            if target_id == u["id"]:
+                conn.close()
+                return self._json({"error": "себя нельзя удалять"}, 400)
+            try:
+                _rand_pwd = secrets.token_hex(16)
+                _salt = secrets.token_hex(16)
+                _h = hashlib.pbkdf2_hmac("sha256", _rand_pwd.encode(), _salt.encode(), 100000)
+                _ph = _salt + ":" + _h.hex()
+                conn.execute("UPDATE users SET is_active=FALSE, password_hash=%s WHERE id=%s", (_ph, target_id))
+                conn.commit(); conn.close()
+                return self._json({"ok": True, "deactivated": target_id})
+            except Exception as e:
+                conn.close()
+                return self._json({"error": str(e)}, 500)
+
         if path.startswith("/api/comments/") and path.count("/") == 3:
             u = self._user()
             if not u: return self._json({"error": "unauthorized"}, 401)
