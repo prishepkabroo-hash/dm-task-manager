@@ -1749,7 +1749,7 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             r = conn.execute(
                 "SELECT u.id, u.username, u.full_name, u.department_id, u.role, u.avatar_color, u.avatar_url, d.name as department_name "
-                "FROM users u LEFT JOIN departments d ON u.department_id = d.id ORDER BY u.full_name"
+                "FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE COALESCE(u.is_active, TRUE) = TRUE ORDER BY u.full_name /* users-filter-active-v2 */"
             ).fetchall()
             conn.close()
             return self._json([dict(u) for u in r])
