@@ -17544,6 +17544,29 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<script>
+/* mention-dedup-v1 */
+(function(){
+    'use strict';
+    setInterval(function(){
+        const dds = document.querySelectorAll('.mention-dropdown-v2');
+        if (dds.length > 1) {
+            console.warn('[mention-dedup] обнаружено дубликатов:', dds.length);
+            for (let i = 1; i < dds.length; i++) {
+                dds[i].remove();
+            }
+        }
+        // Также удаляем любые .mention-dropdown (старые) если каким-то чудом появились
+        document.querySelectorAll('.mention-dropdown').forEach(el => {
+            if (!el.className.includes('mention-dropdown-v2')) {
+                el.remove();
+            }
+        });
+    }, 50);
+})();
+</script>
+
 </body>
 </html>
 
