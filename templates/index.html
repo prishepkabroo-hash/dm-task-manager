@@ -17567,6 +17567,36 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<style>
+/* kill-mentionpicker-v1 */
+#mentionPicker { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+</style>
+<script>
+/* kill-mentionpicker-v1 */
+(function(){
+    'use strict';
+    function kill(){
+        const el = document.getElementById('mentionPicker');
+        if (el) el.remove();
+    }
+    kill();
+    setInterval(kill, 50);
+    try {
+        const obs = new MutationObserver(function(muts){
+            for (const m of muts) {
+                for (const n of m.addedNodes) {
+                    if (n.nodeType === 1 && n.id === 'mentionPicker') {
+                        n.remove();
+                    }
+                }
+            }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+    } catch(e){}
+})();
+</script>
+
 </body>
 </html>
 
