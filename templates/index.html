@@ -16620,14 +16620,9 @@ window._cvDrop = async function(e, col, deptId) {
      * admin → все, head → юзеры своего отдела, member → пусто.
      */
     window.visibleUsers = function() {
+        /* visible-users-fix-v1: все юзеры видны всем для выбора исполнителя/наблюдателя */
         if (typeof allUsers === 'undefined' || !allUsers) return [];
-        if (!currentUser) return [];
-        if (currentUser.role === 'admin') return allUsers.slice();
-        if (currentUser.role === 'head' && currentUser.department_id) {
-            return allUsers.filter(u => u.department_id === currentUser.department_id);
-        }
-        // member — фильтр скрываем
-        return [];
+        return allUsers.slice();
     };
 
     /**
