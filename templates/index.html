@@ -17711,6 +17711,41 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<script>
+/* task-create-refresh-v1 — авто-обновление после создания задачи */
+(function(){
+    'use strict';
+    if (window.__taskCreateRefreshHook) return;
+    window.__taskCreateRefreshHook = true;
+
+    const origFetch = window.fetch;
+    window.fetch = function(url, opts) {
+        const result = origFetch.apply(this, arguments);
+        try {
+            const u = (typeof url === 'string') ? url : (url && url.url);
+            const m = (opts && opts.method) || 'GET';
+            if (u && (u === '/api/tasks' || u.endsWith('/api/tasks')) && m.toUpperCase() === 'POST') {
+                result.then(r => {
+                    if (!r || !r.ok) return;
+                    /* После успешного создания — обновляем все возможные виды */
+                    setTimeout(() => {
+                        try { if (typeof loadTasks === 'function') loadTasks(); } catch(e){}
+                        try { if (typeof renderDashboard === 'function') renderDashboard(); } catch(e){}
+                        try { if (typeof renderKanban === 'function') renderKanban(); } catch(e){}
+                        try { if (typeof renderList === 'function') renderList(); } catch(e){}
+                        try { if (typeof renderCalendar === 'function') renderCalendar(); } catch(e){}
+                        try { if (typeof renderCategories === 'function') renderCategories(); } catch(e){}
+                        try { if (typeof refreshCurrentView === 'function') refreshCurrentView(); } catch(e){}
+                    }, 200);
+                }).catch(()=>{});
+            }
+        } catch(e){}
+        return result;
+    };
+})();
+</script>
+
 </body>
 </html>
 
