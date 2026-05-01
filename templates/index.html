@@ -17592,6 +17592,125 @@ window._cvDrop = async function(e, col, deptId) {
 })();
 </script>
 
+
+<script>
+/* task-form-dept-filter-v1 — фильтр людей по отделу + авто-синхронизация */
+(function(){
+    'use strict';
+
+    function getUsersForDept(deptId) {
+        if (typeof allUsers === 'undefined' || !allUsers) return [];
+        if (!deptId) return allUsers.slice();
+        return allUsers.filter(u => u.department_id === deptId);
+    }
+
+    function refilterAssignee() {
+        const deptSel = document.getElementById('taskDepartment');
+        const assignSel = document.getElementById('taskAssignee');
+        if (!deptSel || !assignSel) return;
+        const deptId = parseInt(deptSel.value) || null;
+        const currentVal = assignSel.value;
+        // Очищаем и наполняем
+        const users = getUsersForDept(deptId);
+        let html = '<option value="">— Выберите исполнителя —</option>';
+        users.forEach(u => {
+            const sel = String(u.id) === currentVal ? ' selected' : '';
+            html += `<option value="${u.id}"${sel}>${escHtmlSafe(u.full_name)}</option>`;
+        });
+        assignSel.innerHTML = html;
+    }
+
+    function refilterCoexec() {
+        const deptSel = document.getElementById('taskDepartment');
+        const coexecsGroup = document.getElementById('taskCoexecutorsGroup');
+        if (!deptSel || !coexecsGroup) return;
+        const deptId = parseInt(deptSel.value) || null;
+        const users = getUsersForDept(deptId);
+        const checked = new Set(
+            Array.from(coexecsGroup.querySelectorAll('input:checked')).map(cb => parseInt(cb.value))
+        );
+        coexecsGroup.innerHTML = '';
+        users.forEach(u => {
+            if (typeof currentUser !== 'undefined' && currentUser && u.id === currentUser.id) return;
+            const label = document.createElement('label');
+            label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text-primary);';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = u.id;
+            cb.name = 'taskCoexecutors';
+            if (checked.has(u.id)) cb.checked = true;
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(u.full_name));
+            coexecsGroup.appendChild(label);
+        });
+    }
+
+    function refilterWatchers() {
+        // Используем существующую функцию если она есть
+        if (typeof _renderTaskWatchersForDept === 'function') {
+            const deptSel = document.getElementById('taskDepartment');
+            const deptId = deptSel ? (parseInt(deptSel.value) || null) : null;
+            try { _renderTaskWatchersForDept(deptId); } catch(e){}
+        }
+    }
+
+    function escHtmlSafe(s) {
+        return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function refilterAll() {
+        refilterAssignee();
+        refilterWatchers();
+        refilterCoexec();
+    }
+
+    /* При смене отдела — пересчитать списки */
+    document.addEventListener('change', function(e){
+        if (e.target && e.target.id === 'taskDepartment') {
+            setTimeout(refilterAll, 50);
+        }
+        /* При смене исполнителя — авто-выбор отдела если другой */
+        if (e.target && e.target.id === 'taskAssignee') {
+            const assignSel = e.target;
+            const deptSel = document.getElementById('taskDepartment');
+            if (!assignSel.value || !deptSel) return;
+            const userId = parseInt(assignSel.value);
+            const u = (typeof allUsers !== 'undefined' && allUsers || []).find(x => x.id === userId);
+            if (u && u.department_id && parseInt(deptSel.value) !== u.department_id) {
+                deptSel.value = String(u.department_id);
+                /* Триггерим events чтобы существующие хуки сработали */
+                deptSel.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+        }
+    }, true);
+
+    /* При открытии формы — refilter после небольшой паузы (чтобы DOM успел подняться) */
+    const obs = new MutationObserver(function(muts){
+        for (const m of muts) {
+            for (const node of m.addedNodes) {
+                if (node.nodeType !== 1) continue;
+                if (node.id === 'taskModal' || (node.querySelector && node.querySelector('#taskDepartment'))) {
+                    setTimeout(refilterAll, 100);
+                    setTimeout(refilterAll, 400);
+                    return;
+                }
+            }
+            /* Также ловим style изменения у модалки */
+            if (m.type === 'attributes' && m.target && m.target.id === 'taskModal') {
+                if (m.target.style.display !== 'none') {
+                    setTimeout(refilterAll, 100);
+                }
+            }
+        }
+    });
+    document.addEventListener('DOMContentLoaded', function(){
+        obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+        /* На всякий случай — если форма уже открыта */
+        setTimeout(refilterAll, 500);
+    });
+})();
+</script>
+
 </body>
 </html>
 
