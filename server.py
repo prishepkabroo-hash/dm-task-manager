@@ -2524,9 +2524,9 @@ class TaskManagerHandler(http.server.BaseHTTPRequestHandler):
                  u["id"], data.get("assigned_to") or None, data.get("department_id") or None, data.get("deadline") or None,
                  data.get("parent_task_id") or None, int(data.get("sort_order") or 0)))
             task_id = c.fetchone()['id']
-            # -- rsw-v3 #4 head→self admin watcher
-            try: _add_admin_watchers_for_head_self(conn, task_id, u["id"], title)
-            except Exception as _e: print(f"head-self watcher fail: {_e}")
+            # -- head-self-disabled-v1: ломает транзакцию для head, временно отключено
+            # try: _add_admin_watchers_for_head_self(conn, task_id, u["id"], title)
+            # except Exception as _e: print(f"head-self watcher fail: {_e}")
 
             # Log task creation with details
             log_activity(conn, task_id, u["id"], "task_created", title, new_value=title)
